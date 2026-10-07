@@ -1354,6 +1354,375 @@ static void test_label_003_74EC_Behavior(void) {
     printf("[PASS] label_003_74EC (body collision & Blaino responses)\n");
 }
 
+/* Test func_003_75A2 filtering and parity */
+static void test_func_003_75A2_FilteringAndParity(void) {
+    printf("[RUN ] func_003_75A2 (filtering and frame parity)\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x01; /* Active projectile entity */
+
+    /* Case 1: Target entity is same as active entity (e == bc) */
+    gb_write_hram(&gb, hFrameCounter, 0x01); /* Parity matches e=1 */
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    func_003_75A2(&gb, bc);
+    /* No collision with self */
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* Case 2: Frame parity mismatch ((hFrameCounter ^ e) & 1 != 0) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x00); /* Even frame counter */
+    /* Target entity index 1 has odd index -> (0 ^ 1) & 1 == 1 -> skipped */
+    uint16_t de = 0x01;
+    bc = 0x00;
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* Case 3: Target entity inactive (< ENTITY_STATUS_ACTIVE) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02); /* Even frame counter */
+    de = 0x02; /* Even index matches */
+    bc = 0x00;
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_INIT); /* < 5 */
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* Case 4: Target entity has ENTITY_PHYSICS_PROJECTILE_NOCLIP */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    de = 0x02;
+    bc = 0x00;
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPhysicsFlagsTable + de, ENTITY_PHYSICS_PROJECTILE_NOCLIP);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* Case 5: Target entity X distance out of bounds (dx >= 0x18) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    de = 0x02;
+    bc = 0x00;
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40 + 0x18); /* Too far */
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* Case 6: Target entity sprite variant is $FF */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    de = 0x02;
+    bc = 0x00;
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + de, 0xFF);
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    printf("[PASS] func_003_75A2 (filtering and frame parity)\n");
+}
+
+/* Test func_003_75A2 Bouncing Bombite and Grabbable entities */
+static void test_func_003_75A2_BouncingBombiteAndGrabbable(void) {
+    printf("[RUN ] func_003_75A2 (Bouncing Bombite and Grabbable)\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x00;
+    uint16_t de = 0x02;
+
+    /* Active entity is Bouncing Bombite, colliding with target Bombite */
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BOUNCING_BOMBITE);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x15);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x10);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x20);
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_BOUNCING_BOMBITE);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x50);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x50);
+
+    func_003_75A2(&gb, bc);
+
+    /* Active bombite countdown cleared */
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + bc) == 0x00);
+    /* Target bombite received speeds and state */
+    assert(gb_read(&gb, wEntitiesSpeedXTable + de) == 0x10);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + de) == 0x20);
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + de) == 0x40);
+    assert(gb_read(&gb, wEntitiesStateTable + de) == 0x02);
+    assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + de) == 0x08);
+
+    /* Grabbable entity hit by Boomerang */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BOOMERANG);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x30);
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x20);
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPhysicsFlagsTable + de, ENTITY_PHYSICS_GRABBABLE);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x30);
+
+    func_003_75A2(&gb, bc);
+
+    /* Boomerang transition countdown reset */
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + bc) == 0x00);
+    /* Target entity grabbed (wEntitiesPrivateState5Table set to bc + 1 = 1) */
+    assert(gb_read(&gb, wEntitiesPrivateState5Table + de) == 0x01);
+
+    printf("[PASS] func_003_75A2 (Bouncing Bombite and Grabbable)\n");
+}
+
+/* Test func_003_75A2 Magic Powder and Iron Mask */
+static void test_func_003_75A2_MagicPowderAndIronMask(void) {
+    printf("[RUN ] func_003_75A2 (Magic Powder and Iron Mask)\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x00;
+    uint16_t de = 0x02;
+
+    /* Magic Powder hits Mad Batter */
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_MAGIC_POWDER_SPRINKLE);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_MAD_BATTER);
+    gb_write(&gb, wEntitiesHitboxFlagsTable + de, HITFLAGS_IGNORE_HITS);
+    gb_write(&gb, wEntitiesStateTable + de, 0x00);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesStateTable + de) == 0x01);
+
+    /* Magic Powder hits Tarin outdoors */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_MAGIC_POWDER_SPRINKLE);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x60);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x60);
+    gb_write(&gb, wIsIndoor, 0x00);
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_TARIN);
+    gb_write(&gb, wEntitiesHitboxFlagsTable + de, HITFLAGS_IGNORE_HITS);
+    gb_write(&gb, wEntitiesStateTable + de, 0x00);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x60);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x60);
+
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesStateTable + de) == 0x01);
+    assert(gb_read(&gb, wEntitiesSlowTransitionCountdownTable + de) == 0x7F);
+    assert(gb_read(&gb, wEntitiesFlashCountdownTable + de) == 0x10);
+
+    /* Iron Mask head-on collision with Arrow -> deflects (wEntitiesCollisionsTable = 1) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_RIGHT); /* Facing right (0) */
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_IRON_MASK);
+    gb_write(&gb, wEntitiesDirectionTable + de, DIRECTION_LEFT);  /* Facing left (1) -> 1 ^ 1 = 0 == 0 */
+    gb_write(&gb, wEntitiesPrivateState2Table + de, 0x00);        /* Mask on */
+    gb_write(&gb, wEntitiesPosXTable + de, 0x50);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x50);
+
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x01); /* Deflected! */
+
+    /* Iron Mask head-on collision with Hookshot Chain -> strips mask! */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_HOOKSHOT_CHAIN);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x50);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x50);
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_IRON_MASK);
+    gb_write(&gb, wEntitiesDirectionTable + de, DIRECTION_LEFT);
+    gb_write(&gb, wEntitiesPrivateState2Table + de, 0x00);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x50);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x50);
+
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPrivateState2Table + de) == 0x01); /* Mask removed */
+    /* Check spawned mask entity in slot 15 */
+    assert(gb_read(&gb, wEntitiesStatusTable + 15) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, wEntitiesTypeTable + 15) == ENTITY_IRON_MASKS_MASK);
+    assert(gb_read(&gb, wEntitiesPrivateState5Table + 15) == 0x01); /* c + 1 */
+
+    printf("[PASS] func_003_75A2 (Magic Powder and Iron Mask)\n");
+}
+
+/* Test func_003_75A2 Projectile reactions, thrown bounce, and arrow handling */
+static void test_func_003_75A2_ProjectileReactions(void) {
+    printf("[RUN ] func_003_75A2 (projectile reactions and thrown bounce)\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x00;
+    uint16_t de = 0x02;
+
+    /* Thrown entity bounce: status 8 */
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, 0x77); /* generic entity */
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_THROWN);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x10); /* 16 >> 2 = 4 -> ~4 = 0xFB */
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0xF0); /* -16 >> 2 = -4 -> ~(-4) = 3 */
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x00);
+
+    /* Target enemy */
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+
+    func_003_75A2(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPrivateCountdown3Table + bc) == 0x0C);
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0xFB);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x03);
+    assert(gb_read(&gb, wEntitiesThrownDirectionTable + bc) == 0xFF);
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + bc) == 0x00);
+
+    /* Active Arrow state 1: sets countdown 3 instead of unloading */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write_hram(&gb, hActiveEntityState, 0x01); /* state 1 (bomb arrow / active) */
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x40);
+
+    func_003_75A2(&gb, bc);
+    /* Countdown set to 3 by func_003_77A7 */
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + bc) == 0x03);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_ACTIVE); /* Not unloaded */
+
+    printf("[PASS] func_003_75A2 (projectile reactions and thrown bounce)\n");
+}
+
+/* Test CheckExplosionInteractionWithEntities and GetVectorTowardsOtherEntity */
+static void test_CheckExplosionInteractionWithEntities(void) {
+    printf("[RUN ] CheckExplosionInteractionWithEntities & GetVectorTowardsOtherEntity\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x00; /* Explosion entity */
+    uint16_t de = 0x03; /* Target enemy within explosion radius */
+
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+
+    /* Set up target enemy: Active, within 0x30 distance */
+    gb_write(&gb, wEntitiesStatusTable + de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + de, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesHealthGroup + de, 0x00);
+    gb_write(&gb, wEntitiesHealthTable + de, 0x08);
+    gb_write(&gb, wEntitiesPosXTable + de, 0x48);
+    gb_write(&gb, wEntitiesPosYTable + de, 0x48);
+    gb_write(&gb, wEntitiesPosZTable + de, 0x00);
+
+    /* Set up Link position to verify it gets preserved */
+    gb_write_hram(&gb, hLinkPositionX, 0x10);
+    gb_write_hram(&gb, hLinkPositionY, 0x20);
+
+    CheckExplosionInteractionWithEntities(&gb, bc);
+
+    /* Verify Link position was preserved */
+    assert(gb_read_hram(&gb, hLinkPositionX) == 0x10);
+    assert(gb_read_hram(&gb, hLinkPositionY) == 0x20);
+
+    /* Verify damage type was set to bomb */
+    assert(gb_read(&gb, wAttackDamageType) == DAMAGE_TYPE_BOMB);
+
+    /* Verify recoil velocities were set for target entity */
+    assert(gb_read(&gb, wEntitiesRecoilVelocityX + de) != 0 ||
+           gb_read(&gb, wEntitiesRecoilVelocityY + de) != 0);
+
+    /* Verify an out-of-range entity is untouched */
+    uint16_t far_de = 0x05;
+    gb_write(&gb, wEntitiesStatusTable + far_de, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesTypeTable + far_de, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesHealthTable + far_de, 0x08);
+    gb_write(&gb, wEntitiesPosXTable + far_de, 0xA0); /* 0xA0 - 0x40 = 0x60 >= 0x30 */
+    gb_write(&gb, wEntitiesPosYTable + far_de, 0xA0);
+    gb_write(&gb, wEntitiesRecoilVelocityX + far_de, 0x00);
+    gb_write(&gb, wEntitiesRecoilVelocityY + far_de, 0x00);
+
+    CheckExplosionInteractionWithEntities(&gb, bc);
+    assert(gb_read(&gb, wEntitiesHealthTable + far_de) == 0x08);
+    assert(gb_read(&gb, wEntitiesRecoilVelocityX + far_de) == 0x00);
+    assert(gb_read(&gb, wEntitiesRecoilVelocityY + far_de) == 0x00);
+
+    /* Direct test of GetVectorTowardsOtherEntity */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x88);
+    gb_write_hram(&gb, hLinkPositionY, 0x99);
+    gb_write(&gb, wEntitiesPosXTable + 0x02, 0x60);
+    gb_write(&gb, wEntitiesPosYTable + 0x02, 0x40);
+
+    GetVectorTowardsOtherEntity(&gb, 0x20, 0x02);
+    /* Link position restored */
+    assert(gb_read_hram(&gb, hLinkPositionX) == 0x88);
+    assert(gb_read_hram(&gb, hLinkPositionY) == 0x99);
+    /* Vector components computed */
+    assert(gb_read_hram(&gb, hMultiPurpose1) != 0);
+
+    printf("[PASS] CheckExplosionInteractionWithEntities & GetVectorTowardsOtherEntity\n");
+}
+
 void test_bank3_entities_collision(void) {
     test_EntityDamagesForGroup();
     test_ApplyLinkCollision_CheepCheep();
@@ -1373,4 +1742,9 @@ void test_bank3_entities_collision(void) {
     test_func_003_73EB_SwordCollision_NonBlaino();
     test_func_003_73EB_SwordCollision_Blaino();
     test_label_003_74EC_Behavior();
+    test_func_003_75A2_FilteringAndParity();
+    test_func_003_75A2_BouncingBombiteAndGrabbable();
+    test_func_003_75A2_MagicPowderAndIronMask();
+    test_func_003_75A2_ProjectileReactions();
+    test_CheckExplosionInteractionWithEntities();
 }

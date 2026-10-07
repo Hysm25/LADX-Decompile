@@ -188,6 +188,7 @@ void BombEntityHandler(GBState *gb, uint16_t bc) {
 /* ===== RenderBomb (03:678B) - also called from lifted item handler ===== */
 void RenderBomb(GBState *gb, uint16_t bc) {
     if (!gb) return;
+    (void)bc;
 
     /* call RenderActiveEntitySprite with BombSprite */
     RenderActiveEntitySprite(gb, BombSprite, NULL);
@@ -204,12 +205,5 @@ void CheckForBombDestroyableObjectPuzzle(GBState *gb, uint16_t bc) {
 void CheckForBombDestroyableObjectBasic(GBState *gb, uint16_t bc) {
     if (!gb) return;
     /* Placeholder - checks if bomb can destroy basic objects */
-    (void)bc;
-}
-
-/* ===== CheckExplosionInteractionWithEntities (03:67D9) ===== */
-void CheckExplosionInteractionWithEntities(GBState *gb, uint16_t bc) {
-    if (!gb) return;
-    /* Placeholder - checks explosion interaction with entities */
     (void)bc;
 }

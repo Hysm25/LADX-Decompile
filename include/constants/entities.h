@@ -204,8 +204,12 @@
 #define ENTITY_OPT1_IS_MINI_BOSS     0x04
 #define ENTITY_OPT1_EXCLUDED_FROM_KILL_ALL 0x02
 
+#define HITFLAGS_IGNORE_HITS         0x80
+
 #define ENTITY_IRON_MASK             0x24
 #define ENTITY_OCTOROK_ROCK          0x0A
+#define ENTITY_TARIN                 0x3F
+#define ENTITY_MAD_BATTER            0xCA
 
 /* Active power-up types */
 #define ACTIVE_POWER_UP_PIECE_OF_POWER 0x01
@@ -220,6 +224,7 @@
 #define TRIGGER_SHOOT_STATUE_EYE     0x0F
 
 /* Damage types */
+#define DAMAGE_TYPE_BOMB               0x07
 #define DAMAGE_TYPE_THROW_AT           0x0B
 #define DAMAGE_TYPE_ARROW              0x05
 #define DAMAGE_TYPE_MAGIC_ROD          0x0A

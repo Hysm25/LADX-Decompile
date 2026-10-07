@@ -25,6 +25,16 @@ extern const uint8_t Data_003_74E8[4];
 void func_003_73EB(GBState *gb, uint16_t bc);
 void label_003_74EC(GBState *gb, uint16_t bc);
 
+/* Damage Calculation Handler (03:71C0-03:73E6) */
+void label_003_71C0(GBState *gb, uint16_t bc);
+
+/* Entity Projectile and Explosion Collision Handlers (03:75A2-03:785E) */
+void func_003_75A2(GBState *gb, uint16_t bc);
+void func_003_77A7(GBState *gb, uint16_t bc, uint16_t de);
+void func_003_77D6(GBState *gb, uint16_t bc);
+void CheckExplosionInteractionWithEntities(GBState *gb, uint16_t bc);
+void GetVectorTowardsOtherEntity(GBState *gb, uint8_t length, uint16_t de);
+
 /* GetEntityDirectionToLink_03 (03:8691) - Returns direction to Link */
 uint8_t GetEntityDirectionToLink_03(GBState *gb);
 

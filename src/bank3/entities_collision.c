@@ -22,6 +22,7 @@
 #include "home/dialog.h"
 #include "bank3/entities_init_core.h"
 #include "bank3/entities_handlers.h"
+#include "bank3/entities_liftable_rock.h"
 
 /* Amount of damages an entity deals when colliding with Link (03:47F1) */
 const uint8_t EntityDamagesForGroup[53] = {
@@ -689,6 +690,14 @@ void ApplySwordDamagesToEnemy(GBState *gb, uint16_t bc) {
     uint8_t damage_type = (uint8_t)(sword_level - 1);
     gb_write(gb, wAttackDamageType, damage_type);
 
+    label_003_71C0(gb, bc);
+}
+
+/* ===== label_003_71C0 (03:71C0) ===== */
+void label_003_71C0(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    uint8_t damage_type = gb_read(gb, wAttackDamageType);
     uint8_t health_group = gb_read(gb, wEntitiesHealthGroup + bc);
     if (health_group >= 53) {
         health_group = 0;
@@ -1114,4 +1123,398 @@ void StartIgnoringHitsForEntity(GBState *gb) {
     if (!gb) return;
     uint16_t bc = gb_read(gb, wActiveEntityIndex);
     StartIgnoringHitsForEntity_idx(gb, bc);
+}
+
+/* Helper for spawning entity into last available slot (03:64CA) */
+static uint16_t SpawnNewEntity_internal(GBState *gb, uint8_t entity_type, uint16_t bc) {
+    for (int8_t e = 15; e >= 0; e--) {
+        if (gb_read(gb, (uint16_t)(wEntitiesStatusTable + e)) == 0) {
+            gb_write(gb, (uint16_t)(wEntitiesStatusTable + e), ENTITY_STATUS_ACTIVE);
+            gb_write(gb, (uint16_t)(wEntitiesTypeTable + e), entity_type);
+            gb_write_hram(gb, hMultiPurpose0, gb_read(gb, (uint16_t)(wEntitiesPosXTable + bc)));
+            gb_write_hram(gb, hMultiPurpose1, gb_read(gb, (uint16_t)(wEntitiesPosYTable + bc)));
+            gb_write_hram(gb, hMultiPurpose2, gb_read(gb, (uint16_t)(wEntitiesDirectionTable + bc)));
+            gb_write_hram(gb, hMultiPurpose3, gb_read(gb, (uint16_t)(wEntitiesPosZTable + bc)));
+            gb_write(gb, (uint16_t)(wEntitiesIgnoreHitsCountdownTable + e), 0x01);
+            return (uint16_t)e;
+        }
+    }
+    return 0xFFFF;
+}
+
+/* ===== func_003_75A2 (03:75A2) ===== */
+void func_003_75A2(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld e, $0F; ld d, $00 */
+    for (int8_t e = 0x0F; e >= 0; e--) {
+        uint16_t de = (uint16_t)e;
+
+        /* ld a, e; cp c; jp z, checkNextEntity */
+        if (de == (bc & 0xFF)) {
+            continue;
+        }
+
+        /* ldh a, [hFrameCounter]; xor e; and $01; jp nz, checkNextEntity */
+        if (((gb_read_hram(gb, hFrameCounter) ^ (uint8_t)e) & 0x01) != 0) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesStatusTable; add hl, de; ld a, [hl]; cp ENTITY_STATUS_ACTIVE; jp c, checkNextEntity */
+        if (gb_read(gb, (uint16_t)(wEntitiesStatusTable + de)) < ENTITY_STATUS_ACTIVE) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesPhysicsFlagsTable; add hl, de; ld a, [hl]; and ENTITY_PHYSICS_PROJECTILE_NOCLIP; jp nz, checkNextEntity */
+        if ((gb_read(gb, (uint16_t)(wEntitiesPhysicsFlagsTable + de)) & ENTITY_PHYSICS_PROJECTILE_NOCLIP) != 0) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesPosXTable; add hl, de; ldh a, [hActiveEntityPosX]; sub [hl]; add $0C; cp $18; jp nc, checkNextEntity */
+        uint8_t dx = (uint8_t)(gb_read_hram(gb, hActiveEntityPosX) - gb_read(gb, (uint16_t)(wEntitiesPosXTable + de)) + 0x0C);
+        if (dx >= 0x18) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesPosYTable; add hl, de; ld a, [hl] */
+        /* ld hl, wEntitiesPosZTable; add hl, de; sub [hl] */
+        /* ld hl, hActiveEntityVisualPosY; sub [hl]; add $0C; cp $18; jp nc, checkNextEntity */
+        uint8_t target_visual_y = (uint8_t)(gb_read(gb, (uint16_t)(wEntitiesPosYTable + de)) - gb_read(gb, (uint16_t)(wEntitiesPosZTable + de)));
+        uint8_t dy = (uint8_t)(target_visual_y - gb_read_hram(gb, hActiveEntityVisualPosY) + 0x0C);
+        if (dy >= 0x18) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesSpriteVariantTable; add hl, de; ld a, [hl]; cp $FF; jp z, checkNextEntity */
+        if (gb_read(gb, (uint16_t)(wEntitiesSpriteVariantTable + de)) == 0xFF) {
+            continue;
+        }
+
+        /* ldh a, [hActiveEntityType]; cp ENTITY_BOUNCING_BOMBITE; jr nz, .selfBombiteEnd */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_BOUNCING_BOMBITE) {
+            /* call GetEntityTransitionCountdown; ld [hl], b */
+            gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0x00);
+        }
+
+        /* ld hl, wEntitiesTypeTable; add hl, de; ld a, [hl]; cp ENTITY_BOUNCING_BOMBITE; jr nz, .bombiteEnd */
+        if (gb_read(gb, (uint16_t)(wEntitiesTypeTable + de)) == ENTITY_BOUNCING_BOMBITE) {
+            gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + de), gb_read(gb, (uint16_t)(wEntitiesSpeedXTable + bc)));
+            gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + de), gb_read(gb, (uint16_t)(wEntitiesSpeedYTable + bc)));
+            gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + de), 0x40);
+            gb_write(gb, (uint16_t)(wEntitiesStateTable + de), 0x02);
+            gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown1Table + de), 0x08);
+            continue;
+        }
+
+        /* ld hl, wEntitiesPhysicsFlagsTable; add hl, de; ld a, [hl]; and ENTITY_PHYSICS_GRABBABLE; jp nz, label_003_7715 */
+        if ((gb_read(gb, (uint16_t)(wEntitiesPhysicsFlagsTable + de)) & ENTITY_PHYSICS_GRABBABLE) != 0) {
+            goto label_003_7715;
+        }
+
+        /* ldh a, [hActiveEntityType]; cp ENTITY_MAGIC_POWDER_SPRINKLE; jr z, forceCollisionEnd */
+        if (gb_read_hram(gb, hActiveEntityType) != ENTITY_MAGIC_POWDER_SPRINKLE) {
+            /* ld hl, wEntitiesTypeTable; add hl, de; ld a, [hl]; cp ENTITY_FINAL_NIGHTMARE; jr nz, .finalNightmareEnd */
+            if (gb_read(gb, (uint16_t)(wEntitiesTypeTable + de)) == ENTITY_FINAL_NIGHTMARE &&
+                gb_read(gb, wFinalNightmareForm) == 0x05 &&
+                gb_read_hram(gb, hActiveEntitySpriteVariant) != 0x02) {
+                goto forceCollision;
+            }
+
+            /* ld hl, wEntitiesHitboxFlagsTable; add hl, de; ld a, [hl]; and $80; jr z, forceCollisionEnd */
+            if ((gb_read(gb, (uint16_t)(wEntitiesHitboxFlagsTable + de)) & 0x80) != 0) {
+                goto forceCollision;
+            }
+        }
+        goto forceCollisionEnd;
+
+forceCollision:
+        /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld [hl], $01; jp jr_003_7737 */
+        gb_write(gb, (uint16_t)(wEntitiesCollisionsTable + bc), 0x01);
+        goto jr_003_7737;
+
+forceCollisionEnd:
+        /* ldh a, [hActiveEntityType]; cp ENTITY_MAGIC_POWDER_SPRINKLE; jr nz, jr_003_76AC */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_MAGIC_POWDER_SPRINKLE) {
+            uint8_t target_type = gb_read(gb, (uint16_t)(wEntitiesTypeTable + de));
+            if (target_type == ENTITY_MAD_BATTER) {
+                if (gb_read(gb, (uint16_t)(wEntitiesStateTable + de)) == 0) {
+                    uint8_t state = (uint8_t)(gb_read(gb, (uint16_t)(wEntitiesStateTable + de)) + 1);
+                    gb_write(gb, (uint16_t)(wEntitiesStateTable + de), state);
+                } else {
+                    goto jr_003_76AC;
+                }
+            } else if (target_type == ENTITY_TARIN) {
+                if (gb_read(gb, wIsIndoor) == 0 &&
+                    gb_read(gb, (uint16_t)(wEntitiesStateTable + de)) == 0) {
+                    uint8_t state = (uint8_t)(gb_read(gb, (uint16_t)(wEntitiesStateTable + de)) + 1);
+                    gb_write(gb, (uint16_t)(wEntitiesStateTable + de), state);
+                    gb_write(gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + de), 0x7F);
+                    gb_write(gb, (uint16_t)(wEntitiesFlashCountdownTable + de), 0x10);
+                    gb_write(gb, wCurrentBank, 0x03);
+                    label_27F2(gb);
+                    gb_write(gb, wCurrentBank, 0x18);
+                } else {
+                    goto jr_003_76AC;
+                }
+            } else {
+                goto jr_003_76AC;
+            }
+        }
+
+jr_003_76AC:
+        /* ld hl, wEntitiesHitboxFlagsTable; add hl, de; ld a, [hl]; and $80; jp nz, checkNextEntity */
+        if ((gb_read(gb, (uint16_t)(wEntitiesHitboxFlagsTable + de)) & 0x80) != 0) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesIgnoreHitsCountdownTable; add hl, de; ld a, [hl]; and a; jp nz, checkNextEntity */
+        if (gb_read(gb, (uint16_t)(wEntitiesIgnoreHitsCountdownTable + de)) != 0) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesTypeTable; add hl, de; ld a, [hl]; cp ENTITY_IRON_MASK; jr nz, jr_003_7710 */
+        if (gb_read(gb, (uint16_t)(wEntitiesTypeTable + de)) == ENTITY_IRON_MASK) {
+            /* ld hl, wEntitiesDirectionTable; add hl, de; ld a, [hl]; xor $01 */
+            /* ld hl, wEntitiesDirectionTable; add hl, bc; cp [hl]; jr nz, jr_003_7710 */
+            uint8_t dir_de_opposite = (uint8_t)(gb_read(gb, (uint16_t)(wEntitiesDirectionTable + de)) ^ 0x01);
+            if (dir_de_opposite == gb_read(gb, (uint16_t)(wEntitiesDirectionTable + bc))) {
+                /* ld hl, wEntitiesPrivateState2Table; add hl, de; ld a, [hl]; and a; jr nz, jr_003_7710 */
+                if (gb_read(gb, (uint16_t)(wEntitiesPrivateState2Table + de)) == 0) {
+                    /* ldh a, [hActiveEntityType]; cp ENTITY_HOOKSHOT_CHAIN; jp nz, forceCollision */
+                    if (gb_read_hram(gb, hActiveEntityType) != ENTITY_HOOKSHOT_CHAIN) {
+                        goto forceCollision;
+                    }
+
+                    /* ld [hl], $01; push de */
+                    gb_write(gb, (uint16_t)(wEntitiesPrivateState2Table + de), 0x01);
+
+                    /* ld a, ENTITY_IRON_MASKS_MASK; call SpawnNewEntity; jr c, .jr_770D */
+                    uint16_t new_slot = SpawnNewEntity_internal(gb, ENTITY_IRON_MASKS_MASK, bc);
+                    if (new_slot != 0xFFFF) {
+                        /* ldh a, [hMultiPurpose0]; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
+                        gb_write(gb, (uint16_t)(wEntitiesPosXTable + new_slot), gb_read_hram(gb, hMultiPurpose0));
+                        /* ldh a, [hMultiPurpose1]; ld hl, wEntitiesPosYTable; add hl, de; ld [hl], a */
+                        gb_write(gb, (uint16_t)(wEntitiesPosYTable + new_slot), gb_read_hram(gb, hMultiPurpose1));
+                        /* ld hl, wEntitiesPrivateState5Table; add hl, de; ld a, c; inc a; ld [hl], a */
+                        gb_write(gb, (uint16_t)(wEntitiesPrivateState5Table + new_slot), (uint8_t)((bc & 0xFF) + 1));
+                        /* ldh a, [hMultiPurpose2]; and $01; ld hl, wEntitiesSpriteVariantTable; add hl, de; ld [hl], a */
+                        gb_write(gb, (uint16_t)(wEntitiesSpriteVariantTable + new_slot), (uint8_t)(gb_read_hram(gb, hMultiPurpose2) & 0x01));
+                    }
+                    /* .jr_770D: pop de; jr jr_003_7737 */
+                    goto jr_003_7737;
+                }
+            }
+        }
+
+        /* jr_003_7710: call func_003_77A7; jr jr_003_7737 */
+        func_003_77A7(gb, bc, de);
+        goto jr_003_7737;
+
+label_003_7715:
+        /* ldh a, [hActiveEntityType]; cp ENTITY_BOOMERANG; jr z, .jr_771F */
+        /* cp ENTITY_HOOKSHOT_CHAIN; jr nz, jr_003_7734 */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_BOOMERANG ||
+            gb_read_hram(gb, hActiveEntityType) == ENTITY_HOOKSHOT_CHAIN) {
+            /* .jr_771F: call GetEntityTransitionCountdown; xor a; ld [hl], a */
+            gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0x00);
+
+            /* ld hl, wEntitiesPhysicsFlagsTable; add hl, de; ld a, [hl]; and ENTITY_PHYSICS_GRABBABLE; jr z, jr_003_7737 */
+            if ((gb_read(gb, (uint16_t)(wEntitiesPhysicsFlagsTable + de)) & ENTITY_PHYSICS_GRABBABLE) == 0) {
+                goto jr_003_7737;
+            }
+
+            /* ld a, c; inc a; ld hl, wEntitiesPrivateState5Table; add hl, de; ld [hl], a */
+            gb_write(gb, (uint16_t)(wEntitiesPrivateState5Table + de), (uint8_t)((bc & 0xFF) + 1));
+        }
+        /* jr_003_7734: jp checkNextEntity */
+        continue;
+
+jr_003_7737:
+        /* ldh a, [hActiveEntityType]; cp ENTITY_WRECKING_BALL; jr z, jr_003_775A */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_WRECKING_BALL) {
+            goto jr_003_775A;
+        }
+
+        /* cp ENTITY_BOOMERANG; jr z, jr_003_779A */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_BOOMERANG) {
+            goto jr_003_779A;
+        }
+
+        /* cp ENTITY_HOOKSHOT_CHAIN; jr z, jr_003_779A */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_HOOKSHOT_CHAIN) {
+            goto jr_003_779A;
+        }
+
+        /* cp ENTITY_LIFTABLE_ROCK; jr nz, .jr_7751 */
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_LIFTABLE_ROCK) {
+            LiftableRockStartSmashingAnimation(gb, bc);
+            continue;
+        }
+
+        /* .jr_7751: ld hl, wEntitiesStatusTable; add hl, bc; ld a, [hl]; cp $08; jr nz, jr_003_7782 */
+        if (gb_read(gb, (uint16_t)(wEntitiesStatusTable + bc)) == ENTITY_STATUS_THROWN) {
+            goto jr_003_775A;
+        }
+        goto jr_003_7782;
+
+jr_003_775A:
+        /* ld hl, wEntitiesPrivateCountdown3Table; add hl, bc; ld a, [hl]; and a; jr nz, checkNextEntity */
+        if (gb_read(gb, (uint16_t)(wEntitiesPrivateCountdown3Table + bc)) != 0) {
+            continue;
+        }
+
+        /* ld [hl], $0C */
+        gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown3Table + bc), 0x0C);
+
+        /* ld hl, wEntitiesSpeedXTable; add hl, bc; sra [hl]; sra [hl]; ld a, [hl]; cpl; ld [hl], a */
+        int8_t speed_x = (int8_t)gb_read(gb, (uint16_t)(wEntitiesSpeedXTable + bc));
+        speed_x = (int8_t)(speed_x >> 2);
+        gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + bc), (uint8_t)(~((uint8_t)speed_x)));
+
+        /* ld hl, wEntitiesSpeedYTable; add hl, bc; sra [hl]; sra [hl]; ld a, [hl]; cpl; ld [hl], a */
+        int8_t speed_y = (int8_t)gb_read(gb, (uint16_t)(wEntitiesSpeedYTable + bc));
+        speed_y = (int8_t)(speed_y >> 2);
+        gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + bc), (uint8_t)(~((uint8_t)speed_y)));
+
+        /* ld hl, wEntitiesThrownDirectionTable; add hl, bc; ld [hl], $FF; jr jr_003_779A */
+        gb_write(gb, (uint16_t)(wEntitiesThrownDirectionTable + bc), 0xFF);
+        goto jr_003_779A;
+
+jr_003_7782:
+        /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and a; jr nz, jr_003_779A */
+        if (gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc)) == 0) {
+            /* ldh a, [hActiveEntityType]; cp ENTITY_ARROW; jr nz, .jr_7795 */
+            /* ldh a, [hActiveEntityState]; and a; jr nz, jr_003_7798 */
+            if (gb_read_hram(gb, hActiveEntityType) == ENTITY_ARROW &&
+                gb_read_hram(gb, hActiveEntityState) != 0) {
+                /* jr_003_7798: jr checkNextEntity */
+                continue;
+            }
+
+            /* .jr_7795: call UnloadEntity */
+            UnloadEntity(gb, bc);
+            continue;
+        }
+
+jr_003_779A:
+        /* call GetEntityTransitionCountdown; xor a; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0x00);
+    }
+}
+
+/* ===== func_003_77A7 (03:77A7) ===== */
+void func_003_77A7(GBState *gb, uint16_t bc, uint16_t de) {
+    if (!gb) return;
+
+    /* ldh a, [hActiveEntityType]; cp ENTITY_ARROW; jr nz, .jr_77B8 */
+    if (gb_read_hram(gb, hActiveEntityType) == ENTITY_ARROW &&
+        gb_read_hram(gb, hActiveEntityState) != 0) {
+        /* ldh a, [hActiveEntityState]; and a; jr z, .jr_77B8 */
+        /* call GetEntityTransitionCountdown; ld [hl], $03; ret */
+        gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0x03);
+        return;
+    }
+
+    /* .jr_77B8: */
+    /* ld hl, wEntitiesSpeedXTable; add hl, bc; ld a, [hl] */
+    /* ld hl, wEntitiesRecoilVelocityX; add hl, de; ld [hl], a */
+    uint8_t speed_x = gb_read(gb, (uint16_t)(wEntitiesSpeedXTable + bc));
+    gb_write(gb, (uint16_t)(wEntitiesRecoilVelocityX + de), speed_x);
+
+    /* ld hl, wEntitiesSpeedYTable; add hl, bc; ld a, [hl] */
+    /* ld hl, wEntitiesRecoilVelocityY; add hl, de; ld [hl], a */
+    uint8_t speed_y = gb_read(gb, (uint16_t)(wEntitiesSpeedYTable + bc));
+    gb_write(gb, (uint16_t)(wEntitiesRecoilVelocityY + de), speed_y);
+
+    /* push bc; ld c, e; ld b, d; push de; call func_003_77D6; pop de; pop bc; ret */
+    func_003_77D6(gb, de);
+}
+
+/* ===== func_003_77D6 (03:77D6) ===== */
+void func_003_77D6(GBState *gb, uint16_t bc) {
+    label_003_71C0(gb, bc);
+}
+
+/* ===== CheckExplosionInteractionWithEntities (03:77D9) ===== */
+void CheckExplosionInteractionWithEntities(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld e, $0F; ld d, $00 */
+    for (int8_t e = 0x0F; e >= 0; e--) {
+        uint16_t de = (uint16_t)e;
+
+        /* ld hl, wEntitiesStatusTable; add hl, de; ld a, [hl]; cp ENTITY_STATUS_ACTIVE; jr c, .noDamage */
+        if (gb_read(gb, (uint16_t)(wEntitiesStatusTable + de)) < ENTITY_STATUS_ACTIVE) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesPhysicsFlagsTable; add hl, de; ld a, [hl] */
+        /* and ENTITY_PHYSICS_PROJECTILE_NOCLIP | ENTITY_PHYSICS_GRABBABLE; jr nz, .noDamage */
+        if ((gb_read(gb, (uint16_t)(wEntitiesPhysicsFlagsTable + de)) &
+             (ENTITY_PHYSICS_PROJECTILE_NOCLIP | ENTITY_PHYSICS_GRABBABLE)) != 0) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesHitboxFlagsTable; add hl, de; ld a, [hl]; and HITFLAGS_IGNORE_HITS; jr nz, .noDamage */
+        if ((gb_read(gb, (uint16_t)(wEntitiesHitboxFlagsTable + de)) & HITFLAGS_IGNORE_HITS) != 0) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesPosXTable; add hl, de; ldh a, [hActiveEntityPosX]; sub [hl]; add $18; cp $30; jr nc, .noDamage */
+        uint8_t dx = (uint8_t)(gb_read_hram(gb, hActiveEntityPosX) - gb_read(gb, (uint16_t)(wEntitiesPosXTable + de)) + 0x18);
+        if (dx >= 0x30) {
+            continue;
+        }
+
+        /* ld hl, wEntitiesPosYTable; add hl, de; ld a, [hl] */
+        /* ld hl, wEntitiesPosZTable; add hl, de; sub [hl] */
+        /* ld hl, hActiveEntityVisualPosY; sub [hl]; add $18; cp $30; jr nc, .noDamage */
+        uint8_t visual_y_de = (uint8_t)(gb_read(gb, (uint16_t)(wEntitiesPosYTable + de)) - gb_read(gb, (uint16_t)(wEntitiesPosZTable + de)));
+        uint8_t dy = (uint8_t)(visual_y_de - gb_read_hram(gb, hActiveEntityVisualPosY) + 0x18);
+        if (dy >= 0x30) {
+            continue;
+        }
+
+        /* ld a, DAMAGE_TYPE_BOMB; ld [wAttackDamageType], a */
+        gb_write(gb, wAttackDamageType, DAMAGE_TYPE_BOMB);
+
+        /* call func_003_77A7 */
+        func_003_77A7(gb, bc, de);
+
+        /* ld a, $30; call GetVectorTowardsOtherEntity */
+        GetVectorTowardsOtherEntity(gb, 0x30, de);
+
+        /* ld hl, wEntitiesRecoilVelocityY; add hl, de; ldh a, [hMultiPurpose0]; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesRecoilVelocityY + de), gb_read_hram(gb, hMultiPurpose0));
+
+        /* ld hl, wEntitiesRecoilVelocityX; add hl, de; ldh a, [hMultiPurpose1]; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesRecoilVelocityX + de), gb_read_hram(gb, hMultiPurpose1));
+    }
+}
+
+/* ===== GetVectorTowardsOtherEntity (03:783B) ===== */
+void GetVectorTowardsOtherEntity(GBState *gb, uint8_t length, uint16_t de) {
+    if (!gb) return;
+
+    /* ldh [hMultiPurpose0], a */
+    /* ldh a, [hLinkPositionX]; push af */
+    uint8_t saved_link_x = gb_read_hram(gb, hLinkPositionX);
+
+    /* ld hl, wEntitiesPosXTable; add hl, de; ld a, [hl]; ldh [hLinkPositionX], a */
+    gb_write_hram(gb, hLinkPositionX, gb_read(gb, (uint16_t)(wEntitiesPosXTable + de)));
+
+    /* ldh a, [hLinkPositionY]; push af */
+    uint8_t saved_link_y = gb_read_hram(gb, hLinkPositionY);
+
+    /* ld hl, wEntitiesPosYTable; add hl, de; ld a, [hl]; ldh [hLinkPositionY], a */
+    gb_write_hram(gb, hLinkPositionY, gb_read(gb, (uint16_t)(wEntitiesPosYTable + de)));
+
+    /* push de; ldh a, [hMultiPurpose0]; call GetVectorTowardsLink; pop de */
+    GetVectorTowardsLink_with_length(gb, length, NULL, NULL);
+
+    /* pop af; ldh [hLinkPositionY], a */
+    gb_write_hram(gb, hLinkPositionY, saved_link_y);
+
+    /* pop af; ldh [hLinkPositionX], a; ret */
+    gb_write_hram(gb, hLinkPositionX, saved_link_x);
 }

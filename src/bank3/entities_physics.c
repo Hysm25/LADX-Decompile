@@ -302,7 +302,8 @@ void func_003_6F93(GBState *gb) {
     uint16_t bc = gb_read(gb, wActiveEntityIndex);
     uint8_t recoil_amount = 0x20;
     uint8_t obj_below = gb_read_hram(gb, hIndexOfObjectBelowLink);
-    if ((0x08 | obj_below) == 0) {
+    uint8_t check = (uint8_t)(0x08 | obj_below);
+    if (check == 0) {
         recoil_amount = 0x08;
     }
     ConfigureEntityRecoil(gb, bc, recoil_amount);
@@ -369,100 +370,6 @@ void func_003_6DDF(GBState *gb, uint16_t bc) {
 
     /* xor a; ldh [hLinkPhysicsModifier], a; scf; ret */
     gb_write_hram(gb, hLinkPhysicsModifier, 0x00);
-}
-
-/* ===== func_003_75A2 (03:75A2) ===== */
-void func_003_75A2(GBState *gb, uint16_t bc) {
-    if (!gb) return;
-
-    /* ld e, $0F; ld d, $00 */
-    for (uint8_t e = 0x0F; e != 0xFF; e--) {
-        (void)e;  /* de is used implicitly via e */
-
-        /* If we are checking collision against ourselves, move to the next entity */
-        if (e == (bc & 0xFF)) {
-            continue;
-        }
-
-        /* If we are on an even frame, move to next (check every other frame) */
-        if ((gb_read_hram(gb, hFrameCounter) ^ e) & 0x01) {
-            continue;
-        }
-
-        /* If the entity is not interactive, move to next */
-        if (gb_read(gb, wEntitiesStatusTable + e) < ENTITY_STATUS_ACTIVE) {
-            continue;
-        }
-
-        /* If wEntitiesPhysicsFlagsTable[de] has PROJECTILE_NOCLIP, move to next */
-        if (gb_read(gb, wEntitiesPhysicsFlagsTable + e) & ENTITY_PHYSICS_PROJECTILE_NOCLIP) {
-            continue;
-        }
-
-        /* If the entities X are far apart, move to next */
-        int16_t diff_x = (int16_t)gb_read_hram(gb, hActiveEntityPosX) - gb_read(gb, wEntitiesPosXTable + e) + 0x0C;
-        if ((uint8_t)diff_x >= 0x18) {
-            continue;
-        }
-
-        /* If the entities Y are far apart, move to next */
-        int16_t diff_y = (int16_t)gb_read(gb, wEntitiesPosYTable + e) - gb_read(gb, wEntitiesPosZTable + e) - gb_read_hram(gb, hActiveEntityVisualPosY) + 0x0C;
-        if ((uint8_t)diff_y >= 0x18) {
-            continue;
-        }
-
-        /* If the entity sprite variant is $FF, move to next */
-        if (gb_read(gb, wEntitiesSpriteVariantTable + e) == 0xFF) {
-            continue;
-        }
-
-        /* If the active entity is a Bouncing Bombite... */
-        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_BOUNCING_BOMBITE) {
-            /* wEntitiesSpriteVariantTable[de] = GetEntityTransitionCountdown */
-            gb_write(gb, wEntitiesSpriteVariantTable + e, gb_read(gb, wEntitiesTransitionCountdownTable + bc));
-        }
-
-        /* If the collisioned entity is a Bouncing Bombite... */
-        if (gb_read(gb, wEntitiesTypeTable + e) == ENTITY_BOUNCING_BOMBITE) {
-            /* Copy speed and set state */
-            gb_write(gb, wEntitiesSpeedXTable + e, gb_read(gb, wEntitiesSpeedXTable + bc));
-            gb_write(gb, wEntitiesSpeedYTable + e, gb_read(gb, wEntitiesSpeedYTable + bc));
-            gb_write(gb, wEntitiesTransitionCountdownTable + e, 0x40);
-            gb_write(gb, wEntitiesStateTable + e, 0x02);
-            gb_write(gb, wEntitiesPrivateCountdown1Table + e, 0x08);
-            continue;
-        }
-
-        /* If the entity is grabbable, jump to label_003_7715 */
-        if (gb_read(gb, wEntitiesPhysicsFlagsTable + e) & ENTITY_PHYSICS_GRABBABLE) {
-            continue;  /* label_003_7715 not implemented */
-        }
-
-        /* If active entity is Magic Powder Sprinkle, force collision end */
-        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_MAGIC_POWDER_SPRINKLE) {
-            continue;
-        }
-
-        /* Final Nightmare special cases - simplified */
-
-        /* If bit 7 of entity hitbox flag is set, force collision */
-        if (gb_read(gb, wEntitiesHitboxFlagsTable + e) & 0x80) {
-            gb_write(gb, wEntitiesCollisionsTable + bc, 0x01);
-            continue;
-        }
-
-        /* Magic Powder Sprinkle special cases - simplified */
-
-        /* If bit 7 of hitbox flags is set, skip */
-        if (gb_read(gb, wEntitiesHitboxFlagsTable + e) & 0x80) {
-            continue;
-        }
-
-        /* Force collision */
-        gb_write(gb, wEntitiesCollisionsTable + bc, 0x01);
-
-        /* continue loop */
-    }
 }
 
 /* ===== ApplyEntityInteractionWithBackground (03:7386) ===== */

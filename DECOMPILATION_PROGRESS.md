@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~76.7%
-* **Number of Verified Functions**: 1002
-* **Number of Decompiled Functions**: 802
-* **Number Remaining**: ~210 functions
-* **Current Subsystem**: ROM Bank 3 (Entity Damage & Collision Handlers)
-* **Current Task**: Test Suite Audit & Optimization Completed
-* **Last Completed Task**: Test Suite Audit & Optimization (Bank 2 test performance refactoring: 6.87x overall speedup from 22.65s to 3.30s, elimination of brute-force full-state copies, modular cleanup).
-* **Last Update Timestamp**: 2026-10-07T12:26:00+00:00
+* **Current Overall Progress**: ~77.1%
+* **Number of Verified Functions**: 1007
+* **Number of Decompiled Functions**: 807
+* **Number Remaining**: ~205 functions
+* **Current Subsystem**: ROM Bank 3 (Entity Damage, Projectiles & Collision Handlers)
+* **Current Task**: Batch 93 Verification Completed
+* **Last Completed Task**: Batch 93 Verification — Projectile & Explosion Collision Handlers (`func_003_75A2`, `func_003_77A7`, `func_003_77D6`, `CheckExplosionInteractionWithEntities`, `GetVectorTowardsOtherEntity`, `label_003_71C0`).
+* **Last Update Timestamp**: 2026-10-07T14:31:00+00:00
 
 ---
 
@@ -899,3 +899,31 @@
   - Full CTest suite PASS (100% tests passed).
   - Strict C11 compliance check passed: `clang -std=c11 -Wall -Wextra -Werror -pedantic`.
   - `git diff --check` passed with zero errors or whitespace issues.
+
+---
+
+## Batch 93 Verification — Projectile & Explosion Collision Handlers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:75A2`-`03:785E`, `03:71C0`-`03:73E6`). Five functions and extracted damage helper implemented in `src/bank3/entities_collision.c` with declarations in `include/bank3/entities_collision.h`:
+  - `label_003_71C0` (`03:71C0`-`03:73E6`): Core entity damage resolution logic cleanly extracted from `ApplySwordDamagesToEnemy` and shared with projectile/explosion collision dispatch. Handles projectile deflection, invulnerability flash, stun states, hit sound effects, death animation dispatch (`ENTITY_DEATH_EXPLOSION`, `ENTITY_FALLING_ITEM`), and boss defeat triggers.
+  - `func_003_75A2` (`03:75A2`-`03:77A6`): Complete assembly-accurate entity projectile and interactive item collision detector loop across all room entity slots (`0` to `ENTITY_COUNT - 1`):
+    - Frame parity & filtering: Tests alternating frame parity `(hFrameCounter ^ c) & 1 == 0`, entity interactive validity, status, and ignores Tarin ($3F) and Mad Batter ($CA) when configured with `HITFLAGS_IGNORE_HITS`.
+    - Bounding box collision: Overlaps active entity visual position `(hActiveEntityPosX, hActiveEntityVisualPosY)` against target entity box with radii `4 + wD5C1` and `5 + wD5C3`.
+    - Bouncing Bombite reaction: Deflects off active entity with reversed speeds and plays `SFX_UNKNOWN_0E`.
+    - Grabbable / Magic Powder: Checks grabbable state and routes Magic Powder to ignite/morph target entities (`DAMAGE_TYPE_MAGIC_POWDER`).
+    - Iron Mask hookshot interaction: Strips mask via `SpawnNewEntity(ENTITY_IRON_MASKS_MASK)`, resets mask direction, and sets private state 5 to `c + 1`.
+    - Weapon collision dispatch: Identifies boomerang, hookshot, arrow, magic rod, and thrown items (`ENTITY_TYPE_IS_THROWN_ITEM`), triggers clinks/bounces (`SFX_REFLECT`), sets recoil directions and countdowns, and routes to damage handler.
+  - `func_003_77A7` (`03:77A7`-`03:77D5`): Projectile hit entity helper. Negates and shifts projectile velocities (`sra; sra; cpl`), adjusts arrow and thrown object flight states, and dispatches to damage trampoline.
+  - `func_003_77D6` (`03:77D6`-`03:77D8`): Trampoline jump to `label_003_71C0`.
+  - `CheckExplosionInteractionWithEntities` (`03:77D9`-`03:783A`): Explosion interaction loop across room entities. Calculates explosion radius from sprite countdown (`wEntitiesCountdown1Table`), tests distance against target entity hitbox, applies damage with `DAMAGE_TYPE_BOMB`, and triggers bomb-specific recoil.
+  - `GetVectorTowardsOtherEntity` (`03:783B`-`03:785E`): Computes vector from active entity towards target entity with position swapping.
+
+- **Tests:** Added comprehensive behavioral unit tests in `tests/bank3/test_entities_collision.c`:
+  - `test_func_003_75A2_FilteringAndParity`: Verifies frame parity rotation, non-interactive exclusion, out-of-range bounds, and self-collision filtering.
+  - `test_func_003_75A2_BouncingBombiteAndGrabbable`: Verifies Bouncing Bombite speed negation/sfx and grabbable state interactions.
+  - `test_func_003_75A2_MagicPowderAndIronMask`: Verifies Magic Powder damage routing and Iron Mask hookshot mask strip behavior (`ENTITY_IRON_MASKS_MASK` spawn and private state assignment).
+  - `test_func_003_75A2_ProjectileReactions`: Verifies arrow, boomerang, hookshot, and thrown item collisions, speed scaling, deflection SFX, and recoil velocity calculations.
+  - `test_CheckExplosionInteractionWithEntities`: Verifies explosion radius expansion over countdown, distance-based damage delivery, and target entity reaction.
+  - Full Debug build/CTest PASS (100% tests passed in ~2.8s); strict C11 `-Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1007 verified functions passing.
+
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Bitwise arithmetic shifts (`sra; sra; cpl`) and bounding box radius offsets verified exact to assembly instruction sequence. Cross-bank calls remain callback-modeled.
