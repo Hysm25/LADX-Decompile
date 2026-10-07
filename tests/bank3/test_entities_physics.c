@@ -12,7 +12,7 @@
 
 /* Test GetEntityXDistanceToLink_03 */
 static void test_GetEntityXDistanceToLink(void) {
-    printf("Testing GetEntityXDistanceToLink_03...\n");
+    printf("[RUN ] GetEntityXDistanceToLink_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -49,12 +49,12 @@ static void test_GetEntityXDistanceToLink(void) {
     assert(dir == DIRECTION_RIGHT);
     assert(diff == 0x10);
 
-    printf("  PASSED\n");
+    printf("[PASS] GetEntityXDistanceToLink_03\n");
 }
 
 /* Test GetEntityYDistanceToLink_03 */
 static void test_GetEntityYDistanceToLink(void) {
-    printf("Testing GetEntityYDistanceToLink_03...\n");
+    printf("[RUN ] GetEntityYDistanceToLink_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -93,12 +93,12 @@ static void test_GetEntityYDistanceToLink(void) {
     assert(dir == DIRECTION_DOWN);
     assert(diff == 0x02);
 
-    printf("  PASSED\n");
+    printf("[PASS] GetEntityYDistanceToLink_03\n");
 }
 
 /* Test GetEntityDirectionToLink_03 */
 static void test_GetEntityDirectionToLink(void) {
-    printf("Testing GetEntityDirectionToLink_03...\n");
+    printf("[RUN ] GetEntityDirectionToLink_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -141,12 +141,12 @@ static void test_GetEntityDirectionToLink(void) {
     dir = GetEntityDirectionToLink_03(&gb);
     assert(dir == DIRECTION_DOWN);
 
-    printf("  PASSED\n");
+    printf("[PASS] GetEntityDirectionToLink_03\n");
 }
 
 /* Test GetVectorTowardsLink and ApplyVectorTowardsLink */
 static void test_GetVectorTowardsLink(void) {
-    printf("Testing GetVectorTowardsLink...\n");
+    printf("[RUN ] GetVectorTowardsLink\n");
 
     GBState gb;
     gb_init(&gb);
@@ -204,12 +204,12 @@ static void test_GetVectorTowardsLink(void) {
     assert(gb_read(&gb, wEntitiesSpeedXTable) == 0x10);
     assert(gb_read(&gb, wEntitiesSpeedYTable) == 0x10);
 
-    printf("  PASSED\n");
+    printf("[PASS] GetVectorTowardsLink\n");
 }
 
 /* Test AddEntitySpeedToPos_03 */
 static void test_AddEntitySpeedToPos(void) {
-    printf("Testing AddEntitySpeedToPos_03...\n");
+    printf("[RUN ] AddEntitySpeedToPos_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -244,12 +244,12 @@ static void test_AddEntitySpeedToPos(void) {
     assert(gb_read(&gb, wEntitiesSpeedXAccTable + bc) == 0x00);
     assert(gb_read(&gb, wEntitiesPosXTable + bc) == 0x40);
 
-    printf("  PASSED\n");
+    printf("[PASS] AddEntitySpeedToPos_03\n");
 }
 
 /* Test AddEntityZSpeedToPos_03 */
 static void test_AddEntityZSpeedToPos(void) {
-    printf("Testing AddEntityZSpeedToPos_03...\n");
+    printf("[RUN ] AddEntityZSpeedToPos_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -273,12 +273,12 @@ static void test_AddEntityZSpeedToPos(void) {
     AddEntityZSpeedToPos_03(&gb, bc);
     assert(gb_read(&gb, wEntitiesPosZTable + bc) == 0x10);
 
-    printf("  PASSED\n");
+    printf("[PASS] AddEntityZSpeedToPos_03\n");
 }
 
 /* Test UpdateEntityPosWithSpeed_03 */
 static void test_UpdateEntityPosWithSpeed(void) {
-    printf("Testing UpdateEntityPosWithSpeed_03...\n");
+    printf("[RUN ] UpdateEntityPosWithSpeed_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -298,12 +298,12 @@ static void test_UpdateEntityPosWithSpeed(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + bc) == 0x21);
     assert(gb_read(&gb, wEntitiesPosYTable + bc) == 0x2F);
 
-    printf("  PASSED\n");
+    printf("[PASS] UpdateEntityPosWithSpeed_03\n");
 }
 
 /* Test StartIgnoringHitsForEntity and ConfigureEntityRecoil */
 static void test_RecoilAndIgnoringHits(void) {
-    printf("Testing ConfigureEntityRecoil & StartIgnoringHitsForEntity...\n");
+    printf("[RUN ] ConfigureEntityRecoil & StartIgnoringHitsForEntity\n");
 
     GBState gb;
     gb_init(&gb);
@@ -336,12 +336,12 @@ static void test_RecoilAndIgnoringHits(void) {
     assert(gb_read(&gb, wEntitiesPowerRecoilingTable + bc) == 0x00);
     assert(gb_read(&gb, wEntitiesIgnoreHitsCountdownTable + bc) == 0x0A);
 
-    printf("  PASSED\n");
+    printf("[PASS] ConfigureEntityRecoil & StartIgnoringHitsForEntity\n");
 }
 
 /* Test func_003_6C6B */
 static void test_func_003_6C6B(void) {
-    printf("Testing func_003_6C6B...\n");
+    printf("[RUN ] func_003_6C6B\n");
 
     GBState gb;
     gb_init(&gb);
@@ -358,12 +358,12 @@ static void test_func_003_6C6B(void) {
     assert(func_003_6C6B(&gb, 0x01) == true);  /* (0 ^ 1) = 1, bit 0 is 1 */
     assert(func_003_6C6B(&gb, 0x00) == false); /* (0 ^ 0) = 0, bit 0 is 0 */
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_6C6B\n");
 }
 
 /* Test func_003_6CC0 */
 static void test_func_003_6CC0(void) {
-    printf("Testing func_003_6CC0...\n");
+    printf("[RUN ] func_003_6CC0\n");
 
     GBState gb;
     gb_init(&gb);
@@ -390,12 +390,12 @@ static void test_func_003_6CC0(void) {
     gb_write_hram(&gb, hLinkAnimationState, 0x50);
     assert(func_003_6CC0(&gb, bc) == false);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_6CC0\n");
 }
 
 /* Test label_003_6FA7 */
 static void test_label_003_6FA7(void) {
-    printf("Testing label_003_6FA7...\n");
+    printf("[RUN ] label_003_6FA7\n");
 
     GBState gb;
     gb_init(&gb);
@@ -424,12 +424,12 @@ static void test_label_003_6FA7(void) {
     assert(gb_read_hram(&gb, hLinkSpeedX) == 0xE8); /* (uint8_t)(-0x18) */
     assert(gb_read_hram(&gb, hLinkSpeedY) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] label_003_6FA7\n");
 }
 
 /* Test func_003_7565 */
 static void test_func_003_7565(void) {
-    printf("Testing func_003_7565...\n");
+    printf("[RUN ] func_003_7565\n");
 
     GBState gb;
     gb_init(&gb);
@@ -453,12 +453,12 @@ static void test_func_003_7565(void) {
     assert(gb_read_hram(&gb, hLinkSpeedX) == 0x12);
     assert(gb_read_hram(&gb, hLinkSpeedY) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_7565\n");
 }
 
 /* Test func_003_6F93 and func_003_6F5C */
 static void test_func_003_6F93_and_6F5C(void) {
-    printf("Testing func_003_6F93 & func_003_6F5C...\n");
+    printf("[RUN ] func_003_6F93 & func_003_6F5C\n");
 
     GBState gb;
     gb_init(&gb);
@@ -485,12 +485,12 @@ static void test_func_003_6F93_and_6F5C(void) {
     func_003_6F5C(&gb, bc);
     assert(gb_read(&gb, wEntitiesIgnoreHitsCountdownTable + bc) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_6F93 & func_003_6F5C\n");
 }
 
 /* Test func_003_6DDF */
 static void test_func_003_6DDF(void) {
-    printf("Testing func_003_6DDF...\n");
+    printf("[RUN ] func_003_6DDF\n");
 
     GBState gb;
     gb_init(&gb);
@@ -522,12 +522,12 @@ static void test_func_003_6DDF(void) {
     assert(gb_read_hram(&gb, hLinkSpeedY) == 0xF4);
     assert(gb_read_hram(&gb, hLinkPhysicsModifier) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_6DDF\n");
 }
 
 /* Test ReturnIfNonInteractive_03 */
 static void test_ReturnIfNonInteractive(void) {
-    printf("Testing ReturnIfNonInteractive_03...\n");
+    printf("[RUN ] ReturnIfNonInteractive_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -582,12 +582,12 @@ static void test_ReturnIfNonInteractive(void) {
 
     assert(ReturnIfNonInteractive_03(&gb, false) == false);
 
-    printf("  PASSED\n");
+    printf("[PASS] ReturnIfNonInteractive_03\n");
 }
 
 /* Test ApplyRecoilIfNeeded_03 */
 static void test_ApplyRecoilIfNeeded(void) {
-    printf("Testing ApplyRecoilIfNeeded_03...\n");
+    printf("[RUN ] ApplyRecoilIfNeeded_03\n");
 
     GBState gb;
     gb_init(&gb);
@@ -618,12 +618,12 @@ static void test_ApplyRecoilIfNeeded(void) {
     assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x00);
     assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplyRecoilIfNeeded_03\n");
 }
 
 /* Test CheckLinkCollisionWithEnemy */
 static void test_CheckLinkCollisionWithEnemy(void) {
-    printf("Testing CheckLinkCollisionWithEnemy...\n");
+    printf("[RUN ] CheckLinkCollisionWithEnemy\n");
 
     GBState gb;
     gb_init(&gb);
@@ -680,7 +680,7 @@ static void test_CheckLinkCollisionWithEnemy(void) {
     /* Harmless entity does NOT hurt Link */
     assert(gb_read(&gb, wInvincibilityCounter) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] CheckLinkCollisionWithEnemy\n");
 }
 
 void test_bank3_entities_physics(void) {

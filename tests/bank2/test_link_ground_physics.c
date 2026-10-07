@@ -21,7 +21,6 @@
 
 /* Test func_002_7587 (02:7587-02:75B1) - Airborne OAM setup */
 void test_func_002_7587(void) {
-    printf("Testing func_002_7587 (airborne OAM)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -87,12 +86,10 @@ void test_func_002_7587(void) {
     assert(gb_read(&gb, wLinkOAMBuffer + 2) == 0x26);
     assert(gb_read(&gb, wLinkOAMBuffer + 3) == 0x00);
 
-    printf("  PASSED\n");
 }
 
 /* Test func_002_75B2 (02:75B2-02:75BC) - Clear wD475, check unstucking */
 void test_func_002_75B2(void) {
-    printf("Testing func_002_75B2...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -114,12 +111,10 @@ void test_func_002_75B2(void) {
 
     assert(gb_read(&gb, wD475) == 0x00); /* Still cleared */
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyLinkGroundPhysics (02:75BD-02:77E8) - Main dispatcher */
 void test_ApplyLinkGroundPhysics(void) {
-    printf("Testing ApplyLinkGroundPhysics...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -150,9 +145,7 @@ void test_ApplyLinkGroundPhysics(void) {
     gb_write_hram(&gb, hLinkPositionY, 0x0D); /* Y-1 = 0x0C, & $0F = 0x0C >= 0x0C */
     gb_write(&gb, wLinkObjectPhysics, OBJ_PHYSICS_SPIKES); /* Set physics directly since trampoline not implemented */
 
-    fprintf(stderr, "DEBUG: Before ApplyLinkGroundPhysics, wLinkObjectPhysics=0x%02X\n", gb_read(&gb, wLinkObjectPhysics));
     ApplyLinkGroundPhysics(&gb);
-    fprintf(stderr, "DEBUG: After ApplyLinkGroundPhysics, wInvincibilityCounter=0x%02X\n", gb_read(&gb, wInvincibilityCounter));
 
     /* Should call HurtBySpikes (which sets invincibility, etc.) */
     assert(gb_read(&gb, wInvincibilityCounter) == 0x30);
@@ -170,12 +163,10 @@ void test_ApplyLinkGroundPhysics(void) {
     /* Should call ApplyLinkGroundPhysics_Default (physics == 0) */
     /* No mock calls expected since trampoline not used */
 
-    printf("  PASSED\n");
 }
 
 /* Test HurtBySpikes (02:75F5-02:7634) */
 void test_HurtBySpikes(void) {
-    printf("Testing HurtBySpikes...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -256,12 +247,10 @@ void test_HurtBySpikes(void) {
     assert(gb_read_hram(&gb, hLinkVelocityZ) == 0x00);
     assert(gb_read_hram(&gb, hLinkPositionZ) == 0x00);
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyLinkGroundPhysics_part2 (02:7635-02:76BF) */
 void test_ApplyLinkGroundPhysics_part2(void) {
-    printf("Testing ApplyLinkGroundPhysics_part2...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -297,9 +286,6 @@ void test_ApplyLinkGroundPhysics_part2(void) {
 
     ApplyLinkGroundPhysics_part2(&gb);
 
-    /* Debug: check the actual value */
-    uint8_t actual_x = gb_read_hram(&gb, hLinkPositionX);
-    fprintf(stderr, "DEBUG: hLinkPositionX=0x%02X (expected 0x11)\n", actual_x);
 
     /* Ground status = PIT */
     assert(gb_read(&gb, wLinkGroundStatus) == GROUND_STATUS_PIT);
@@ -321,12 +307,10 @@ void test_ApplyLinkGroundPhysics_part2(void) {
     ApplyLinkGroundPhysics_part2(&gb);
     /* Just verify function executes without crashing */
 
-    printf("  PASSED\n");
 }
 
 /* Test label_002_76C0 (02:76C0-02:786E) - Dialog/transition physics */
 void test_label_002_76C0(void) {
-    printf("Testing label_002_76C0...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -392,12 +376,10 @@ void test_label_002_76C0(void) {
     assert(gb_read_hram(&gb, hLinkPhysicsModifier) == 0x00);
     assert(gb_read(&gb, wC167) == 0x01);
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyLinkGroundPhysics_Default (02:77A2-02:78D7) */
 void test_ApplyLinkGroundPhysics_Default(void) {
-    printf("Testing ApplyLinkGroundPhysics_Default...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -494,12 +476,10 @@ ApplyLinkGroundPhysics_Default(&gb);
     assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_RUMBLE2);
     /* label_002_4D97 called directly, not through mock */
 
-    printf("  PASSED\n");
 }
 
 /* Test label_002_787D (02:787D-02:78D7) - Grass VFX */
 void test_label_002_787D(void) {
-    printf("Testing label_002_787D (grass VFX)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -541,7 +521,6 @@ void test_label_002_787D(void) {
     assert(gb_read(&gb, wLinkOAMBuffer + 3) == (OAMF_PAL0 | OAM_GBC_PAL_6));
     assert(gb_read(&gb, wLinkOAMBuffer + 7) == ((OAMF_PAL0 | OAM_GBC_PAL_6) ^ 0x20));
 
-    printf("  PASSED\n");
 }
 
 void test_bank2_link_ground_physics(void) {
@@ -554,5 +533,4 @@ void test_bank2_link_ground_physics(void) {
     test_ApplyLinkGroundPhysics_Default();
     test_label_002_787D();
 
-    printf("\nAll Bank 2 link ground physics tests passed!\n");
 }

@@ -14,7 +14,6 @@
 #include <stdio.h>
 
 void test_func_001_4954(void) {
-    printf("[*] Running func_001_4954 tests (01:4954)...\n");
     GBState gb;
 
     /* Slot 0: Y = 0x3B. Frame counter bit 3 set: normal frame */
@@ -59,7 +58,6 @@ void test_func_001_4954(void) {
 }
 
 void test_file_selection_interactive_and_choice(void) {
-    printf("[*] Running FileSelection interactive & choice tests (01:48E8-01:4A04)...\n");
     GBState gb;
 
     /* Test 1: Navigation without saved files (wraps 0..2) */
@@ -140,7 +138,6 @@ void test_file_selection_interactive_and_choice(void) {
 }
 
 void test_file_creation_init_and_sram(void) {
-    printf("[*] Running FileCreationInit & WriteByteToSRAM tests (01:4A11-01:4A46)...\n");
     GBState gb;
 
     /* Test 1: FileCreationInit1Handler */
@@ -173,7 +170,6 @@ void test_file_creation_init_and_sram(void) {
 }
 
 void test_transition_to_file_menu_reload(void) {
-    printf("[*] Running TransitionToFileMenu & label_001_4555 tests (01:4552, 01:4555)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -246,7 +242,6 @@ void test_transition_to_file_menu_reload(void) {
 }
 
 void test_file_creation_grid_and_entry(void) {
-    printf("[*] Running FileCreation character grid & entry point tests (01:4852, 01:4A07-01:4CDA)...\n");
     GBState gb;
 
     /* Test 1: DrawSaveSlotName */
@@ -346,7 +341,6 @@ void test_file_creation_grid_and_entry(void) {
 }
 
 void test_file_deletion_and_digits(void) {
-    printf("[*] Running FileDeletion and BCD death counts tests (01:47FD-01:4839, 01:4D1A-01:4F8A)...\n");
     GBState gb;
 
     /* Test 1: CopyDigitsToFileScreenBG */
@@ -439,7 +433,6 @@ void test_file_deletion_and_digits(void) {
 }
 
 void test_file_deletion_interactive_and_erase(void) {
-    printf("[*] Running FileDeletion interactive & erase tests (01:4CFB-01:4F3A)...\n");
     GBState gb;
 
     /* Test 1: CopyQuitOkTilemap and CopyReturnToMenuTilemap */
@@ -527,7 +520,6 @@ void test_file_deletion_interactive_and_erase(void) {
 }
 
 void test_file_copy_subsystem(void) {
-    printf("[*] Running FileCopy complete subsystem tests (01:4F8C-01:5292)...\n");
     GBState gb;
 
     /* Test 1: FileCopyState2Handler through State5Handler */

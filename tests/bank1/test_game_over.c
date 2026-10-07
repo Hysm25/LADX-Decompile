@@ -13,7 +13,6 @@
 #include <stdio.h>
 
 void test_game_over_subsystem(void) {
-    printf("[*] Running GameOver subsystem tests (01:41C2-01:4370)...\n");
     GBState gb;
 
     /* Test 1: LinkPassOutHandler passing out animation (countdown != 0) */

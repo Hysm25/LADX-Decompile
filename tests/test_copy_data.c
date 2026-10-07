@@ -13,7 +13,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -498,57 +498,45 @@ static void test_copy_color_dungeon_symbols(void) {
     TEST_ASSERT(gb.rom_bank == 0x14, "CopyColorDungeonSymbols did not restore stacked bank");
 }
 
+#define RUN_COPY_DATA_TEST(name, code) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        code; \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 int run_copy_data_tests(void) {
-    printf("[*] Running CopyData tests...\n");
-    test_copy_data_basic();
-
-    printf("[*] Running CopyDataFromBank tests...\n");
-    test_copy_data_from_bank();
-
-    printf("[*] Running CopyData_trampoline tests...\n");
-    test_copy_data_trampoline();
-
-    printf("[*] Running DrawCommandToVRAM tests...\n");
-    test_draw_command_copy_row_wrapping();
-    test_draw_command_fill_row();
-    test_draw_command_copy_column();
-    test_draw_command_fill_column();
-
-    printf("[*] Running DrawCommandToVRAMDuringRoomTransition tests...\n");
-    test_draw_command_room_transition_transparency();
-
-    printf("[*] Running ExecuteDrawCommands tests...\n");
-    test_execute_draw_commands();
-
-    printf("[*] Running NoRoomTransitionDrawLoop tests...\n");
-    test_no_room_transition_draw_loop();
-
-    printf("[*] Running CopyToBGMap0 tests...\n");
-    test_copy_to_bg_map_0();
-
-    printf("[*] Running CopyDataToVRAM_noDMA tests...\n");
-    test_copy_data_to_vram_nodma();
-
-    printf("[*] Running CopyDataToVRAM tests...\n");
-    test_copy_data_to_vram();
-
-    printf("[*] Running func_BB5 tests...\n");
-    test_func_bb5();
-
-    printf("[*] Running CopyBGMapFromBank tests...\n");
-    test_copy_bg_map_from_bank();
-
-    printf("[*] Running CopySirenInstrumentTiles tests...\n");
-    test_copy_siren_instrument_tiles();
-
-    printf("[*] Running func_BC5 tests...\n");
-    test_func_bc5();
-
-    printf("[*] Running CopyColorDungeonSymbols tests...\n");
-    test_copy_color_dungeon_symbols();
+    printf("[TEST] Copy Data\n");
+    RUN_COPY_DATA_TEST("CopyData", test_copy_data_basic());
+    RUN_COPY_DATA_TEST("CopyDataFromBank", test_copy_data_from_bank());
+    RUN_COPY_DATA_TEST("CopyData_trampoline", test_copy_data_trampoline());
+    RUN_COPY_DATA_TEST("DrawCommandToVRAM", {
+        test_draw_command_copy_row_wrapping();
+        test_draw_command_fill_row();
+        test_draw_command_copy_column();
+        test_draw_command_fill_column();
+    });
+    RUN_COPY_DATA_TEST("DrawCommandToVRAMDuringRoomTransition", test_draw_command_room_transition_transparency());
+    RUN_COPY_DATA_TEST("ExecuteDrawCommands", test_execute_draw_commands());
+    RUN_COPY_DATA_TEST("NoRoomTransitionDrawLoop", test_no_room_transition_draw_loop());
+    RUN_COPY_DATA_TEST("CopyToBGMap0", test_copy_to_bg_map_0());
+    RUN_COPY_DATA_TEST("CopyDataToVRAM_noDMA", test_copy_data_to_vram_nodma());
+    RUN_COPY_DATA_TEST("CopyDataToVRAM", test_copy_data_to_vram());
+    RUN_COPY_DATA_TEST("func_BB5", test_func_bb5());
+    RUN_COPY_DATA_TEST("CopyBGMapFromBank", test_copy_bg_map_from_bank());
+    RUN_COPY_DATA_TEST("CopySirenInstrumentTiles", test_copy_siren_instrument_tiles());
+    RUN_COPY_DATA_TEST("func_BC5", test_func_bc5());
+    RUN_COPY_DATA_TEST("CopyColorDungeonSymbols", test_copy_color_dungeon_symbols());
 
     if (failures == 0) {
-        printf("  [PASS] All copy_data.asm functions verified successfully!\n");
+        printf("[PASS] Copy Data\n\n");
+    } else {
+        printf("[FAIL] Copy Data\n\n");
     }
     return failures;
 }

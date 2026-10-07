@@ -19,7 +19,6 @@
 
 /* Test func_002_753A (02:753A-02:754E) - Swimming physics modifier */
 void test_func_002_753A(void) {
-    printf("Testing func_002_753A...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -61,12 +60,10 @@ void test_func_002_753A(void) {
     func_002_753A(&gb);
 
     /* Function executes without crashing */
-    printf("  PASSED\n");
 }
 
 /* Test func_002_754F (02:754F-02:755A) - Hookshot/airborne check */
 void test_func_002_754F(void) {
-    printf("Testing func_002_754F...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -101,12 +98,10 @@ void test_func_002_754F(void) {
 
     assert(gb_read(&gb, wC13B) == 0x10);
 
-    printf("  PASSED\n");
 }
 
 /* Test label_002_74AD (02:74AD-02:74FB) - Pegasus boots wall collision */
 void test_label_002_74AD(void) {
-    printf("Testing label_002_74AD (pegasus boots collision)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -199,12 +194,10 @@ void test_label_002_74AD(void) {
     /* wC158 should be 0 since bit 1 clear */
     assert(gb_read(&gb, wC158) == 0x00);
 
-    printf("  PASSED\n");
 }
 
 /* Test func_002_7468 (02:7468-02:74AC) - Revolving door & special objects */
 void test_func_002_7468(void) {
-    printf("Testing func_002_7468 (revolving door/special objects)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -282,12 +275,10 @@ void test_func_002_7468(void) {
 
     func_002_7468(&gb);
 
-    printf("  PASSED\n");
 }
 
 /* Test OpenDialogInTable0AndClearIncrement (02:74FE-02:7501) */
 void test_OpenDialogInTable0AndClearIncrement(void) {
-    printf("Testing OpenDialogInTable0AndClearIncrement...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -298,24 +289,20 @@ void test_OpenDialogInTable0AndClearIncrement(void) {
     /* The mock doesn't actually set dialog state, so we just verify the function executes without error */
     /* The actual implementation would set dialog state, but our mock doesn't */
 
-    printf("  PASSED\n");
 }
 
 /* Test OpenDialogInTable2AndClearIncrement (02:7504-02:7507) */
 void test_OpenDialogInTable2AndClearIncrement(void) {
-    printf("Testing OpenDialogInTable2AndClearIncrement...\n");
 
     GBState gb;
     gb_init(&gb);
 
     OpenDialogInTable2AndClearIncrement(&gb, 0x77);
 
-    printf("  PASSED\n");
 }
 
 /* Test Data_002_750A / Data_002_750E tables */
 void test_Data_002_750A_750E(void) {
-    printf("Testing Data_002_750A / Data_002_750E...\n");
 
     /* Data_002_750A: X speeds for Right, Left, Up, Down */
     assert(Data_002_750A[0] == 0x08);   /* Right */
@@ -329,7 +316,6 @@ void test_Data_002_750A_750E(void) {
     assert(Data_002_750E[2] == (int8_t)0xF8); /* Up */
     assert(Data_002_750E[3] == 0x08);   /* Down */
 
-    printf("  PASSED\n");
 }
 
 void test_bank2_link_motion_helpers(void) {
@@ -341,5 +327,4 @@ void test_bank2_link_motion_helpers(void) {
     test_OpenDialogInTable2AndClearIncrement();
     test_Data_002_750A_750E();
 
-    printf("\nAll Bank 2 link motion helper tests passed!\n");
 }

@@ -11,7 +11,7 @@
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            fprintf(stderr, "  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -478,69 +478,44 @@ static void test_replace_evil_eagle_rider_tiles(void) {
     TEST_ASSERT(gb_read(&gb, hReplaceTiles) == 0, "hReplaceTiles not cleared");
 }
 
+#define RUN_ANIM_TEST(fn, name) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_animated_tiles_tests(void) {
-    test_replace_evil_eagle_rider_tiles();
-    failures = 0;
-
-    printf("[*] Running DrawLinkSprite tests...\n");
-    test_draw_link_sprite();
-
-    printf("[*] Running ReplaceMarinTiles tests...\n");
-    test_replace_marin_tiles();
-
-    printf("[*] Running ReplaceTradingItemTiles tests...\n");
-    test_replace_trading_item_tiles();
-
-    printf("[*] Running ReplaceTilePairsAndButtons tests...\n");
-    test_replace_tile_pairs_and_buttons();
-
-    printf("[*] Running ReplaceCreditsAndInstruments tests...\n");
-    test_replace_credits_and_instruments();
-
-    printf("[*] Running UpdateSwitchBlockTiles tests...\n");
-    test_update_switch_block_tiles();
-
-    printf("[*] Running AnimateTiles dispatcher tests...\n");
-    test_animate_tiles_dispatcher();
-
-
-    printf("[*] Running IncrementAnimatedTilesDataOffset tests...\n");
-    test_increment_animated_tiles_data_offset();
-
-    printf("[*] Running SkipTilesGroupAnimation tests...\n");
-    test_skip_tiles_group_animation();
-
-    printf("[*] Running LoadAnimatedTilesFrame tests...\n");
-    test_load_animated_tiles_frame();
-
-    printf("[*] Running AnimateCounterTilesGroup tests...\n");
-    test_animate_counter_tiles_group();
-
-    printf("[*] Running Slow-speed animated tile group tests...\n");
-    test_slow_speed_tile_groups();
-
-    printf("[*] Running Medium and Fast-speed animated tile group tests...\n");
-    test_medium_and_fast_speed_tile_groups();
-
-    printf("[*] Running Dungeon 1 and Lava tile group tests...\n");
-    test_dungeon1_and_lava_tiles_groups();
-
-    printf("[*] Running Dungeon 2 and label_1CB8 tests...\n");
-    test_dungeon2_and_label_1cb8();
-
-    printf("[*] Running AnimatePhotoTilesGroup tests...\n");
-    test_animate_photo_tiles_group();
-
-    printf("[*] Running CopyLinkTilesPair tests...\n");
-    test_copy_link_tiles_pair();
-
-    printf("[*] Running AnimateMarinBeachTiles tests...\n");
-    test_animate_marin_beach_tiles();
+    printf("[TEST] Animated Tiles\n");
+    RUN_ANIM_TEST(test_replace_evil_eagle_rider_tiles, "ReplaceEvilEagleRiderTiles");
+    RUN_ANIM_TEST(test_draw_link_sprite, "DrawLinkSprite");
+    RUN_ANIM_TEST(test_replace_marin_tiles, "ReplaceMarinTiles");
+    RUN_ANIM_TEST(test_replace_trading_item_tiles, "ReplaceTradingItemTiles");
+    RUN_ANIM_TEST(test_replace_tile_pairs_and_buttons, "ReplaceTilePairsAndButtons");
+    RUN_ANIM_TEST(test_replace_credits_and_instruments, "ReplaceCreditsAndInstruments");
+    RUN_ANIM_TEST(test_update_switch_block_tiles, "UpdateSwitchBlockTiles");
+    RUN_ANIM_TEST(test_animate_tiles_dispatcher, "AnimateTilesDispatcher");
+    RUN_ANIM_TEST(test_increment_animated_tiles_data_offset, "IncrementAnimatedTilesDataOffset");
+    RUN_ANIM_TEST(test_skip_tiles_group_animation, "SkipTilesGroupAnimation");
+    RUN_ANIM_TEST(test_load_animated_tiles_frame, "LoadAnimatedTilesFrame");
+    RUN_ANIM_TEST(test_animate_counter_tiles_group, "AnimateCounterTilesGroup");
+    RUN_ANIM_TEST(test_slow_speed_tile_groups, "SlowSpeedAnimatedTileGroups");
+    RUN_ANIM_TEST(test_medium_and_fast_speed_tile_groups, "MediumAndFastSpeedAnimatedTileGroups");
+    RUN_ANIM_TEST(test_dungeon1_and_lava_tiles_groups, "Dungeon1AndLavaTileGroups");
+    RUN_ANIM_TEST(test_dungeon2_and_label_1cb8, "Dungeon2AndLabel1CB8");
+    RUN_ANIM_TEST(test_animate_photo_tiles_group, "AnimatePhotoTilesGroup");
+    RUN_ANIM_TEST(test_copy_link_tiles_pair, "CopyLinkTilesPair");
+    RUN_ANIM_TEST(test_animate_marin_beach_tiles, "AnimateMarinBeachTiles");
 
     if (failures == 0) {
-        printf("  [PASS] All animated_tiles.asm functions verified successfully!\n");
+        printf("[PASS] Animated Tiles\n\n");
     } else {
-        printf("  [FAIL] %d animated_tiles test(s) failed.\n", failures);
+        printf("[FAIL] Animated Tiles (%d failures)\n\n", failures);
         exit(1);
     }
 }

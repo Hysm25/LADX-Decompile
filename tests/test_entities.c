@@ -12,7 +12,6 @@
 #include "constants/dialog.h"
 
 void test_is_zero(void) {
-    printf("[*] Running IsZero tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -25,7 +24,6 @@ void test_is_zero(void) {
 }
 
 void test_entity_countdowns(void) {
-    printf("[*] Running Entity Countdown tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -78,7 +76,6 @@ static uint16_t mock_spawn_trampoline_wrapper(GBState *gb, uint8_t entity_type) 
 }
 
 void test_create_trading_item_entity(void) {
-    printf("[*] Running CreateTradingItemEntity tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -97,7 +94,6 @@ void test_create_trading_item_entity(void) {
 }
 
 void test_spawn_entity_trampolines(void) {
-    printf("[*] Running SpawnNewEntity trampolines tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -128,7 +124,6 @@ static void mock_animate_entities(GBState *gb) {
 }
 
 void test_animate_entities_trampolines(void) {
-    printf("[*] Running AnimateEntities trampolines tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -182,7 +177,6 @@ static void mock_cb_01(GBState *gb) {
 }
 
 static void test_entities_batch_trampolines(void) {
-    printf("[*] Running Bank 0 entities helper & trampoline tests (00:3925-00:3988)...\n");
 
     GBState gb;
 
@@ -269,7 +263,6 @@ static void mock_cb_02(GBState *gb) {
 }
 
 static void test_entities_batch_hitbox_and_collision_trampolines(void) {
-    printf("[*] Running Bank 0 entities hitbox, state, and collision trampolines (00:3AEA-00:3BBF)...\n");
 
     GBState gb;
 
@@ -456,7 +449,6 @@ static void mock_handler_dispatch(GBState *gb, uint8_t bank, uint16_t addr) {
 }
 
 static void test_animate_entities_pipeline(void) {
-    printf("[*] Running AnimateEntities pipeline tests (00:398D-00:3A8D, 00:3D7F-00:3D8A)...\n");
 
     GBState gb;
 
@@ -598,7 +590,6 @@ static void mock_func_015_7995(GBState *gb, uint16_t entity_index) {
 }
 
 static void test_entity_rendering_routines(void) {
-    printf("[*] Running Entity rendering and sprite routines (00:3BC0-00:3D57, 00:3DA0)...\n");
 
     GBState gb;
 
@@ -797,7 +788,6 @@ static void mock_give_item(GBState *gb, uint8_t item) {
 }
 
 static void test_boss_and_entity_init_trampolines(void) {
-    printf("[*] Running Boss & entity init trampolines and UnloadAllEntities (00:3DAB-00:3E8D)...\n");
 
     GBState gb;
 
@@ -999,7 +989,6 @@ static void mock_open_dialog(GBState *gb, uint8_t dialog_id) {
 }
 
 static void test_recoil_and_kill_enemy_routines(void) {
-    printf("[*] Running Recoil, BossIntro, and DidKillEnemy routines (00:3E8E-00:3F92)...\n");
 
     GBState gb;
 
@@ -1153,7 +1142,6 @@ static void mock_prepare_entity_pos(GBState *gb, uint8_t slot) {
 }
 
 static void test_load_entity_from_definition_and_room(void) {
-    printf("[*] Running LoadEntityFromDefinition and LoadRoomEntities tests (00:37FE, 00:3883)...\n");
 
     GBState gb;
 
@@ -1269,18 +1257,26 @@ static void test_load_entity_from_definition_and_room(void) {
     assert(gb.rom_bank == 1);
 }
 
+#define RUN_ENTITY_TEST(fn, name) \
+    do { \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        printf("[PASS] %s\n", name); \
+    } while (0)
+
 void run_entities_tests(void) {
-    test_load_entity_from_definition_and_room();
-    test_is_zero();
-    test_entity_countdowns();
-    test_create_trading_item_entity();
-    test_spawn_entity_trampolines();
-    test_animate_entities_trampolines();
-    test_entities_batch_trampolines();
-    test_entities_batch_hitbox_and_collision_trampolines();
-    test_animate_entities_pipeline();
-    test_entity_rendering_routines();
-    test_boss_and_entity_init_trampolines();
-    test_recoil_and_kill_enemy_routines();
-    printf("  [PASS] All entities.asm functions verified successfully!\n\n");
+    printf("[TEST] Entities (Bank 0)\n");
+    RUN_ENTITY_TEST(test_load_entity_from_definition_and_room, "LoadEntityFromDefinitionAndRoom");
+    RUN_ENTITY_TEST(test_is_zero, "IsZero");
+    RUN_ENTITY_TEST(test_entity_countdowns, "EntityCountdowns");
+    RUN_ENTITY_TEST(test_create_trading_item_entity, "CreateTradingItemEntity");
+    RUN_ENTITY_TEST(test_spawn_entity_trampolines, "SpawnEntityTrampolines");
+    RUN_ENTITY_TEST(test_animate_entities_trampolines, "AnimateEntitiesTrampolines");
+    RUN_ENTITY_TEST(test_entities_batch_trampolines, "EntitiesBatchTrampolines");
+    RUN_ENTITY_TEST(test_entities_batch_hitbox_and_collision_trampolines, "HitboxAndCollisionTrampolines");
+    RUN_ENTITY_TEST(test_animate_entities_pipeline, "AnimateEntitiesPipeline");
+    RUN_ENTITY_TEST(test_entity_rendering_routines, "EntityRenderingRoutines");
+    RUN_ENTITY_TEST(test_boss_and_entity_init_trampolines, "BossAndEntityInitTrampolines");
+    RUN_ENTITY_TEST(test_recoil_and_kill_enemy_routines, "RecoilAndKillEnemyRoutines");
+    printf("[PASS] Entities (Bank 0)\n\n");
 }

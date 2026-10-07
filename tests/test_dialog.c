@@ -16,7 +16,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -495,14 +495,28 @@ static void test_dialog_scrolling_and_character_rendering(void) {
     TEST_ASSERT(gb_read(&gb, hWaveSfx) == WAVE_SFX_TEXT_PRINT, "Text print SFX not triggered");
 }
 
+#define RUN_DIALOG_TEST(fn, name) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_dialog_tests(void) {
-    printf("[*] Running Dialog lookup tests...\n");
-    test_dialog_lookups();
-    test_dialog_state_machine();
-    test_execute_and_choice_routines();
-    test_dialog_scrolling_and_character_rendering();
+    printf("[TEST] Dialog\n");
+    RUN_DIALOG_TEST(test_dialog_lookups, "DialogLookups");
+    RUN_DIALOG_TEST(test_dialog_state_machine, "DialogStateMachine");
+    RUN_DIALOG_TEST(test_execute_and_choice_routines, "DialogExecuteAndChoice");
+    RUN_DIALOG_TEST(test_dialog_scrolling_and_character_rendering, "DialogScrollingAndRendering");
 
     if (failures == 0) {
-        printf("  [PASS] All dialog.asm functions verified successfully!\n\n");
+        printf("[PASS] Dialog\n\n");
+    } else {
+        printf("[FAIL] Dialog (%d failures)\n\n", failures);
     }
 }

@@ -12,7 +12,6 @@
 #include <stdio.h>
 
 void test_marin_beach_subsystem(void) {
-    printf("[*] Running Marin Beach cinematic subsystem tests (01:61F0-01:67ED)...\n");
     GBState gb;
 
     /* Test 1: MarinBeachPrepare0 */

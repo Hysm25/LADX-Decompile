@@ -12,7 +12,6 @@
 #include <stdio.h>
 
 void test_face_shrine_mural_subsystem(void) {
-    printf("[*] Running Face Shrine Mural subsystem tests (01:6AF8-01:6BA7)...\n");
     GBState gb;
 
     /* Test 1: FaceShrineMuralStage0Handler CGB */

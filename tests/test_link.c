@@ -15,7 +15,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -681,74 +681,45 @@ static void test_label_1f69_interactive_motion(void) {
     TEST_ASSERT(mock_5795_called, "func_5795 not called on lift completion");
 }
 
+#define RUN_LINK_TEST(fn, name) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_link_tests(void) {
-    printf("[*] Running ComputeLinkPosition and UpdateFinalLinkPosition tests...\n");
-    test_compute_link_position();
-
-    printf("[*] Running func_21E1 (Z velocity integration) tests...\n");
-    test_func_21e1_z_velocity();
-
-    printf("[*] Running label_2183 and func_2165 tests...\n");
-    test_label_2183_and_func_2165();
-
-    printf("[*] Running label_1F69 interactive motion and lifting tests...\n");
-    test_label_1f69_interactive_motion();
-    printf("[*] Running disableMovementInTransition and playNoiseStairs tests...\n");
-    test_disableMovement_and_playNoiseStairs();
-
-    printf("[*] Running Map Fade-out Transition tests...\n");
-    test_fade_out_transitions();
-
-    printf("[*] Running Link Reset and Position tests...\n");
-    test_resets_and_position();
-
-    printf("[*] Running UpdateLinkWalkingAnimation_trampoline tests...\n");
-    test_update_link_walking_animation_trampoline();
-
-
-    printf("[*] Running ClearLinkPositionIncrement tests...\n");
-    test_clear_link_position_increment();
-
-    printf("[*] Running UsePegasusBoots tests...\n");
-    test_use_pegasus_boots();
-
-    printf("[*] Running DisplayTransientVfxForLinkRunning tests...\n");
-    test_display_transient_vfx_for_link_running();
-
-    printf("[*] Running CheckItemsSwordCollision tests...\n");
-    test_check_items_sword_collision();
-
-    printf("[*] Running CheckStaticSwordCollision tests...\n");
-    test_check_static_sword_collision();
-
-    printf("[*] Running CheckStaticSwordCollision_trampoline tests...\n");
-    test_check_static_sword_collision_trampoline();
-
-
-    printf("[*] Running func_1819 and func_1828 tests...\n");
-    test_func_1819_and_1828();
-
-    printf("[*] Running func_1A22 and func_1A39 tests...\n");
-    test_func_1a22_and_1a39();
-
-    printf("[*] Running ApplyLinkMotionState tests...\n");
-    test_apply_link_motion_state();
-
-    printf("[*] Running SetSpawnLocation and label_19DA tests...\n");
-    test_set_spawn_location_and_label_19da();
-
-    printf("[*] Running LinkMotionMapFadeInHandler tests...\n");
-    test_link_motion_map_fade_in_handler();
-
-    printf("[*] Running LinkMotionMapFadeOutHandler tests...\n");
-    test_link_motion_map_fade_out_handler();
-
-    printf("[*] Running UpdateLinkWalkingAnimation tests...\n");
-    test_update_link_walking_animation();
+    printf("[TEST] Link\n");
+    RUN_LINK_TEST(test_compute_link_position, "ComputeLinkPosition");
+    RUN_LINK_TEST(test_func_21e1_z_velocity, "func_21E1_ZVelocity");
+    RUN_LINK_TEST(test_label_2183_and_func_2165, "label_2183_and_func_2165");
+    RUN_LINK_TEST(test_label_1f69_interactive_motion, "label_1F69_InteractiveMotion");
+    RUN_LINK_TEST(test_disableMovement_and_playNoiseStairs, "disableMovementInTransition");
+    RUN_LINK_TEST(test_fade_out_transitions, "MapFadeOutTransition");
+    RUN_LINK_TEST(test_resets_and_position, "LinkResetAndPosition");
+    RUN_LINK_TEST(test_update_link_walking_animation_trampoline, "UpdateLinkWalkingAnimation_trampoline");
+    RUN_LINK_TEST(test_clear_link_position_increment, "ClearLinkPositionIncrement");
+    RUN_LINK_TEST(test_use_pegasus_boots, "UsePegasusBoots");
+    RUN_LINK_TEST(test_display_transient_vfx_for_link_running, "DisplayTransientVfxForLinkRunning");
+    RUN_LINK_TEST(test_check_items_sword_collision, "CheckItemsSwordCollision");
+    RUN_LINK_TEST(test_check_static_sword_collision, "CheckStaticSwordCollision");
+    RUN_LINK_TEST(test_check_static_sword_collision_trampoline, "CheckStaticSwordCollision_trampoline");
+    RUN_LINK_TEST(test_func_1819_and_1828, "func_1819_and_func_1828");
+    RUN_LINK_TEST(test_func_1a22_and_1a39, "func_1A22_and_func_1A39");
+    RUN_LINK_TEST(test_apply_link_motion_state, "ApplyLinkMotionState");
+    RUN_LINK_TEST(test_set_spawn_location_and_label_19da, "SetSpawnLocation_and_label_19DA");
+    RUN_LINK_TEST(test_link_motion_map_fade_in_handler, "LinkMotionMapFadeInHandler");
+    RUN_LINK_TEST(test_link_motion_map_fade_out_handler, "LinkMotionMapFadeOutHandler");
+    RUN_LINK_TEST(test_update_link_walking_animation, "UpdateLinkWalkingAnimation");
 
     if (failures == 0) {
-        printf("  [PASS] All link tests passed.\n");
+        printf("[PASS] Link\n\n");
     } else {
-        printf("  [FAIL] %d link test(s) failed.\n", failures);
+        printf("[FAIL] Link (%d failures)\n\n", failures);
     }
 }

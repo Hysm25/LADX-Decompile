@@ -14,7 +14,6 @@
 #include <stdio.h>
 
 void test_play_validation_jingle(void) {
-    printf("[*] Running PlayValidationJingle tests (01:49BE)...\n");
     GBState gb;
     gb_init(&gb);
     PlayValidationJingle(&gb);
@@ -22,7 +21,6 @@ void test_play_validation_jingle(void) {
 }
 
 void test_func_001_5A59(void) {
-    printf("[*] Running func_001_5A59 tests (01:5A59)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -35,7 +33,6 @@ void test_func_001_5A59(void) {
 }
 
 void test_world_map_states(void) {
-    printf("[*] Running WorldMapState0-4 tests (01:5648-01:570B)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -108,7 +105,6 @@ void test_world_map_states(void) {
 }
 
 void test_move_select_and_jingle(void) {
-    printf("[*] Running MoveSelect and playMoveSelectionJingle tests (01:6BA8, 01:6BAE)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -126,7 +122,6 @@ void test_move_select_and_jingle(void) {
 }
 
 void test_label_001_5B3F(void) {
-    printf("[*] Running label_001_5B3F tests (01:5B3F)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -163,7 +158,6 @@ void test_label_001_5B3F(void) {
 }
 
 void test_func_001_5A71(void) {
-    printf("[*] Running func_001_5A71 tests (01:5A71)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -216,7 +210,6 @@ void test_func_001_5A71(void) {
 }
 
 void test_func_001_5C49_and_5C55(void) {
-    printf("[*] Running func_001_5C49 and func_001_5C55 tests (01:5C49, 01:5C55)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -246,7 +239,6 @@ void test_func_001_5C49_and_5C55(void) {
 }
 
 void test_world_map_interactive_and_entry_point(void) {
-    printf("[*] Running WorldMapInteractiveHandler and WorldMapEntryPoint tests (01:571C, 01:5626)...\n");
     GBState gb;
     gb_init(&gb);
 

@@ -50,11 +50,11 @@ int main(void) {
 
     printf("========================================\n");
     if (total_failures == 0) {
-        printf("ALL TESTS PASSED SUCCESSFULLY!\n");
+        printf("[PASS] ALL TESTS PASSED\n");
         printf("========================================\n");
         return 0;
     } else {
-        printf("FAILED: %d test(s) failed!\n", total_failures);
+        printf("[FAIL] %d TEST(S) FAILED\n", total_failures);
         printf("========================================\n");
         return 1;
     }

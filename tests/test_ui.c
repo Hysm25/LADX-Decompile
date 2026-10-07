@@ -12,7 +12,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -226,18 +226,30 @@ static void test_load_dungeon_minimap_tiles(void) {
     }
 }
 
-void run_ui_tests(void) {
-    printf("[*] Running Piece-of-Heart meter UI tests...\n");
-    test_copy_tiles_to_piece_of_heart_meter();
-    test_load_piece_of_heart_meter_tiles();
-    test_clear_piece_of_heart_meter_tiles();
+#define RUN_UI_TEST(name, code) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        code; \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
 
-    printf("[*] Running LoadDungeonMinimapTiles tests...\n");
-    test_load_dungeon_minimap_tiles();
+void run_ui_tests(void) {
+    printf("[TEST] UI\n");
+    RUN_UI_TEST("PieceOfHeartMeter", {
+        test_copy_tiles_to_piece_of_heart_meter();
+        test_load_piece_of_heart_meter_tiles();
+        test_clear_piece_of_heart_meter_tiles();
+    });
+    RUN_UI_TEST("LoadDungeonMinimapTiles", test_load_dungeon_minimap_tiles());
 
     if (failures == 0) {
-        printf("  [PASS] All UI tests passed successfully.\n\n");
+        printf("[PASS] UI\n\n");
     } else {
-        printf("  [FAIL] %d UI test(s) failed.\n\n", failures);
+        printf("[FAIL] UI (%d failures)\n\n", failures);
     }
 }

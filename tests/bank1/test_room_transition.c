@@ -31,7 +31,6 @@ static void mock_func_01F_4003(GBState *gb) {
 }
 
 void test_prepare_entity_position_for_room_transition(void) {
-    printf("[*] Running PrepareEntityPositionForRoomTransition tests (01:5EAB)...\n");
     GBState gb;
 
     /* Direction: RIGHT (0). off_x = 0xA0, sign_x = 0x00, off_y = 0x00, sign_y = 0x00 */
@@ -82,7 +81,6 @@ void test_prepare_entity_position_for_room_transition(void) {
 }
 
 void test_update_recent_rooms_list(void) {
-    printf("[*] Running UpdateRecentRoomsList tests (01:5F02)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -118,7 +116,6 @@ void test_update_recent_rooms_list(void) {
 }
 
 void test_hide_all_sprites(void) {
-    printf("[*] Running HideAllSprites tests (01:5F2E)...\n");
     GBState gb;
 
     /* DMG */
@@ -141,7 +138,6 @@ void test_hide_all_sprites(void) {
 }
 
 void test_hide_sprites(void) {
-    printf("[*] Running HideSprites and HideSpritesUnderDialog tests (01:5F4B, 01:5F68)...\n");
     GBState gb;
 
     /* 1. Inventory appearing */
@@ -192,7 +188,6 @@ void test_hide_sprites(void) {
 }
 
 void test_synchronize_dungeons_item_flags(void) {
-    printf("[*] Running SynchronizeDungeonsItemFlags tests (01:5E67)...\n");
     GBState gb;
 
     /* 1. Overworld -> does nothing */
@@ -237,7 +232,6 @@ void test_synchronize_dungeons_item_flags(void) {
 }
 
 void test_create_following_npc_entity(void) {
-    printf("[*] Running CreateFollowingNpcEntity tests (01:5FB3)...\n");
     GBState gb;
 
     /* 1. Indoor exclusions */
@@ -329,7 +323,6 @@ void test_create_following_npc_entity(void) {
 }
 
 void test_func_001_6162(void) {
-    printf("[*] Running func_001_6162 tests (01:6162)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -367,7 +360,6 @@ void test_func_001_6162(void) {
 }
 
 void test_load_counter_animated_tiles(void) {
-    printf("[*] Running LoadCounterAnimatedTiles tests (01:61AA)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -396,7 +388,6 @@ void test_load_counter_animated_tiles(void) {
 }
 
 void test_open_dungeon_name_dialog(void) {
-    printf("[*] Running OpenDungeonNameDialog tests (01:61EE)...\n");
     GBState gb;
 
     /* 1. Motion state not default */
@@ -425,7 +416,6 @@ void test_open_dungeon_name_dialog(void) {
 }
 
 void test_load_tileset_0f_and_attributes(void) {
-    printf("[*] Running LoadTileset0F & func_001_6D11 tests (01:6CE3, 01:6D11)...\n");
     GBState gb;
 
     /* 1. DMG mode: fills checkerboard in bank 0, does not touch bank 1 attributes */
@@ -473,7 +463,6 @@ void test_load_tileset_0f_and_attributes(void) {
 }
 
 void test_write_dma_code_to_hram(void) {
-    printf("[*] Running WriteDMACodeToHRAM tests (01:6D32)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -488,7 +477,6 @@ void test_write_dma_code_to_hram(void) {
 }
 
 void test_update_minimap_entrance_arrow(void) {
-    printf("[*] Running UpdateMinimapEntranceArrowAndReturn tests (01:6DEA)...\n");
     GBState gb;
 
     /* 1. ROM_DebugTool2 enabled -> returns */
@@ -533,7 +521,6 @@ void test_update_minimap_entrance_arrow(void) {
 }
 
 void test_increment_gameplay_subtype(void) {
-    printf("[*] Running IncrementGameplaySubtype tests (01:44D6)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -546,7 +533,6 @@ void test_increment_gameplay_subtype(void) {
 }
 
 void test_func_001_5888(void) {
-    printf("[*] Running func_001_5888 tests (01:5888)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -566,7 +552,6 @@ void test_func_001_5888(void) {
 }
 
 void test_initialize_inventory_bar(void) {
-    printf("[*] Running InitializeInventoryBar tests (01:5895)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -579,7 +564,6 @@ void test_initialize_inventory_bar(void) {
 }
 
 void test_func_001_58A8(void) {
-    printf("[*] Running func_001_58A8 tests (01:58A8)...\n");
     GBState gb;
 
     /* 1. DMG mode */
@@ -612,7 +596,6 @@ void test_func_001_58A8(void) {
 }
 
 void test_peach_picture_state_2(void) {
-    printf("[*] Running PeachPictureState2Handler tests (01:6856)...\n");
     GBState gb;
 
     /* 1. Eagles Tower */
@@ -646,7 +629,6 @@ void test_peach_picture_state_2(void) {
 }
 
 void test_peach_picture_state_3(void) {
-    printf("[*] Running PeachPictureState3Handler tests (01:6873)...\n");
     GBState gb;
 
     /* 1. Eagles Tower Collapse */
@@ -684,7 +666,6 @@ void test_peach_picture_state_3(void) {
 }
 
 void test_func_001_695B(void) {
-    printf("[*] Running func_001_695B tests (01:695B)...\n");
     GBState gb;
 
     /* 1. wD215 == 0 -> returns, shake is 0 */
@@ -708,7 +689,6 @@ void test_func_001_695B(void) {
 }
 
 void test_func_6A7C(void) {
-    printf("[*] Running func_6A7C tests (01:6A7C)...\n");
     GBState gb;
 
     /* 1. Not Eagles Tower -> early return */
@@ -731,7 +711,6 @@ void test_func_6A7C(void) {
 }
 
 void test_peach_picture_state_4(void) {
-    printf("[*] Running PeachPictureState4Handler tests (01:68AA)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -749,7 +728,6 @@ void test_peach_picture_state_4(void) {
 }
 
 void test_peach_picture_state_5_and_68D9(void) {
-    printf("[*] Running PeachPictureState5Handler & func_001_68D9 tests (01:68C0, 01:68D9)...\n");
     GBState gb;
 
     /* 1. Eagles Tower -> immediately sets subtype 7 */
@@ -776,7 +754,6 @@ void test_peach_picture_state_5_and_68D9(void) {
 }
 
 void test_peach_picture_state_7(void) {
-    printf("[*] Running PeachPictureState7Handler tests (01:68E4)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -797,7 +774,6 @@ void test_peach_picture_state_7(void) {
 }
 
 void test_peach_picture_state_8(void) {
-    printf("[*] Running PeachPictureState8Handler tests (01:6908)...\n");
     GBState gb;
     gb_init(&gb);
     gb_write(&gb, hMapId, MAP_TAIL_CAVE);
@@ -831,7 +807,6 @@ void test_peach_picture_state_8(void) {
 }
 
 void test_peach_picture_state_9(void) {
-    printf("[*] Running PeachPictureState9Handler tests (01:6945)...\n");
     GBState gb;
     gb_init(&gb);
     gb_write(&gb, hMapId, MAP_TAIL_CAVE);
@@ -855,7 +830,6 @@ void test_peach_picture_state_9(void) {
 }
 
 void test_file_save_fade_out_and_state_A(void) {
-    printf("[*] Running FileSaveFadeOut & PeachPictureStateAHandler tests (01:5822, 01:5825)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -891,7 +865,6 @@ void test_file_save_fade_out_and_state_A(void) {
 }
 
 void test_peach_picture_state_0_and_1(void) {
-    printf("[*] Running PeachPictureState0Handler & 1 tests (01:6808, 01:6829)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -920,7 +893,6 @@ void test_peach_picture_state_0_and_1(void) {
 }
 
 void test_peach_picture_entry_point(void) {
-    printf("[*] Running PeachPictureEntryPoint tests (01:67EE)...\n");
     GBState gb;
     gb_init(&gb);
 

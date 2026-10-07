@@ -16,7 +16,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -482,57 +482,40 @@ static void test_use_sword(void) {
     TEST_ASSERT(gb_read(&gb, wEntitiesTypeTable) == ENTITY_SWORD_BEAM, "Sword beam not spawned on full health L2 sword");
 }
 
+#define RUN_CHECK_ITEMS_TEST(fn, name) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_check_items_to_use_tests(void) {
-    printf("[*] Running SetShieldVals tests...\n");
-    test_set_shield_vals();
-
-    printf("[*] Running HoldSwordIfNeeded tests...\n");
-    test_hold_sword_if_needed();
-
-    printf("[*] Running UseShield tests...\n");
-    test_use_shield();
-
-    printf("[*] Running UseShovel tests...\n");
-    test_use_shovel();
-
-    printf("[*] Running UseHookshot tests...\n");
-    test_use_hookshot();
-
-    printf("[*] Running UseMagicRod tests...\n");
-    test_use_magic_rod();
-
-    printf("[*] Running PlaceBomb tests...\n");
-    test_place_bomb();
-
-    printf("[*] Running CheckItemsToUse tests...\n");
-    test_check_items_to_use();
-
-
-    printf("[*] Running UsePowerBracelet tests...\n");
-    test_use_power_bracelet();
-
-    printf("[*] Running UseBoomerang tests...\n");
-    test_use_boomerang();
-
-    printf("[*] Running SpawnPlayerProjectile tests...\n");
-    test_spawn_player_projectile();
-
-    printf("[*] Running ShootArrow tests...\n");
-    test_shoot_arrow();
-
-    printf("[*] Running UseMagicPowder tests...\n");
-    test_use_magic_powder();
-
-    printf("[*] Running UseRocsFeather tests...\n");
-    test_use_rocs_feather();
-
-    printf("[*] Running UpdateLinkDirectionFromJoypad tests...\n");
-    test_update_link_direction_from_joypad();
-
-    printf("[*] Running UseSword tests...\n");
-    test_use_sword();
+    printf("[TEST] Check Items To Use\n");
+    RUN_CHECK_ITEMS_TEST(test_set_shield_vals, "SetShieldVals");
+    RUN_CHECK_ITEMS_TEST(test_hold_sword_if_needed, "HoldSwordIfNeeded");
+    RUN_CHECK_ITEMS_TEST(test_use_shield, "UseShield");
+    RUN_CHECK_ITEMS_TEST(test_use_shovel, "UseShovel");
+    RUN_CHECK_ITEMS_TEST(test_use_hookshot, "UseHookshot");
+    RUN_CHECK_ITEMS_TEST(test_use_magic_rod, "UseMagicRod");
+    RUN_CHECK_ITEMS_TEST(test_place_bomb, "PlaceBomb");
+    RUN_CHECK_ITEMS_TEST(test_check_items_to_use, "CheckItemsToUse");
+    RUN_CHECK_ITEMS_TEST(test_use_power_bracelet, "UsePowerBracelet");
+    RUN_CHECK_ITEMS_TEST(test_use_boomerang, "UseBoomerang");
+    RUN_CHECK_ITEMS_TEST(test_spawn_player_projectile, "SpawnPlayerProjectile");
+    RUN_CHECK_ITEMS_TEST(test_shoot_arrow, "ShootArrow");
+    RUN_CHECK_ITEMS_TEST(test_use_magic_powder, "UseMagicPowder");
+    RUN_CHECK_ITEMS_TEST(test_use_rocs_feather, "UseRocsFeather");
+    RUN_CHECK_ITEMS_TEST(test_update_link_direction_from_joypad, "UpdateLinkDirectionFromJoypad");
+    RUN_CHECK_ITEMS_TEST(test_use_sword, "UseSword");
 
     if (failures == 0) {
-        printf("  [PASS] All check_items_to_use.asm routines verified successfully!\n\n");
+        printf("[PASS] Check Items To Use\n\n");
+    } else {
+        printf("[FAIL] Check Items To Use (%d failures)\n\n", failures);
     }
 }

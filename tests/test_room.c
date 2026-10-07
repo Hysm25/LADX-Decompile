@@ -16,7 +16,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("FAIL: %s at %s:%d\n", msg, __FILE__, __LINE__); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -1179,33 +1179,38 @@ static void test_update_bg_region(void) {
     TEST_ASSERT(gb.rom_bank == 0x04, "ROM bank not restored to 0x04 after UpdateBGRegion");
 }
 
+#define RUN_ROOM_TEST(name, code) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        code; \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_room_tests(void) {
-    printf("[*] Running UpdateBGRegion and room transition BG update tests...\n");
-    test_update_bg_region();
-    printf("[*] Running PadRoomObjectsArea and LoadRoom tests...\n");
-    test_pad_room_objects_area();
-    test_load_room();
-
-    printf("[*] Running LoadRoomObject tests...\n");
-    test_load_room_object();
-
-    printf("[*] Running Indoor doors tests...\n");
-    test_indoor_doors();
-
-    printf("[*] Running Room objects and macros tests...\n");
-    test_room_objects_and_macros();
-
-    printf("[*] Running MarkTriggerAsResolved tests...\n");
-    test_mark_trigger_as_resolved();
-
-    printf("[*] Running SelectRoomTilesets tests...\n");
-    test_select_room_tilesets_overworld();
-    test_select_room_tilesets_special_cases();
-
-    printf("[*] Running Room trampolines and physics tests...\n");
-    test_room_trampolines_and_physics();
+    printf("[TEST] Room\n");
+    RUN_ROOM_TEST("UpdateBGRegion", test_update_bg_region());
+    RUN_ROOM_TEST("PadRoomObjectsAreaAndLoadRoom", {
+        test_pad_room_objects_area();
+        test_load_room();
+    });
+    RUN_ROOM_TEST("LoadRoomObject", test_load_room_object());
+    RUN_ROOM_TEST("IndoorDoors", test_indoor_doors());
+    RUN_ROOM_TEST("RoomObjectsAndMacros", test_room_objects_and_macros());
+    RUN_ROOM_TEST("MarkTriggerAsResolved", test_mark_trigger_as_resolved());
+    RUN_ROOM_TEST("SelectRoomTilesets", {
+        test_select_room_tilesets_overworld();
+        test_select_room_tilesets_special_cases();
+    });
+    RUN_ROOM_TEST("RoomTrampolinesAndPhysics", test_room_trampolines_and_physics());
 
     if (failures == 0) {
-        printf("  [PASS] All room.asm functions verified successfully!\n\n");
+        printf("[PASS] Room\n\n");
+    } else {
+        printf("[FAIL] Room (%d failures)\n\n", failures);
     }
 }

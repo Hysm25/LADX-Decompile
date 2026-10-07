@@ -8,7 +8,6 @@
 #include "constants/sfx.h"
 
 void test_play_wrong_answer_jingle(void) {
-    printf("[*] Running PlayWrongAnswerJingle tests...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -18,7 +17,6 @@ void test_play_wrong_answer_jingle(void) {
 }
 
 void test_alert_sword_moblins(void) {
-    printf("[*] Running AlertSwordMoblins tests...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -28,7 +26,6 @@ void test_alert_sword_moblins(void) {
 }
 
 void test_play_bomb_explosion_sfx(void) {
-    printf("[*] Running PlayBombExplosionSfx tests...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -61,7 +58,6 @@ static void mock_play_music_1e(GBState *gb) {
 }
 
 void test_play_audio_step(void) {
-    printf("[*] Running PlayAudioStep tests...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -122,7 +118,6 @@ static void mock_func_1f(GBState *gb) {
 }
 
 void test_music_fade_and_track_routines(void) {
-    printf("[*] Running SetWorldMusicTrack & fade tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -171,7 +166,6 @@ static void mock_boomerang_sfx(GBState *gb) {
 }
 
 void test_play_boomerang_sfx_trampoline(void) {
-    printf("[*] Running PlayBoomerangSfx_trampoline tests...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -185,12 +179,20 @@ void test_play_boomerang_sfx_trampoline(void) {
     assert(gb.rom_bank == 0x07);
 }
 
+#define RUN_AUDIO_TEST(fn, name) \
+    do { \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        printf("[PASS] %s\n", name); \
+    } while (0)
+
 void run_audio_tests(void) {
-    test_play_wrong_answer_jingle();
-    test_alert_sword_moblins();
-    test_play_bomb_explosion_sfx();
-    test_play_audio_step();
-    test_music_fade_and_track_routines();
-    test_play_boomerang_sfx_trampoline();
-    printf("  [PASS] All audio.asm functions verified successfully!\n\n");
+    printf("[TEST] Audio\n");
+    RUN_AUDIO_TEST(test_play_wrong_answer_jingle, "PlayWrongAnswerJingle");
+    RUN_AUDIO_TEST(test_alert_sword_moblins, "AlertSwordMoblins");
+    RUN_AUDIO_TEST(test_play_bomb_explosion_sfx, "PlayBombExplosionSfx");
+    RUN_AUDIO_TEST(test_play_audio_step, "PlayAudioStep");
+    RUN_AUDIO_TEST(test_music_fade_and_track_routines, "SetWorldMusicTrackAndFade");
+    RUN_AUDIO_TEST(test_play_boomerang_sfx_trampoline, "PlayBoomerangSfxTrampoline");
+    printf("[PASS] Audio\n\n");
 }

@@ -22,7 +22,6 @@
 
 /* Test ApplyRoomTransition (02:78E8-02:79D9) - Early return when NONE */
 void test_ApplyRoomTransition_None(void) {
-    printf("Testing ApplyRoomTransition (NONE state)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -37,12 +36,10 @@ void test_ApplyRoomTransition_None(void) {
     assert(g_mock_set_world_music_calls == 0);
     assert(g_mock_clear_link_pos_calls == 0);
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyRoomTransition - Dispatch to state 1 (Prepare) */
 void test_ApplyRoomTransition_DispatchPrepare(void) {
-    printf("Testing ApplyRoomTransition (dispatch Prepare)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -54,12 +51,10 @@ void test_ApplyRoomTransition_DispatchPrepare(void) {
     /* Should dispatch to Prepare handler, which increments state to 2 */
     assert(gb_read(&gb, wRoomTransitionState) == ROOM_TRANSITION_LOAD_SPRITES);
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyRoomTransition - Scroll offset application */
 void test_ApplyRoomTransition_ScrollOffset(void) {
-    printf("Testing ApplyRoomTransition (scroll offset)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -81,12 +76,10 @@ void test_ApplyRoomTransition_ScrollOffset(void) {
     assert(gb_read_hram(&gb, hLinkSpeedX) == 0xC6); /* RoomTransitionLinkXIncrement[RIGHT] */
     assert(gb_read_hram(&gb, hLinkSpeedY) == 0x00);
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyRoomTransition - Target reached completion */
 void test_ApplyRoomTransition_TargetReached(void) {
-    printf("Testing ApplyRoomTransition (target reached)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -138,12 +131,10 @@ ApplyRoomTransition(&gb, mock_bg_collision, mock_create_following_npc,
     /* Clear link position increment called */
     assert(g_mock_clear_link_pos_calls == 1);
 
-    printf("  PASSED\n");
 }
 
 /* Test ApplyRoomTransition - Bottom direction ledge jump */
 void test_ApplyRoomTransition_BottomLedge(void) {
-    printf("Testing ApplyRoomTransition (bottom direction ledge)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -164,12 +155,10 @@ void test_ApplyRoomTransition_BottomLedge(void) {
     /* Should call bg collision */
     assert(g_mock_bg_collision_calls == 1);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionPrepareHandler (02:79FA-02:7ADB) - Indoor room increment */
 void test_RoomTransitionPrepareHandler_Indoor(void) {
-    printf("Testing RoomTransitionPrepareHandler (indoor)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -196,12 +185,10 @@ void test_RoomTransitionPrepareHandler_Indoor(void) {
     /* Room load called */
     assert(g_mock_load_room_calls == 1);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionPrepareHandler - Face Shrine room $1D hack */
 void test_RoomTransitionPrepareHandler_FaceShrineHack(void) {
-    printf("Testing RoomTransitionPrepareHandler (Face Shrine hack)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -218,12 +205,10 @@ void test_RoomTransitionPrepareHandler_FaceShrineHack(void) {
      * 0x35 + 0xF8 = 0x2D */
     assert(gb_read(&gb, wIndoorRoom) == 0x2D);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionPrepareHandler - Overworld Mysterious Woods lost */
 void test_RoomTransitionPrepareHandler_MysteriousWoods(void) {
-    printf("Testing RoomTransitionPrepareHandler (Mysterious Woods)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -240,12 +225,10 @@ void test_RoomTransitionPrepareHandler_MysteriousWoods(void) {
     /* Should set forest lost jingle */
     assert(gb_read(&gb, wNextJingle) == JINGLE_FOREST_LOST);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionPrepareHandler - Tail Cave key room visited */
 void test_RoomTransitionPrepareHandler_TailCaveKey(void) {
-    printf("Testing RoomTransitionPrepareHandler (Tail Cave key)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -265,12 +248,10 @@ void test_RoomTransitionPrepareHandler_TailCaveKey(void) {
     /* Should set puzzle solved jingle */
     assert(gb_read(&gb, wNextJingle) == JINGLE_PUZZLE_SOLVED);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionLoadTiles (02:7B3E-02:7B4B) */
 void test_RoomTransitionLoadTiles(void) {
-    printf("Testing RoomTransitionLoadTiles...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -288,12 +269,10 @@ void test_RoomTransitionLoadTiles(void) {
     /* State should increment */
     assert(gb_read(&gb, wRoomTransitionState) == 4);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionConfigureScrollTargets (02:7B7F-02:7BFC) */
 void test_RoomTransitionConfigureScrollTargets(void) {
-    printf("Testing RoomTransitionConfigureScrollTargets...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -335,12 +314,10 @@ void test_RoomTransitionConfigureScrollTargets(void) {
     /* State incremented */
     assert(gb_read(&gb, wRoomTransitionState) == 5);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionConfigureScrollTargets - Early return when switch block needs update */
 void test_RoomTransitionConfigureScrollTargets_SwitchBlock(void) {
-    printf("Testing RoomTransitionConfigureScrollTargets (switch block)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -353,12 +330,10 @@ void test_RoomTransitionConfigureScrollTargets_SwitchBlock(void) {
     /* Should return early, state NOT incremented */
     assert(gb_read(&gb, wRoomTransitionState) == 4);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionFirstHalfHandler (02:7C00-02:7C02) */
 void test_RoomTransitionFirstHalfHandler(void) {
-    printf("Testing RoomTransitionFirstHalfHandler...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -369,12 +344,10 @@ void test_RoomTransitionFirstHalfHandler(void) {
     /* Should call update_bg_region */
     assert(g_mock_update_bg_region_calls == 1);
 
-    printf("  PASSED\n");
 }
 
 /* Test RoomTransitionSecondHalfHandler (02:7C03) - No-op */
 void test_RoomTransitionSecondHalfHandler(void) {
-    printf("Testing RoomTransitionSecondHalfHandler...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -382,12 +355,10 @@ void test_RoomTransitionSecondHalfHandler(void) {
     /* Should do nothing */
     RoomTransitionSecondHalfHandler(&gb);
 
-    printf("  PASSED\n");
 }
 
 /* Test label_002_7C14 - Conveyor belt physics (02:7C14-02:7C3F) */
 void test_label_002_7C14(void) {
-    printf("Testing label_002_7C14 (conveyor)...\n");
 
     GBState gb;
     gb_init(&gb);
@@ -434,12 +405,10 @@ void test_label_002_7C14(void) {
     assert(gb_read_hram(&gb, hLinkPositionX) == 0x50);
     assert(gb_read_hram(&gb, hLinkPositionY) == 0x40);
 
-    printf("  PASSED\n");
 }
 
 /* Test label_002_7C50 - Lava/deep water/river rapids (02:7C50-02:7C9E) */
 void test_label_002_7C50(void) {
-    printf("Testing label_002_7C50 (lava/deep water/rapids)...\n");
 
     /* Reset mock counter */
     g_mock_bg_collision_calls = 0;
@@ -494,12 +463,10 @@ void test_label_002_7C50(void) {
     /* Should return early, no collision call */
     assert(g_mock_bg_collision_calls == 0);
 
-    printf("  PASSED\n");
 }
 
 /* Test Data tables */
 void test_RoomTransitionDataTables(void) {
-    printf("Testing RoomTransition data tables...\n");
 
     /* RoomTransitionLinkXIncrement */
     assert(RoomTransitionLinkXIncrement[0] == (int8_t)0xC6); /* right */
@@ -559,7 +526,6 @@ void test_RoomTransitionDataTables(void) {
     assert(Data_002_7C48[5] == (int8_t)0xF4);
     assert(Data_002_7C48[6] == 0x0C);
 
-    printf("  PASSED\n");
 }
 
 void test_bank2_room_transition(void) {
@@ -581,5 +547,4 @@ void test_bank2_room_transition(void) {
     test_label_002_7C50();
     test_RoomTransitionDataTables();
 
-    printf("\nAll Bank 2 room transition tests passed!\n");
 }

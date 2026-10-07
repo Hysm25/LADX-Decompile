@@ -23,7 +23,7 @@
 
 /* Test MasterStalfosDefeated (03:48AD-03:48BE) */
 void test_MasterStalfosDefeated(void) {
-    printf("Testing MasterStalfosDefeated...\n");
+    printf("[RUN ] MasterStalfosDefeated\n");
 
     GBState gb;
     gb_init(&gb);
@@ -38,12 +38,12 @@ void test_MasterStalfosDefeated(void) {
     /* Verify entity unloaded - entity status should be cleared */
     assert(gb_read(&gb, wEntitiesStatusTable + 0x07) == ENTITY_STATUS_DISABLED);
 
-    printf("  PASSED\n");
+    printf("[PASS] MasterStalfosDefeated\n");
 }
 
 /* Test EntityInitHorsePiece (03:4926-03:4931) */
 void test_EntityInitHorsePiece(void) {
-    printf("Testing EntityInitHorsePiece...\n");
+    printf("[RUN ] EntityInitHorsePiece\n");
 
     GBState gb;
     gb_init(&gb);
@@ -64,12 +64,12 @@ void test_EntityInitHorsePiece(void) {
     EntityInitHorsePiece(&gb);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x04) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHorsePiece\n");
 }
 
 /* Test EntityInitMarinAtTalTalHeights (03:4934-03:493C) */
 void test_EntityInitMarinAtTalTalHeights(void) {
-    printf("Testing EntityInitMarinAtTalTalHeights...\n");
+    printf("[RUN ] EntityInitMarinAtTalTalHeights\n");
 
     GBState gb;
     gb_init(&gb);
@@ -82,12 +82,12 @@ void test_EntityInitMarinAtTalTalHeights(void) {
     /* Verify Y position decreased by 3 */
     assert(gb_read(&gb, wEntitiesPosYTable + 0x06) == 0x4D);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitMarinAtTalTalHeights\n");
 }
 
 /* Test EntityInitHandler (03:48B5-03:4923) - Boss defeated check */
 void test_EntityInitHandler_BossDefeated(void) {
-    printf("Testing EntityInitHandler (boss defeated)...\n");
+    printf("[RUN ] EntityInitHandler (boss defeated)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -104,12 +104,12 @@ void test_EntityInitHandler_BossDefeated(void) {
     assert(g_mock_label_27F2_calls == 0);
     assert(g_mock_get_entity_init_handler_calls == 0);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHandler (boss defeated)\n");
 }
 
 /* Test EntityInitHandler - Master Stalfos in non-Master-Stalfos room (defeated) */
 void test_EntityInitHandler_MasterStalfos(void) {
-    printf("Testing EntityInitHandler (Master Stalfos in other room)...\n");
+    printf("[RUN ] EntityInitHandler (Master Stalfos in other room)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -126,12 +126,12 @@ void test_EntityInitHandler_MasterStalfos(void) {
     /* Should unload entity */
     assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_DISABLED);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHandler (Master Stalfos in other room)\n");
 }
 
 /* Test EntityInitHandler - Master Stalfos (non-defeated, in Master Stalfos room) */
 void test_EntityInitHandler_MasterStalfosNonDefeated(void) {
-    printf("Testing EntityInitHandler (Master Stalfos non-defeated)...\n");
+    printf("[RUN ] EntityInitHandler (Master Stalfos non-defeated)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -149,12 +149,12 @@ void test_EntityInitHandler_MasterStalfosNonDefeated(void) {
     assert(gb_read(&gb, wBossIntroDelay) == 0x20);
     assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_ACTIVE);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHandler (Master Stalfos non-defeated)\n");
 }
 
 /* Test EntityInitHandler - Indoor mini-boss */
 void test_EntityInitHandler_IndoorMiniBoss(void) {
-    printf("Testing EntityInitHandler (indoor mini-boss)...\n");
+    printf("[RUN ] EntityInitHandler (indoor mini-boss)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -176,12 +176,12 @@ void test_EntityInitHandler_IndoorMiniBoss(void) {
     /* label_27F2 called directly, not through mock */
     assert(g_mock_get_entity_init_handler_calls == 0);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHandler (indoor mini-boss)\n");
 }
 
 /* Test EntityInitHandler - Normal entity */
 void test_EntityInitHandler_Normal(void) {
-    printf("Testing EntityInitHandler (normal)...\n");
+    printf("[RUN ] EntityInitHandler (normal)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -200,12 +200,12 @@ void test_EntityInitHandler_Normal(void) {
     assert(gb_read(&gb, wBossIntroDelay) == 0x20);
     assert(gb_read(&gb, wEntitiesStatusTable + 0x08) == ENTITY_STATUS_ACTIVE);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHandler (normal)\n");
 }
 
 /* Test EntityInitSouthFaceShrineDoor (03:4B57) */
 void test_EntityInitSouthFaceShrineDoor(void) {
-    printf("Testing EntityInitSouthFaceShrineDoor...\n");
+    printf("[RUN ] EntityInitSouthFaceShrineDoor\n");
 
     GBState gb;
     gb_init(&gb);
@@ -215,12 +215,12 @@ void test_EntityInitSouthFaceShrineDoor(void) {
     /* Verify rIE register set to IEF_STAT | IEF_VBLANK = 0x03 */
     assert(gb_read(&gb, rIE) == 0x03);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitSouthFaceShrineDoor\n");
 }
 
 /* Test EntityInitLeever (03:4B5C) */
 void test_EntityInitLeever(void) {
-    printf("Testing EntityInitLeever...\n");
+    printf("[RUN ] EntityInitLeever\n");
 
     GBState gb;
     gb_init(&gb);
@@ -232,12 +232,12 @@ void test_EntityInitLeever(void) {
     /* Verify sprite variant set to 0xFF */
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0xFF);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitLeever\n");
 }
 
 /* Test EntityInitZora (03:4B61) */
 void test_EntityInitZora(void) {
-    printf("Testing EntityInitZora...\n");
+    printf("[RUN ] EntityInitZora\n");
 
     GBState gb;
     gb_init(&gb);
@@ -291,12 +291,12 @@ void test_EntityInitZora(void) {
     EntityInitZora(&gb);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x03) == 0x03);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitZora\n");
 }
 
 /* Test EntityInitWithRightDirection (03:4B81) */
 void test_EntityInitWithRightDirection(void) {
-    printf("Testing EntityInitWithRightDirection...\n");
+    printf("[RUN ] EntityInitWithRightDirection\n");
 
     GBState gb;
     gb_init(&gb);
@@ -308,12 +308,12 @@ void test_EntityInitWithRightDirection(void) {
     /* Verify direction set to DIRECTION_RIGHT (0) */
     assert(gb_read(&gb, wEntitiesDirectionTable + 0x04) == DIRECTION_RIGHT);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitWithRightDirection\n");
 }
 
 /* Test GetColorDungeonRoomStatus (03:4B84) */
 void test_GetColorDungeonRoomStatus(void) {
-    printf("Testing GetColorDungeonRoomStatus...\n");
+    printf("[RUN ] GetColorDungeonRoomStatus\n");
 
     GBState gb;
     gb_init(&gb);
@@ -325,12 +325,12 @@ void test_GetColorDungeonRoomStatus(void) {
 
     assert(status == 0x42);
 
-    printf("  PASSED\n");
+    printf("[PASS] GetColorDungeonRoomStatus\n");
 }
 
 /* Test EntityInitRotoswitchRed (03:4B8F) */
 void test_EntityInitRotoswitchRed(void) {
-    printf("Testing EntityInitRotoswitchRed...\n");
+    printf("[RUN ] EntityInitRotoswitchRed\n");
 
     GBState gb;
     gb_init(&gb);
@@ -351,12 +351,12 @@ void test_EntityInitRotoswitchRed(void) {
     EntityInitRotoswitchRed(&gb);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x03) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitRotoswitchRed\n");
 }
 
 /* Test EntityInitRotoswitchYellow (03:4B9A) */
 void test_EntityInitRotoswitchYellow(void) {
-    printf("Testing EntityInitRotoswitchYellow...\n");
+    printf("[RUN ] EntityInitRotoswitchYellow\n");
 
     GBState gb;
     gb_init(&gb);
@@ -377,12 +377,12 @@ void test_EntityInitRotoswitchYellow(void) {
     EntityInitRotoswitchYellow(&gb);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x03) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitRotoswitchYellow\n");
 }
 
 /* Test EntityInitRotoswitchBlue (03:4BA6) */
 void test_EntityInitRotoswitchBlue(void) {
-    printf("Testing EntityInitRotoswitchBlue...\n");
+    printf("[RUN ] EntityInitRotoswitchBlue\n");
 
     GBState gb;
     gb_init(&gb);
@@ -404,12 +404,12 @@ void test_EntityInitRotoswitchBlue(void) {
     EntityInitRotoswitchBlue(&gb);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x03) == 0x08);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitRotoswitchBlue\n");
 }
 
 /* Test EntityInitHopper (03:4BB8) */
 void test_EntityInitHopper(void) {
-    printf("Testing EntityInitHopper...\n");
+    printf("[RUN ] EntityInitHopper\n");
 
     GBState gb;
     gb_init(&gb);
@@ -423,12 +423,12 @@ void test_EntityInitHopper(void) {
     assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x10);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHopper\n");
 }
 
 /* Test EntityInitFlyingHopperBombs (03:4BC0) */
 void test_EntityInitFlyingHopperBombs(void) {
-    printf("Testing EntityInitFlyingHopperBombs...\n");
+    printf("[RUN ] EntityInitFlyingHopperBombs\n");
 
     GBState gb;
     gb_init(&gb);
@@ -441,12 +441,12 @@ void test_EntityInitFlyingHopperBombs(void) {
     assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x10);
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitFlyingHopperBombs\n");
 }
 
 /* Test EntityInitHardHitBeetle (03:4BCB) */
 void test_EntityInitHardHitBeetle(void) {
-    printf("Testing EntityInitHardHitBeetle...\n");
+    printf("[RUN ] EntityInitHardHitBeetle\n");
 
     GBState gb;
     gb_init(&gb);
@@ -460,12 +460,12 @@ void test_EntityInitHardHitBeetle(void) {
     assert(gb_read(&gb, wEntitiesHealthTable + 0x02) == 0x10);
     assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x48);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitHardHitBeetle\n");
 }
 
 /* Test EntityInitAvalaunch (03:4BDC) */
 void test_EntityInitAvalaunch(void) {
-    printf("Testing EntityInitAvalaunch...\n");
+    printf("[RUN ] EntityInitAvalaunch\n");
 
     GBState gb;
     gb_init(&gb);
@@ -478,12 +478,12 @@ void test_EntityInitAvalaunch(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x50);
     assert(gb_read(&gb, wEntitiesPrivateState3Table + 0x02) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitAvalaunch\n");
 }
 
 /* Test EntityInitColorGuardianBlue (03:4BEB) */
 void test_EntityInitColorGuardianBlue(void) {
-    printf("Testing EntityInitColorGuardianBlue...\n");
+    printf("[RUN ] EntityInitColorGuardianBlue\n");
 
     GBState gb;
     gb_init(&gb);
@@ -514,12 +514,12 @@ void test_EntityInitColorGuardianBlue(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x3C);
     assert(gb_read(&gb, wEntitiesStateTable + 0x02) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitColorGuardianBlue\n");
 }
 
 /* Test EntityInitColorGuardianRed (03:4C01) */
 void test_EntityInitColorGuardianRed(void) {
-    printf("Testing EntityInitColorGuardianRed...\n");
+    printf("[RUN ] EntityInitColorGuardianRed\n");
 
     GBState gb;
     gb_init(&gb);
@@ -550,12 +550,12 @@ void test_EntityInitColorGuardianRed(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x63);
     assert(gb_read(&gb, wEntitiesStateTable + 0x03) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitColorGuardianRed\n");
 }
 
 /* Test EntityInitColorDungeonBook (03:4C1F) */
 void test_EntityInitColorDungeonBook(void) {
-    printf("Testing EntityInitColorDungeonBook...\n");
+    printf("[RUN ] EntityInitColorDungeonBook\n");
 
     GBState gb;
     gb_init(&gb);
@@ -573,14 +573,14 @@ void test_EntityInitColorDungeonBook(void) {
     assert(gb_read(&gb, wEntitiesPrivateState3Table + 0x02) == 0x00);
     assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x38);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitColorDungeonBook\n");
 }
 
 /* Test EntityInitGiantBuzzBlob (03:4C2D) - tested via EntityInitColorDungeonBook fallthrough */
 /* Note: EntityInitGiantBuzzBlob is the fallthrough of EntityInitColorDungeonBook,
    so it's tested above. But let's add a direct test too. */
 void test_EntityInitGiantBuzzBlob(void) {
-    printf("Testing EntityInitGiantBuzzBlob...\n");
+    printf("[RUN ] EntityInitGiantBuzzBlob\n");
 
     GBState gb;
     gb_init(&gb);
@@ -606,12 +606,12 @@ void test_EntityInitGiantBuzzBlob(void) {
     gb_write(&gb, wEntitiesPosXTable + 0x04, (uint8_t)(0x20 + 0x08));
     assert(gb_read(&gb, wEntitiesPosXTable + 0x04) == 0x28);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitGiantBuzzBlob\n");
 }
 
 /* Test EntityBecomeStunned (03:7267) */
 void test_EntityBecomeStunned(void) {
-    printf("Testing EntityBecomeStunned...\n");
+    printf("[RUN ] EntityBecomeStunned\n");
 
     GBState gb;
     gb_init(&gb);
@@ -628,12 +628,12 @@ void test_EntityBecomeStunned(void) {
     /* Verify speed Z cleared */
     assert(gb_read(&gb, wEntitiesSpeedZTable + 0x03) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityBecomeStunned\n");
 }
 
 /* Test EntityInitWithRandomSpeed (03:4EA8) */
 void test_EntityInitWithRandomSpeed(void) {
-    printf("Testing EntityInitWithRandomSpeed...\n");
+    printf("[RUN ] EntityInitWithRandomSpeed\n");
 
     GBState gb;
     gb_init(&gb);
@@ -651,12 +651,12 @@ void test_EntityInitWithRandomSpeed(void) {
     assert(speed_x == 0x0C || speed_x == 0xF4);
     assert(speed_y == 0x0C || speed_y == 0xF4);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitWithRandomSpeed\n");
 }
 
 /* Test EntityInitSparkClockwise (03:4EC4) */
 void test_EntityInitSparkClockwise(void) {
-    printf("Testing EntityInitSparkClockwise...\n");
+    printf("[RUN ] EntityInitSparkClockwise\n");
 
     GBState gb;
     gb_init(&gb);
@@ -671,12 +671,12 @@ void test_EntityInitSparkClockwise(void) {
     /* Verify Y pos increased by 3 */
     assert(gb_read(&gb, wEntitiesPosYTable + 0x02) == 0x53);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitSparkClockwise\n");
 }
 
 /* Test EntityInitSparkCounterClockwise (03:4ECE) */
 void test_EntityInitSparkCounterClockwise(void) {
-    printf("Testing EntityInitSparkCounterClockwise...\n");
+    printf("[RUN ] EntityInitSparkCounterClockwise\n");
 
     GBState gb;
     gb_init(&gb);
@@ -689,12 +689,12 @@ void test_EntityInitSparkCounterClockwise(void) {
     /* Verify Y pos decreased by 3 (0xFD = -3) */
     assert(gb_read(&gb, wEntitiesPosYTable + 0x02) == 0x4D);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitSparkCounterClockwise\n");
 }
 
 /* Test EntityInitWizrobe (03:4ED7) */
 void test_EntityInitWizrobe(void) {
-    printf("Testing EntityInitWizrobe...\n");
+    printf("[RUN ] EntityInitWizrobe\n");
 
     GBState gb;
     gb_init(&gb);
@@ -710,12 +710,12 @@ void test_EntityInitWizrobe(void) {
     /* Verify sprite variant decremented */
     assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitWizrobe\n");
 }
 
 /* Test EntityInitMoblinSword (03:4EE2) */
 void test_EntityInitMoblinSword(void) {
-    printf("Testing EntityInitMoblinSword...\n");
+    printf("[RUN ] EntityInitMoblinSword\n");
 
     /* Test with X pos bit 4 set -> direction 0 (RIGHT) */
     GBState gb;
@@ -739,12 +739,12 @@ void test_EntityInitMoblinSword(void) {
     /* Direction should be 3 (DOWN) then XOR 1 = 2 */
     assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == 0x02);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitMoblinSword\n");
 }
 
 /* Test EntityInitSecretSeashell (03:4EFB) */
 void test_EntityInitSecretSeashell(void) {
-    printf("Testing EntityInitSecretSeashell...\n");
+    printf("[RUN ] EntityInitSecretSeashell\n");
 
     /* Test 1: Room A4 (tree seashell) */
     GBState gb;
@@ -784,12 +784,12 @@ void test_EntityInitSecretSeashell(void) {
 
     assert(gb_read(&gb, wEntitiesPrivateState3Table + 0x04) == 0x02);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitSecretSeashell\n");
 }
 
 /* Test EntityInitDiggableBushOrPotDroppable (03:4F1E) */
 void test_EntityInitDiggableBushOrPotDroppable(void) {
-    printf("Testing EntityInitDiggableBushOrPotDroppable...\n");
+    printf("[RUN ] EntityInitDiggableBushOrPotDroppable\n");
 
     GBState gb;
     gb_init(&gb);
@@ -804,12 +804,12 @@ void test_EntityInitDiggableBushOrPotDroppable(void) {
     /* Options1 should have NO_GROUND_INTERACTION | NO_WALL_COLLISION set */
     assert((gb_read(&gb, wEntitiesOptions1Table + 0x02) & (ENTITY_OPT1_NO_GROUND_INTERACTION | ENTITY_OPT1_NO_WALL_COLLISION)) != 0);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitDiggableBushOrPotDroppable\n");
 }
 
 /* Test SetHiddenDroppableOptions1 (03:4F24) */
 void test_SetHiddenDroppableOptions1(void) {
-    printf("Testing SetHiddenDroppableOptions1...\n");
+    printf("[RUN ] SetHiddenDroppableOptions1\n");
 
     GBState gb;
     gb_init(&gb);
@@ -822,12 +822,12 @@ void test_SetHiddenDroppableOptions1(void) {
     /* Options1 should have NO_GROUND_INTERACTION | NO_WALL_COLLISION set */
     assert((gb_read(&gb, wEntitiesOptions1Table + 0x02) & (ENTITY_OPT1_NO_GROUND_INTERACTION | ENTITY_OPT1_NO_WALL_COLLISION)) != 0);
 
-    printf("  PASSED\n");
+    printf("[PASS] SetHiddenDroppableOptions1\n");
 }
 
 /* Test EntityInitKeyDropPoint (03:4F2D) */
 void test_EntityInitKeyDropPoint(void) {
-    printf("Testing EntityInitKeyDropPoint...\n");
+    printf("[RUN ] EntityInitKeyDropPoint\n");
 
     /* Test 1: Quicksand cave with room status bit 4 set -> unload */
     GBState gb;
@@ -898,12 +898,12 @@ void test_EntityInitKeyDropPoint(void) {
 
     assert(gb_read(&gb, wEntitiesStatusTable + 0x07) == ENTITY_STATUS_ACTIVE);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitKeyDropPoint\n");
 }
 
 /* Test EntityInitTradingItem (03:4F68) */
 void test_EntityInitTradingItem(void) {
-    printf("Testing EntityInitTradingItem...\n");
+    printf("[RUN ] EntityInitTradingItem\n");
 
     /* Test 1: Has magnifying glass -> shift position */
     GBState gb;
@@ -932,12 +932,12 @@ void test_EntityInitTradingItem(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x50);
     assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0x50);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitTradingItem\n");
 }
 
 /* Test EntityInitWarp (03:4F70) */
 void test_EntityInitWarp(void) {
-    printf("Testing EntityInitWarp...\n");
+    printf("[RUN ] EntityInitWarp\n");
 
     /* Test 1: Not indoors -> return */
     GBState gb;
@@ -968,12 +968,12 @@ void test_EntityInitWarp(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x58);
     assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0x58);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitWarp\n");
 }
 
 /* Test EntityInitTreeOrPotDroppable (03:4F7A) */
 void test_EntityInitTreeOrPotDroppable(void) {
-    printf("Testing EntityInitTreeOrPotDroppable...\n");
+    printf("[RUN ] EntityInitTreeOrPotDroppable\n");
 
     /* Test 1: Indoors -> set slow transition countdown to 0x80 */
     GBState gb;
@@ -1009,12 +1009,12 @@ void test_EntityInitTreeOrPotDroppable(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x58);
     assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0x58);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitTreeOrPotDroppable\n");
 }
 
 /* Test EntityInitWithShiftedXPosition (03:4FA1) */
 void test_EntityInitWithShiftedXPosition(void) {
-    printf("Testing EntityInitWithShiftedXPosition...\n");
+    printf("[RUN ] EntityInitWithShiftedXPosition\n");
 
     GBState gb;
     gb_init(&gb);
@@ -1040,12 +1040,12 @@ void test_EntityInitWithShiftedXPosition(void) {
     assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x04);
     assert(gb_read(&gb, wEntitiesPosXSignTable + 0x03) == 0x01);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitWithShiftedXPosition\n");
 }
 
 /* Test SetDroppableDefaultTimer (03:4FA9) */
 void test_SetDroppableDefaultTimer(void) {
-    printf("Testing SetDroppableDefaultTimer...\n");
+    printf("[RUN ] SetDroppableDefaultTimer\n");
 
     GBState gb;
     gb_init(&gb);
@@ -1057,12 +1057,12 @@ void test_SetDroppableDefaultTimer(void) {
 
     assert(gb_read(&gb, wEntitiesSlowTransitionCountdownTable + 0x02) == 0x80);
 
-    printf("  PASSED\n");
+    printf("[PASS] SetDroppableDefaultTimer\n");
 }
 
 /* Test EntityInitWithCountdown (03:4FAF) */
 void test_EntityInitWithCountdown(void) {
-    printf("Testing EntityInitWithCountdown...\n");
+    printf("[RUN ] EntityInitWithCountdown\n");
 
     GBState gb;
     gb_init(&gb);
@@ -1074,12 +1074,12 @@ void test_EntityInitWithCountdown(void) {
 
     assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + 0x02) == 0xA0);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitWithCountdown\n");
 }
 
 /* Test EntityInitGhini (03:4FB5) */
 void test_EntityInitGhini(void) {
-    printf("Testing EntityInitGhini...\n");
+    printf("[RUN ] EntityInitGhini\n");
 
     /* Test 1: Is Ghini -> set private state 3 to 1, Z pos to 0x10 */
     GBState gb;
@@ -1105,7 +1105,7 @@ void test_EntityInitGhini(void) {
 
     assert(gb_read(&gb, wEntitiesStateTable + 0x03) == 0x01);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityInitGhini\n");
 }
 
 void test_bank3_entities(void) {
@@ -1156,5 +1156,4 @@ void test_bank3_entities(void) {
     test_EntityInitWithCountdown();
     test_EntityInitGhini();
 
-    printf("\nAll Bank 3 entity tests passed!\n");
 }

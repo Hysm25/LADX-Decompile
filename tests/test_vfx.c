@@ -12,7 +12,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -103,13 +103,27 @@ static void test_label_d07(void) {
     TEST_ASSERT(gb_read(&gb, wTranscientVfxPosYTable + slot) == 0x58, "VFX Y mismatch in label_D07");
 }
 
+#define RUN_VFX_TEST(fn, name) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_vfx_tests(void) {
-    printf("[*] Running Transient VFX tests...\n");
-    test_add_transcient_vfx();
-    test_label_d15();
-    test_label_d07();
+    printf("[TEST] Transient VFX\n");
+    RUN_VFX_TEST(test_add_transcient_vfx, "AddTransientVfx");
+    RUN_VFX_TEST(test_label_d15, "label_D15");
+    RUN_VFX_TEST(test_label_d07, "label_D07");
 
     if (failures == 0) {
-        printf("  [PASS] All vfx.asm functions verified successfully!\n\n");
+        printf("[PASS] Transient VFX\n\n");
+    } else {
+        printf("[FAIL] Transient VFX (%d failures)\n\n", failures);
     }
 }

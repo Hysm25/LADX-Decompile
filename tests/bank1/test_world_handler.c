@@ -20,7 +20,6 @@
 #endif
 
 void test_world_handler_subsystem(void) {
-    printf("[*] Running World Handler subsystem tests (01:4371-01:454F, 01:5511-01:5625)...\n");
     GBState gb;
 
     static uint8_t mock_world_rom[0x4000 * 0x25] = {0};

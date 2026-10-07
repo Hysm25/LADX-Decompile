@@ -5,8 +5,6 @@
 #include <assert.h>
 
 void test_lcd_off(void) {
-    printf("[*] Running LCDOff tests...\n");
-
     GBState gb;
     gb_init(&gb);
 
@@ -32,6 +30,9 @@ void test_lcd_off(void) {
 }
 
 void run_lcd_tests(void) {
+    printf("[TEST] LCD\n");
+    printf("[RUN ] LCDOff\n");
     test_lcd_off();
-    printf("  [PASS] All lcd.asm functions verified successfully!\n\n");
+    printf("[PASS] LCDOff\n");
+    printf("[PASS] LCD\n\n");
 }

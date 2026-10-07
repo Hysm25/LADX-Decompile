@@ -14,7 +14,6 @@
 #include <stdio.h>
 
 void test_intro_subsystem(void) {
-    printf("[*] Running Intro cinematic & title subsystem tests (01:6E19-01:7117, 01:7466-01:764E, 01:7D01-01:7D9B)...\n");
     GBState gb;
 
     /* Test 1: IntroHandlerEntryPoint buttons inactive delay */

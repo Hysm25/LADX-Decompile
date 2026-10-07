@@ -11,7 +11,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -598,53 +598,43 @@ static void test_bg_attributes_draw_commands(void) {
     TEST_ASSERT(gb_read(&gb, wDrawCommandVRAM1 + 5) == 0x00, "func_999 terminator wrong");
 }
 
+#define RUN_BANK_TEST(name, code) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        code; \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 int run_bank_tests(void) {
-    printf("[*] Running AdjustBankNumberForGBC tests...\n");
-    test_adjust_bank_number_for_gbc();
-
-    printf("[*] Running SwitchBank tests...\n");
-    test_switch_bank();
-
-    printf("[*] Running SwitchAdjustedBank tests...\n");
-    test_switch_adjusted_bank();
-
-    printf("[*] Running ReloadSavedBank tests...\n");
-    test_reload_saved_bank();
-
-    printf("[*] Running RestoreBankAndReturn tests...\n");
-    test_restore_bank_and_return();
-
-    printf("[*] Running LoadBank1AndReturn tests...\n");
-    test_load_bank1_and_return();
-
-    printf("[*] Running RestoreStackedBankAndReturn tests...\n");
-    test_restore_stacked_bank_and_return();
-
-    printf("[*] Running RestoreStackedBank tests...\n");
-    test_restore_stacked_bank();
-
-    printf("[*] Running Farcall tests...\n");
-    test_farcall();
-
-    printf("[*] Running BackupObjectInRAM2 tests...\n");
-    test_backup_object_in_ram2();
-
-    printf("[*] Running CopyObjectsAttributesToWRAM2 tests...\n");
-    test_copy_objects_attributes_to_wram2();
-
-    printf("[*] Running Bank Trampolines tests...\n");
-    test_bank_trampolines();
-    test_bank_trampolines_batch2();
-    test_bank_trampolines_batch3();
-
-    printf("[*] Running BG Attributes Draw Commands tests...\n");
-    test_bg_attributes_draw_commands();
+    printf("[TEST] Bank Switching\n");
+    RUN_BANK_TEST("AdjustBankNumberForGBC", test_adjust_bank_number_for_gbc());
+    RUN_BANK_TEST("SwitchBank", test_switch_bank());
+    RUN_BANK_TEST("SwitchAdjustedBank", test_switch_adjusted_bank());
+    RUN_BANK_TEST("ReloadSavedBank", test_reload_saved_bank());
+    RUN_BANK_TEST("RestoreBankAndReturn", test_restore_bank_and_return());
+    RUN_BANK_TEST("LoadBank1AndReturn", test_load_bank1_and_return());
+    RUN_BANK_TEST("RestoreStackedBankAndReturn", test_restore_stacked_bank_and_return());
+    RUN_BANK_TEST("RestoreStackedBank", test_restore_stacked_bank());
+    RUN_BANK_TEST("Farcall", test_farcall());
+    RUN_BANK_TEST("BackupObjectInRAM2", test_backup_object_in_ram2());
+    RUN_BANK_TEST("CopyObjectsAttributesToWRAM2", test_copy_objects_attributes_to_wram2());
+    RUN_BANK_TEST("BankTrampolines", {
+        test_bank_trampolines();
+        test_bank_trampolines_batch2();
+        test_bank_trampolines_batch3();
+    });
+    RUN_BANK_TEST("BGAttributesDrawCommands", test_bg_attributes_draw_commands());
 
     if (failures == 0) {
-        printf("  [PASS] All bank.asm functions verified successfully!\n");
+        printf("[PASS] Bank Switching\n\n");
         return 0;
     } else {
-        printf("  [FAIL] %d test failures in bank.asm tests.\n", failures);
+        printf("[FAIL] Bank Switching (%d failures)\n\n", failures);
         return 1;
     }
 }

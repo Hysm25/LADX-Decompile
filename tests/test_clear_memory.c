@@ -8,7 +8,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -278,40 +278,38 @@ static void test_fill_bg_map_white(void) {
     TEST_ASSERT(gb_read(&gb, 0xA000) == 0x00, "SRAM unexpectedly modified by FillBGMapWhite");
 }
 
+#define RUN_CLEAR_MEM_TEST(name, code) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        code; \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 int run_clear_memory_tests(void) {
-    printf("[*] Running ClearBytes tests...\n");
-    test_clear_bytes_basic();
-    test_clear_bytes_preserves_hisgbc();
-
-    printf("[*] Running ClearWRAMBytes tests...\n");
-    test_clear_wram_bytes();
-
-    printf("[*] Running ClearHRAMBytesAndWRAM tests...\n");
-    test_clear_hram_bytes_and_wram();
-
-    printf("[*] Running ClearHRAMAndWRAM tests...\n");
-    test_clear_hram_and_wram();
-
-    printf("[*] Running ClearWRAMAndLowerHRAM tests...\n");
-    test_clear_wram_and_lower_hram();
-
-    printf("[*] Running ClearLowerWRAM tests...\n");
-    test_clear_lower_wram();
-
-    printf("[*] Running ClearLowerAndMiddleWRAM tests...\n");
-    test_clear_lower_and_middle_wram();
-
-    printf("[*] Running FillBGMap tests...\n");
-    test_fill_bg_map();
-
-    printf("[*] Running FillBGMapBlack tests...\n");
-    test_fill_bg_map_black();
-
-    printf("[*] Running FillBGMapWhite tests...\n");
-    test_fill_bg_map_white();
+    printf("[TEST] Clear Memory\n");
+    RUN_CLEAR_MEM_TEST("ClearBytes", {
+        test_clear_bytes_basic();
+        test_clear_bytes_preserves_hisgbc();
+    });
+    RUN_CLEAR_MEM_TEST("ClearWRAMBytes", test_clear_wram_bytes());
+    RUN_CLEAR_MEM_TEST("ClearHRAMBytesAndWRAM", test_clear_hram_bytes_and_wram());
+    RUN_CLEAR_MEM_TEST("ClearHRAMAndWRAM", test_clear_hram_and_wram());
+    RUN_CLEAR_MEM_TEST("ClearWRAMAndLowerHRAM", test_clear_wram_and_lower_hram());
+    RUN_CLEAR_MEM_TEST("ClearLowerWRAM", test_clear_lower_wram());
+    RUN_CLEAR_MEM_TEST("ClearLowerAndMiddleWRAM", test_clear_lower_and_middle_wram());
+    RUN_CLEAR_MEM_TEST("FillBGMap", test_fill_bg_map());
+    RUN_CLEAR_MEM_TEST("FillBGMapBlack", test_fill_bg_map_black());
+    RUN_CLEAR_MEM_TEST("FillBGMapWhite", test_fill_bg_map_white());
 
     if (failures == 0) {
-        printf("  [PASS] All clear_memory tests passed successfully.\n");
+        printf("[PASS] Clear Memory\n\n");
+    } else {
+        printf("[FAIL] Clear Memory\n\n");
     }
     return failures;
 }

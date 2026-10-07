@@ -9,7 +9,6 @@
 #include <stdio.h>
 
 void test_siren_instruments_subsystem(void) {
-    printf("[*] Running Siren Instruments subsystem tests (01:6BB5-01:6C76)...\n");
     GBState gb;
 
     /* Test 1: GetInstrumentNextBGAddress */

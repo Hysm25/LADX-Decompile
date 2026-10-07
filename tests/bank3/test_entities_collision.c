@@ -15,7 +15,7 @@
 
 /* Test EntityDamagesForGroup table values */
 static void test_EntityDamagesForGroup(void) {
-    printf("Testing EntityDamagesForGroup table...\n");
+    printf("[RUN ] EntityDamagesForGroup table\n");
 
     assert(sizeof(EntityDamagesForGroup) == 53);
     assert(EntityDamagesForGroup[0x00] == 0x04);
@@ -26,12 +26,12 @@ static void test_EntityDamagesForGroup(void) {
     assert(EntityDamagesForGroup[0x1F] == 0x20);
     assert(EntityDamagesForGroup[0x34] == 0x08);
 
-    printf("  PASSED\n");
+    printf("[PASS] EntityDamagesForGroup table\n");
 }
 
 /* Test ApplyLinkCollisionWithEnemy: Cheep-Cheep Jumping */
 static void test_ApplyLinkCollision_CheepCheep(void) {
-    printf("Testing ApplyLinkCollisionWithEnemy (Cheep-Cheep)...\n");
+    printf("[RUN ] ApplyLinkCollisionWithEnemy (Cheep-Cheep)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -58,12 +58,12 @@ static void test_ApplyLinkCollision_CheepCheep(void) {
     assert(gb_read_hram(&gb, hWaveSfx) == WAVE_SFX_FLOOR_SWITCH);
     assert(gb_read(&gb, wSubtractHealthBuffer) == 0); /* No damage taken */
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplyLinkCollisionWithEnemy (Cheep-Cheep)\n");
 }
 
 /* Test ApplyLinkCollisionWithEnemy: Goomba Stomp and Damage */
 static void test_ApplyLinkCollision_Goomba(void) {
-    printf("Testing ApplyLinkCollisionWithEnemy (Goomba)...\n");
+    printf("[RUN ] ApplyLinkCollisionWithEnemy (Goomba)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -127,12 +127,12 @@ static void test_ApplyLinkCollision_Goomba(void) {
 
     assert(gb_read(&gb, wSubtractHealthBuffer) == 0x04);
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplyLinkCollisionWithEnemy (Goomba)\n");
 }
 
 /* Test ApplyLinkCollisionWithEnemy: Gel, Cue Ball, Rolling Bones Bar, Moblin King */
 static void test_ApplyLinkCollision_SpecialEntities(void) {
-    printf("Testing ApplyLinkCollisionWithEnemy (Gel, Cue Ball, Moblin King)...\n");
+    printf("[RUN ] ApplyLinkCollisionWithEnemy (Gel, Cue Ball, Moblin King)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -178,12 +178,12 @@ static void test_ApplyLinkCollision_SpecialEntities(void) {
     assert(gb_read_hram(&gb, hWaveSfx) == WAVE_SFX_LINK_HURT);
     assert(gb_read(&gb, wSubtractHealthBuffer) == 0);
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplyLinkCollisionWithEnemy (Gel, Cue Ball, Moblin King)\n");
 }
 
 /* Test ApplyLinkCollisionWithEnemy: Immunity and Damage Calculations */
 static void test_ApplyLinkCollision_DamageCalculations(void) {
-    printf("Testing ApplyLinkCollisionWithEnemy (Immunity & Damage Math)...\n");
+    printf("[RUN ] ApplyLinkCollisionWithEnemy (Immunity & Damage Math)\n");
 
     GBState gb;
     uint16_t bc = 0x02;
@@ -269,12 +269,12 @@ static void test_ApplyLinkCollision_DamageCalculations(void) {
     assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_OVERWORLD);
     assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_OVERWORLD);
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplyLinkCollisionWithEnemy (Immunity & Damage Math)\n");
 }
 
 /* Test DefaultEnemyDamageCollisionHandler alternating parity and func_003_6E2B */
 static void test_DefaultEnemyDamageCollisionHandler_Parity(void) {
-    printf("Testing DefaultEnemyDamageCollisionHandler parity & dispatch...\n");
+    printf("[RUN ] DefaultEnemyDamageCollisionHandler parity & dispatch\n");
 
     GBState gb;
     gb_init(&gb);
@@ -320,12 +320,12 @@ static void test_DefaultEnemyDamageCollisionHandler_Parity(void) {
     DefaultEnemyDamageCollisionHandler(&gb, bc);
     assert(gb_read(&gb, wSubtractHealthBuffer) == 0x00); /* Skipped */
 
-    printf("  PASSED\n");
+    printf("[PASS] DefaultEnemyDamageCollisionHandler parity & dispatch\n");
 }
 
 /* Test func_003_6E2B: Hitbox and Weapon Collision Branches */
 static void test_func_003_6E2B_Branches(void) {
-    printf("Testing func_003_6E2B branches...\n");
+    printf("[RUN ] func_003_6E2B branches\n");
 
     GBState gb;
     uint16_t bc = 0x02;
@@ -481,13 +481,13 @@ static void test_func_003_6E2B_Branches(void) {
 
     assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0xFF);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_6E2B branches\n");
 }
 
 
 /* Test Data_003_6FE4, Data_003_73E7, Data_003_473C, Data_003_43EC table values */
 static void test_DataTables_SwordDamage(void) {
-    printf("Testing Data_003_6FE4, Data_003_73E7, Data_003_473C, Data_003_43EC...\n");
+    printf("[RUN ] Data_003_6FE4, Data_003_73E7, Data_003_473C, Data_003_43EC\n");
 
     /* Data_003_6FE4 size and values */
     assert(sizeof(Data_003_6FE4) == 4);
@@ -521,12 +521,12 @@ static void test_DataTables_SwordDamage(void) {
     assert(Data_003_43EC[52 * 16 + 0] == 0x01);
     assert(Data_003_43EC[52 * 16 + 9] == 0x06);
 
-    printf("  PASSED\n");
+    printf("[PASS] Data_003_6FE4, Data_003_73E7, Data_003_473C, Data_003_43EC\n");
 }
 
 /* Test EnemyCollidedWithSword: Special Entities */
 static void test_EnemyCollidedWithSword_SpecialEntities(void) {
-    printf("Testing EnemyCollidedWithSword (Special Entities)...\n");
+    printf("[RUN ] EnemyCollidedWithSword (Special Entities)\n");
 
     GBState gb;
     uint16_t bc = 0x03;
@@ -728,12 +728,12 @@ static void test_EnemyCollidedWithSword_SpecialEntities(void) {
 
     assert(gb_read(&gb, wC160) == 0x00); /* Returns without applying sword reaction */
 
-    printf("  PASSED\n");
+    printf("[PASS] EnemyCollidedWithSword (Special Entities)\n");
 }
 
 /* Test EnemyCollidedWithSword: Default & Power Recoil */
 static void test_EnemyCollidedWithSword_DefaultAndPowerRecoil(void) {
-    printf("Testing EnemyCollidedWithSword (Default & Power Recoil)...\n");
+    printf("[RUN ] EnemyCollidedWithSword (Default & Power Recoil)\n");
 
     GBState gb;
     uint16_t bc = 0x02;
@@ -793,12 +793,12 @@ static void test_EnemyCollidedWithSword_DefaultAndPowerRecoil(void) {
     assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DYING);
     assert(gb_read(&gb, wEntitiesPrivateCountdown3Table + bc) == 0x40);
 
-    printf("  PASSED\n");
+    printf("[PASS] EnemyCollidedWithSword (Default & Power Recoil)\n");
 }
 
 /* Test ApplySwordDamagesToEnemy: Damage Types & SFX */
 static void test_ApplySwordDamagesToEnemy_DamageTypes(void) {
-    printf("Testing ApplySwordDamagesToEnemy (Damage Types & SFX)...\n");
+    printf("[RUN ] ApplySwordDamagesToEnemy (Damage Types & SFX)\n");
 
     GBState gb;
     uint16_t bc = 0x01;
@@ -869,12 +869,12 @@ static void test_ApplySwordDamagesToEnemy_DamageTypes(void) {
     assert(gb_read_hram(&gb, hJingle) == 0x00); /* No hit jingle */
     assert(gb_read(&gb, wEntitiesHealthTable + bc) == 0x10); /* No damage taken */
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplySwordDamagesToEnemy (Damage Types & SFX)\n");
 }
 
 /* Test ApplySwordDamagesToEnemy: Burn, Stun, Morph */
 static void test_ApplySwordDamagesToEnemy_SpecialDamages(void) {
-    printf("Testing ApplySwordDamagesToEnemy (Burn, Stun, Morph)...\n");
+    printf("[RUN ] ApplySwordDamagesToEnemy (Burn, Stun, Morph)\n");
 
     GBState gb;
     uint16_t bc = 0x02;
@@ -925,12 +925,12 @@ static void test_ApplySwordDamagesToEnemy_SpecialDamages(void) {
     assert(gb_read_hram(&gb, hMultiPurpose0) == 0x30);
     assert(gb_read_hram(&gb, hMultiPurpose1) == 0x3B); /* 0x40 - 0x05 */
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplySwordDamagesToEnemy (Burn, Stun, Morph)\n");
 }
 
 /* Test ApplySwordDamagesToEnemy: Dying & Defeat */
 static void test_ApplySwordDamagesToEnemy_DyingAndDefeat(void) {
-    printf("Testing ApplySwordDamagesToEnemy (Dying & Boss Defeat)...\n");
+    printf("[RUN ] ApplySwordDamagesToEnemy (Dying & Boss Defeat)\n");
 
     GBState gb;
     uint16_t bc = 0x01;
@@ -1023,12 +1023,12 @@ static void test_ApplySwordDamagesToEnemy_DyingAndDefeat(void) {
     assert(gb_read(&gb, wEntitiesFlashCountdownTable + bc) == 0x28);
     assert(gb_read(&gb, wEntitiesPrivateCountdown2Table + bc) == 0xC8);
 
-    printf("  PASSED\n");
+    printf("[PASS] ApplySwordDamagesToEnemy (Dying & Boss Defeat)\n");
 }
 
 /* Test Data_003_74E4 and Data_003_74E8 ROM tables */
 static void test_DataTables_SwordEnemyCollision(void) {
-    printf("Testing Data_003_74E4 and Data_003_74E8...\n");
+    printf("[RUN ] Data_003_74E4 and Data_003_74E8\n");
 
     assert(sizeof(Data_003_74E4) == 4);
     assert(Data_003_74E4[0] == 0x00);
@@ -1042,12 +1042,12 @@ static void test_DataTables_SwordEnemyCollision(void) {
     assert(Data_003_74E8[2] == 0xF0);
     assert(Data_003_74E8[3] == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] Data_003_74E4 and Data_003_74E8\n");
 }
 
 /* Test func_003_73EB early branches to label_003_74EC */
 static void test_func_003_73EB_EarlyBranches(void) {
-    printf("Testing func_003_73EB (early branches to label_003_74EC)...\n");
+    printf("[RUN ] func_003_73EB (early branches to label_003_74EC)\n");
 
     GBState gb;
     uint16_t bc = 0x01;
@@ -1119,12 +1119,12 @@ static void test_func_003_73EB_EarlyBranches(void) {
     func_003_73EB(&gb, bc);
     assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_73EB (early branches to label_003_74EC)\n");
 }
 
 /* Test func_003_73EB sword collision with non-Blaino enemy */
 static void test_func_003_73EB_SwordCollision_NonBlaino(void) {
-    printf("Testing func_003_73EB (sword collision with non-Blaino enemy)...\n");
+    printf("[RUN ] func_003_73EB (sword collision with non-Blaino enemy)\n");
 
     GBState gb;
     gb_init(&gb);
@@ -1178,12 +1178,12 @@ static void test_func_003_73EB_SwordCollision_NonBlaino(void) {
     assert(gb_read_hram(&gb, hMultiPurpose0) == (uint8_t)(0x50 + 0xF8));
     assert(gb_read_hram(&gb, hMultiPurpose1) == (uint8_t)(0x50 + 0xF0));
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_73EB (sword collision with non-Blaino enemy)\n");
 }
 
 /* Test func_003_73EB sword collision with Blaino */
 static void test_func_003_73EB_SwordCollision_Blaino(void) {
-    printf("Testing func_003_73EB (sword collision with Blaino)...\n");
+    printf("[RUN ] func_003_73EB (sword collision with Blaino)\n");
 
     GBState gb;
     uint16_t bc = 0x03;
@@ -1264,12 +1264,12 @@ static void test_func_003_73EB_SwordCollision_Blaino(void) {
     assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x20);
     assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x0C);
 
-    printf("  PASSED\n");
+    printf("[PASS] func_003_73EB (sword collision with Blaino)\n");
 }
 
 /* Test label_003_74EC body collision and Blaino responses */
 static void test_label_003_74EC_Behavior(void) {
-    printf("Testing label_003_74EC (body collision & Blaino responses)...\n");
+    printf("[RUN ] label_003_74EC (body collision & Blaino responses)\n");
 
     GBState gb;
     uint16_t bc = 0x02;
@@ -1351,7 +1351,7 @@ static void test_label_003_74EC_Behavior(void) {
     assert(gb_read_hram(&gb, hLinkVelocityZ) == 0x30);
     assert(gb_read_hram(&gb, hJingle) == JINGLE_STRONG_BUMP);
 
-    printf("  PASSED\n");
+    printf("[PASS] label_003_74EC (body collision & Blaino responses)\n");
 }
 
 void test_bank3_entities_collision(void) {

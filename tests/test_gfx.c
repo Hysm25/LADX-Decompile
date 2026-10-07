@@ -12,7 +12,7 @@ static int gfx_failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("FAIL: %s at %s:%d\n", msg, __FILE__, __LINE__); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             gfx_failures++; \
         } \
     } while (0)
@@ -853,36 +853,52 @@ static void test_reload_color_dungeon_npc_tiles(void) {
     TEST_ASSERT(gb.rom_bank == 0x20, "ROM bank not restored to 0x20");
 }
 
+#define RUN_GFX_TEST(name, code) \
+    do { \
+        int _prev = gfx_failures; \
+        printf("[RUN ] %s\n", name); \
+        code; \
+        if (gfx_failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 int run_gfx_tests(void) {
-    test_reload_color_dungeon_npc_tiles();
-    printf("[*] Running GFX and Credits tile loading tests...\n");
-    setup_mock_data();
-    test_indoor_and_base_overworld_tiles();
-    test_load_credits_koholint_disappearing_tiles();
-    test_load_tileset_15();
-    test_load_credits_stairs_tiles();
-    test_load_credits_koholint_views_tiles();
-    test_load_credits_link_on_sea_dmg_and_cgb();
-    test_ending_scene_tiles_and_credits_roll();
-    test_load_base_and_menu_tiles();
-    test_load_intro_sequence_tiles();
-    test_load_title_screen_tiles();
-    test_load_world_map_tiles();
-    test_load_static_pictures_tiles();
-    test_load_eagles_tower_top_tiles();
-    test_load_marin_beach_tiles();
-    test_load_save_menu_tiles();
-    test_copy_word();
-    test_switch_to_objects_tilemap_bank();
-    test_write_object_to_bg_dmg();
-    test_load_room_specific_tiles();
-    test_write_overworld_and_indoor_object_to_bg();
-    test_load_room_tilemap();
-    test_load_credits_marin_portrait_tiles_trampoline();
-    test_load_thanks_for_playing_tiles_trampoline();
+    printf("[TEST] GFX\n");
+    RUN_GFX_TEST("ReloadColorDungeonNpcTiles", test_reload_color_dungeon_npc_tiles());
+    RUN_GFX_TEST("IndoorAndBaseOverworldTiles", {
+        setup_mock_data();
+        test_indoor_and_base_overworld_tiles();
+    });
+    RUN_GFX_TEST("LoadCreditsKoholintDisappearingTiles", test_load_credits_koholint_disappearing_tiles());
+    RUN_GFX_TEST("LoadTileset15", test_load_tileset_15());
+    RUN_GFX_TEST("LoadCreditsStairsTiles", test_load_credits_stairs_tiles());
+    RUN_GFX_TEST("LoadCreditsKoholintViewsTiles", test_load_credits_koholint_views_tiles());
+    RUN_GFX_TEST("LoadCreditsLinkOnSea", test_load_credits_link_on_sea_dmg_and_cgb());
+    RUN_GFX_TEST("EndingSceneTilesAndCreditsRoll", test_ending_scene_tiles_and_credits_roll());
+    RUN_GFX_TEST("LoadBaseAndMenuTiles", test_load_base_and_menu_tiles());
+    RUN_GFX_TEST("LoadIntroSequenceTiles", test_load_intro_sequence_tiles());
+    RUN_GFX_TEST("LoadTitleScreenTiles", test_load_title_screen_tiles());
+    RUN_GFX_TEST("LoadWorldMapTiles", test_load_world_map_tiles());
+    RUN_GFX_TEST("LoadStaticPicturesTiles", test_load_static_pictures_tiles());
+    RUN_GFX_TEST("LoadEaglesTowerTopTiles", test_load_eagles_tower_top_tiles());
+    RUN_GFX_TEST("LoadMarinBeachTiles", test_load_marin_beach_tiles());
+    RUN_GFX_TEST("LoadSaveMenuTiles", test_load_save_menu_tiles());
+    RUN_GFX_TEST("CopyWord", test_copy_word());
+    RUN_GFX_TEST("SwitchToObjectsTilemapBank", test_switch_to_objects_tilemap_bank());
+    RUN_GFX_TEST("WriteObjectToBGDmg", test_write_object_to_bg_dmg());
+    RUN_GFX_TEST("LoadRoomSpecificTiles", test_load_room_specific_tiles());
+    RUN_GFX_TEST("WriteOverworldAndIndoorObjectToBG", test_write_overworld_and_indoor_object_to_bg());
+    RUN_GFX_TEST("LoadRoomTilemap", test_load_room_tilemap());
+    RUN_GFX_TEST("LoadCreditsMarinPortraitTilesTrampoline", test_load_credits_marin_portrait_tiles_trampoline());
+    RUN_GFX_TEST("LoadThanksForPlayingTilesTrampoline", test_load_thanks_for_playing_tiles_trampoline());
 
     if (gfx_failures == 0) {
-        printf("  [PASS] All gfx.asm / credits tile loaders verified successfully!\n\n");
+        printf("[PASS] GFX\n\n");
+    } else {
+        printf("[FAIL] GFX (%d failures)\n\n", gfx_failures);
     }
     return gfx_failures;
 }

@@ -17,7 +17,6 @@
 #include <stdio.h>
 
 void test_build_save_slot_hearts_draw_command(void) {
-    printf("[*] Running BuildSaveSlotHeartsDrawCommand tests (01:5D53)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -73,7 +72,6 @@ void test_build_save_slot_hearts_draw_command(void) {
 }
 
 void test_func_5DC0_and_save_game_to_file(void) {
-    printf("[*] Running func_5DC0 and SaveGameToFile tests (01:5DC0, 01:5DE6)...\n");
     GBState gb;
     gb_init(&gb);
 
@@ -132,7 +130,6 @@ void test_func_5DC0_and_save_game_to_file(void) {
 }
 
 void test_load_saved_file(void) {
-    printf("[*] Running LoadSavedFile tests (01:52A4)...\n");
     GBState gb;
 
     /* Test 1: New game initialization when wSpawnPositionX is 0 */
@@ -213,7 +210,6 @@ void test_load_saved_file(void) {
 }
 
 void test_file_save_screen_and_init(void) {
-    printf("[*] Running FileSaveScreen and InitSaveFiles tests (01:4000-01:414F, 01:46AA-01:47CD)...\n");
     GBState gb;
 
     /* Test 1: func_001_4794 prefix validation and recovery */

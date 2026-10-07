@@ -14,7 +14,7 @@ static int failures = 0;
 #define TEST_ASSERT(cond, msg) \
     do { \
         if (!(cond)) { \
-            printf("  [FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            printf("[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
             failures++; \
         } \
     } while (0)
@@ -469,41 +469,35 @@ static void test_link_motion_handlers(void) {
     TEST_ASSERT(gb_read(&gb, wCurrentBank) == 0x02, "Bank not 0x02");
 }
 
+#define RUN_GAMEPLAY_TEST(fn, name) \
+    do { \
+        int _prev = failures; \
+        printf("[RUN ] %s\n", name); \
+        fn(); \
+        if (failures == _prev) { \
+            printf("[PASS] %s\n", name); \
+        } else { \
+            printf("[FAIL] %s\n", name); \
+        } \
+    } while (0)
+
 void run_gameplay_tests(void) {
-    printf("[*] Running Gameplay Dispatchers & Save Screen tests...\n");
-    test_gameplay_dispatchers();
-
-    printf("[*] Running AnimateEntities and Restore Bank tests...\n");
-    test_animate_entities_and_restore_bank();
-
-    printf("[*] Running Link Motion Handler tests...\n");
-    test_link_motion_handlers();
-
-    printf("[*] Running CheckPresentSaveScreen tests...\n");
-    test_check_present_save_screen();
-
-    printf("[*] Running returnFromGameplayHandler tests...\n");
-    test_return_from_gameplay_handler();
-
-    printf("[*] Running EnableSRAM tests...\n");
-    test_enable_sram();
-
-    printf("[*] Running SynchronizeDungeonsItemFlags_trampoline tests...\n");
-    test_synchronize_dungeons_trampoline();
-
-    printf("[*] Running GetRandomByte tests...\n");
-    test_get_random_byte();
-
-    printf("[*] Running ReadJoypadState tests...\n");
-    test_read_joypad_state();
-
-    printf("[*] Running GetIntersectedObjectBGAddress tests...\n");
-    test_get_intersected_object_bg_address();
-
-    printf("[*] Running TableJump tests...\n");
-    test_table_jump();
+    printf("[TEST] Gameplay\n");
+    RUN_GAMEPLAY_TEST(test_gameplay_dispatchers, "GameplayDispatchers");
+    RUN_GAMEPLAY_TEST(test_animate_entities_and_restore_bank, "AnimateEntitiesAndRestoreBank");
+    RUN_GAMEPLAY_TEST(test_link_motion_handlers, "LinkMotionHandlers");
+    RUN_GAMEPLAY_TEST(test_check_present_save_screen, "CheckPresentSaveScreen");
+    RUN_GAMEPLAY_TEST(test_return_from_gameplay_handler, "ReturnFromGameplayHandler");
+    RUN_GAMEPLAY_TEST(test_enable_sram, "EnableSRAM");
+    RUN_GAMEPLAY_TEST(test_synchronize_dungeons_trampoline, "SynchronizeDungeonsTrampoline");
+    RUN_GAMEPLAY_TEST(test_get_random_byte, "GetRandomByte");
+    RUN_GAMEPLAY_TEST(test_read_joypad_state, "ReadJoypadState");
+    RUN_GAMEPLAY_TEST(test_get_intersected_object_bg_address, "GetIntersectedObjectBGAddress");
+    RUN_GAMEPLAY_TEST(test_table_jump, "TableJump");
 
     if (failures == 0) {
-        printf("  [PASS] All gameplay.asm functions verified successfully!\n\n");
+        printf("[PASS] Gameplay\n\n");
+    } else {
+        printf("[FAIL] Gameplay (%d failures)\n\n", failures);
     }
 }
