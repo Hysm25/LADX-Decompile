@@ -1,6 +1,7 @@
 #include "bank3/entities_physics.h"
 #include "bank3/entities_collision.h"
 #include "constants/entities.h"
+#include "constants/physics.h"
 #include "constants/memory.h"
 #include "constants/rooms.h"
 #include "constants/gameplay.h"
@@ -372,11 +373,505 @@ void func_003_6DDF(GBState *gb, uint16_t bc) {
     gb_write_hram(gb, hLinkPhysicsModifier, 0x00);
 }
 
-/* ===== ApplyEntityInteractionWithBackground (03:7386) ===== */
+/* Added to an entity's x position when checking for collisions with walls.
+ * Row: collision box type (0..3)
+ * Column: movement direction (right=0, left=1, up=2, down=3) */
+const int8_t EntityCollisionPointsX[16] = {
+    13,   2,   8,   8,
+    10,   6,   8,   8,
+    16,  -1,   8,   8,
+    13,   2,   8,   8
+};
+
+/* Added to an entity's y position when checking for collisions with walls. */
+const int8_t EntityCollisionPointsY[16] = {
+     8,   8,   2,  13,
+     8,   8,   6,  10,
+     8,   8,  -1,  16,
+     8,   8,   2,  13
+};
+
+const uint8_t CollisionsTableFlagPerDirection[4] = {
+    0x01, 0x02, 0x04, 0x08
+};
+
+/* Indexed by: object id - OBJ_PHYSICS_CONVEYOR */
+const int8_t EntityOnConveyorMovementX[8] = {
+    0, 0, -1, 1, 1, -1, 1, -1
+};
+
+const int8_t EntityOnConveyorMovementY[8] = {
+    1, -1, 0, 0, 1, 1, -1, -1
+};
+
+const uint8_t FineCollisionShapes[72] = {
+    /* 0x7C: Open door */
+    1, 0, 1, 0,
+    /* 0x7D */
+    0, 1, 0, 1,
+    /* 0x7E */
+    1, 1, 0, 0,
+    /* 0x7F */
+    0, 0, 1, 1,
+    /* 0x80: Fine collision */
+    1, 0, 1, 0,
+    /* 0x81 */
+    0, 1, 0, 1,
+    /* 0x82 */
+    1, 1, 0, 0,
+    /* 0x83 */
+    0, 0, 1, 1,
+    /* 0x84 */
+    0, 1, 1, 1,
+    /* 0x85 */
+    1, 0, 1, 1,
+    /* 0x86 */
+    1, 1, 0, 1,
+    /* 0x87 */
+    1, 1, 1, 0,
+    /* 0x88 */
+    1, 0, 0, 0,
+    /* 0x89 */
+    0, 1, 0, 0,
+    /* 0x8A */
+    0, 0, 1, 0,
+    /* 0x8B */
+    0, 0, 0, 1,
+    /* 0x8C */
+    0, 1, 1, 0,
+    /* 0x8D */
+    1, 0, 0, 1
+};
+
+const uint8_t SwitchBlockLoweredStatePerObject[2] = {
+    0x00, 0x02
+};
+
+/* ===== func_003_7E0E (03:7E0E) ===== */
+void func_003_7E0E(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    uint8_t pos_x = gb_read(gb, wEntitiesPosXTable + bc);
+    uint8_t sub_x = (uint8_t)(pos_x - 1);
+    gb_write_hram(gb, hMultiPurpose4, sub_x);
+    uint8_t left = (uint8_t)(sub_x & 0xF0);
+    gb_write_hram(gb, hIntersectedObjectLeft, left);
+
+    uint8_t swap_x = (uint8_t)((left >> 4) & 0x0F);
+
+    uint8_t pos_y = gb_read(gb, wEntitiesPosYTable + bc);
+    uint8_t sub_y = (uint8_t)(pos_y - 7);
+    gb_write_hram(gb, hMultiPurpose5, sub_y);
+    uint8_t top = (uint8_t)(sub_y & 0xF0);
+    gb_write_hram(gb, hIntersectedObjectTop, top);
+
+    uint8_t tile_idx = (uint8_t)(top | swap_x);
+    uint8_t obj = gb_read(gb, wRoomObjects + tile_idx);
+    gb_write_hram(gb, hObjectUnderEntity, obj);
+
+    uint16_t de = (uint16_t)(((uint16_t)gb_read(gb, wIsIndoor) << 8) | obj);
+    uint8_t physics = GetObjectPhysicsFlagsAndRestoreBank3(gb, de);
+    gb_write_hram(gb, hMultiPurpose3, physics);
+}
+
+/* ===== ApplyEntityCollisionWithObject (03:7ACD) ===== */
+bool ApplyEntityCollisionWithObject(GBState *gb, uint16_t bc, uint16_t de) {
+    if (!gb) return true;
+
+    uint8_t pos_x = gb_read(gb, wEntitiesPosXTable + bc);
+    uint8_t sub_x = (uint8_t)(pos_x - 8);
+    uint8_t h0 = gb_read_hram(gb, hMultiPurpose0);
+    uint8_t table_offset = (uint8_t)(h0 + (uint8_t)de);
+    uint8_t x_point = (uint8_t)(sub_x + EntityCollisionPointsX[table_offset & 0x0F]);
+    gb_write_hram(gb, hMultiPurpose4, x_point);
+    uint8_t h1 = (uint8_t)((x_point >> 4) & 0x0F);
+    gb_write_hram(gb, hMultiPurpose1, h1);
+
+    uint8_t y_base;
+    if ((uint8_t)de == 3) {
+        uint8_t entity_type = gb_read_hram(gb, hActiveEntityType);
+        if (entity_type == ENTITY_WRECKING_BALL || entity_type == ENTITY_LIFTABLE_ROCK) {
+            uint8_t pos_y = gb_read(gb, wEntitiesPosYTable + bc);
+            uint8_t pos_z = gb_read(gb, wEntitiesPosZTable + bc);
+            uint8_t z_val = ((pos_z & 0x80) != 0) ? 0 : pos_z;
+            y_base = (uint8_t)(pos_y - (z_val >> 1));
+        } else {
+            y_base = gb_read(gb, wEntitiesPosYTable + bc);
+        }
+    } else {
+        y_base = gb_read(gb, wEntitiesPosYTable + bc);
+    }
+
+    uint8_t sub_y = (uint8_t)(y_base - 0x10);
+    uint8_t y_point = (uint8_t)(sub_y + EntityCollisionPointsY[table_offset & 0x0F]);
+    gb_write_hram(gb, hMultiPurpose5, y_point);
+
+    uint8_t tile_idx = (uint8_t)((y_point & 0xF0) | h1);
+    uint8_t obj = gb_read(gb, wRoomObjects + tile_idx);
+    gb_write_hram(gb, hObjectUnderEntity, obj);
+
+    if (obj == OBJECT_LIFTABLE_ROCK) {
+        goto isHookshottable;
+    }
+
+    uint16_t de_flags = (uint16_t)(((uint16_t)gb_read(gb, wIsIndoor) << 8) | obj);
+    uint8_t physics = GetObjectPhysicsFlagsAndRestoreBank3(gb, de_flags);
+    gb_write_hram(gb, hMultiPurpose3, physics);
+
+    uint8_t entity_type = gb_read_hram(gb, hActiveEntityType);
+    if (entity_type == ENTITY_FISH || entity_type == ENTITY_WATER_TEKTITE) {
+        if (physics == OBJ_PHYSICS_SHALLOW_WATER || physics == OBJ_PHYSICS_DEEP_WATER) {
+            return true;
+        }
+        goto doesCollide;
+    }
+
+    if (physics == OBJ_PHYSICS_NONE) {
+        return true;
+    }
+
+    if (physics == OBJ_PHYSICS_LAVA || physics == OBJ_PHYSICS_PIT || physics == OBJ_PHYSICS_PIT_WARP) {
+        if (gb_read(gb, wEntitiesPosZTable + bc) != 0) {
+            return true;
+        }
+        if (gb_read(gb, wEntitiesIgnoreHitsCountdownTable + bc) == 0) {
+            goto doesCollide;
+        }
+        if (entity_type == ENTITY_MOLDORM) {
+            goto doesCollide;
+        }
+        return true;
+    }
+
+    if (physics >= 0x7C && physics < 0x90) {
+        if (physics < 0x80) {
+            if (entity_type == ENTITY_SPARK_COUNTER_CLOCKWISE ||
+                entity_type == ENTITY_SPARK_CLOCKWISE ||
+                (gb_read(gb, wEntitiesOptions1Table + bc) & ENTITY_OPT1_IS_BOSS) != 0) {
+                goto setCollisionsTableFlagsAndReturn;
+            }
+        } else {
+            if (entity_type == ENTITY_WRECKING_BALL || entity_type == ENTITY_BOMB) {
+                return true;
+            }
+        }
+
+        uint8_t shape_index = (uint8_t)((physics - 0x7C) << 2);
+        uint8_t p4 = gb_read_hram(gb, hMultiPurpose4);
+        uint8_t col = (uint8_t)((p4 >> 3) & 0x01);
+        uint8_t p5 = gb_read_hram(gb, hMultiPurpose5);
+        uint8_t row = (uint8_t)((p5 >> 3) & 0x02);
+        uint8_t shape_byte = FineCollisionShapes[shape_index + row + col];
+        if (shape_byte == 0) {
+            return true;
+        }
+    }
+
+    if (physics >= OBJ_PHYSICS_LEDGE && physics < (OBJ_PHYSICS_LEDGE + 4)) {
+        uint8_t ledge_dir = (uint8_t)(physics - OBJ_PHYSICS_LEDGE);
+        if (ledge_dir == gb_read(gb, wEntitiesThrownDirectionTable + bc)) {
+            if (gb_read(gb, wEntitiesPosZTable + bc) == 0) {
+                goto doesCollide;
+            }
+            uint8_t unkJ = gb_read(gb, wEntitiesUnknowTableJ + bc);
+            gb_write(gb, wEntitiesUnknowTableJ + bc, (uint8_t)(unkJ + 1));
+            return true;
+        }
+
+        if (entity_type == ENTITY_WRECKING_BALL) {
+            goto doesCollide;
+        }
+
+        uint8_t unkJ = gb_read(gb, wEntitiesUnknowTableJ + bc);
+        if (unkJ == 0) {
+            goto doesCollide;
+        }
+
+        uint8_t frame = gb_read_hram(gb, hFrameCounter);
+        if ((frame & 0x03) == 0) {
+            return true;
+        }
+        if (gb_read(gb, wIsIndoor) != 0) {
+            gb_write(gb, wEntitiesUnknowTableJ + bc, (uint8_t)(unkJ - 1));
+            return true;
+        }
+        if ((frame & 0x01) == 0) {
+            return true;
+        }
+        gb_write(gb, wEntitiesUnknowTableJ + bc, (uint8_t)(unkJ - 1));
+        return true;
+    }
+
+    if (physics == OBJ_PHYSICS_TRACTOR_DEVICE) {
+        goto setCollisionsTableFlagsAndReturn;
+    }
+
+    if (physics >= 0xA0) {
+        return true;
+    }
+
+    if (physics >= OBJ_PHYSICS_LEDGE_OVERWORLD) {
+        goto doesCollide;
+    }
+
+    if (physics == OBJ_PHYSICS_SOLID || physics == OBJ_PHYSICS_DOOR) {
+        goto hookshotEnd;
+    }
+
+    if (physics != OBJ_PHYSICS_OCEAN_SWITCH_BLOCK) {
+        return true;
+    }
+
+    if (entity_type == ENTITY_WRECKING_BALL || entity_type == ENTITY_BOMB) {
+        return true;
+    }
+
+    if (entity_type == ENTITY_HOOKSHOT_CHAIN && gb_read(gb, wLinkStandingOnSwitchBlock) != 0) {
+        return true;
+    }
+
+    if (obj < OBJECT_LOWERED_BLOCK || obj > OBJECT_RAISED_BLOCK) {
+        goto setCollisionsTableFlagsAndReturn;
+    }
+
+    uint8_t lowered_state = SwitchBlockLoweredStatePerObject[obj - OBJECT_LOWERED_BLOCK];
+    if ((gb_read(gb, wSwitchBlocksState) ^ lowered_state) == 0) {
+        return true;
+    }
+
+doesCollide:
+    if (gb_read_hram(gb, hMultiPurpose3) == OBJ_PHYSICS_HOOKSHOTABLE) {
+isHookshottable:
+        if (gb_read_hram(gb, hActiveEntityType) == ENTITY_HOOKSHOT_CHAIN) {
+            if (GetEntityTransitionCountdown(gb, bc) >= 0x26) {
+                UnloadEntity(gb, bc);
+            }
+            gb_write(gb, wEntitiesStateTable + bc, 0x01);
+        }
+    }
+
+hookshotEnd:
+    if ((gb_read(gb, wEntitiesOptions1Table + bc) & ENTITY_OPT1_NO_WALL_COLLISION) != 0) {
+        return true;
+    }
+
+setCollisionsTableFlagsAndReturn:
+    {
+        uint8_t dir_flag = CollisionsTableFlagPerDirection[de & 0x03];
+        uint8_t prev = gb_read(gb, wEntitiesCollisionsTable + bc);
+        gb_write(gb, wEntitiesCollisionsTable + bc, (uint8_t)(prev | dir_flag));
+        return false;
+    }
+}
+
+/* ===== ApplyEntityInteractionWithBackground (03:7893) ===== */
 void ApplyEntityInteractionWithBackground(GBState *gb, uint16_t bc) {
     if (!gb) return;
-    /* Placeholder - applies entity interaction with background tiles */
-    (void)bc;
+
+    uint8_t prev_ground = gb_read(gb, wEntitiesGroundStatusTable + bc);
+    gb_write_hram(gb, hMultiPurpose0, prev_ground);
+
+    gb_write(gb, wEntitiesGroundStatusTable + bc, 0);
+    gb_write_hram(gb, hMultiPurpose1, 0);
+    gb_write(gb, wEntityHorizontallyCollidedObject, 0);
+    gb_write(gb, wEntityVerticallyCollidedObject, 0);
+
+    /* If entity z position is positive (and not zero), skip handling water and tall grass */
+    uint8_t pos_z = gb_read(gb, wEntitiesPosZTable + bc);
+    if ((pos_z & 0x80) == 0 && pos_z != 0) {
+        goto interactWithGroundEnd;
+    }
+
+    /* .negativeZ */
+    gb_write(gb, wEntitiesUnknowTableJ + bc, 0);
+    if ((gb_read(gb, wEntitiesOptions1Table + bc) & ENTITY_OPT1_NO_GROUND_INTERACTION) != 0) {
+        goto interactWithGroundEnd;
+    }
+
+    func_003_7E0E(gb, bc);
+
+    uint8_t ground_status = ENTITY_GROUND_STATUS_DEEP_WATER;
+    uint8_t obj_under = gb_read_hram(gb, hObjectUnderEntity);
+    if (obj_under == OBJECT_WATER_LADDER_SIDESCROLL) {
+        goto setGroundStatus;
+    }
+
+    uint8_t mp3 = gb_read_hram(gb, hMultiPurpose3);
+    if (mp3 == 0) {
+        goto interactWithGroundEnd;
+    }
+
+    if (mp3 == OBJ_PHYSICS_LAVA || mp3 == OBJ_PHYSICS_DEEP_WATER) {
+        ground_status = 0x02;
+        uint8_t active_type = gb_read_hram(gb, hActiveEntityType);
+        if (active_type == ENTITY_FISH ||
+            active_type == ENTITY_PEAHAT ||
+            active_type == ENTITY_ROOSTER ||
+            active_type == ENTITY_BOW_WOW ||
+            active_type == ENTITY_MARIN_AT_THE_SHORE) {
+            goto setGroundStatus;
+        }
+
+        UnloadEntity(gb, bc);
+        goto createWaterSplash;
+    }
+
+    if (mp3 == OBJ_PHYSICS_WATER_SIDESCROLL) {
+        goto setGroundStatus;
+    }
+
+    ground_status++; /* becomes 2: SHALLOW_WATER */
+    if (mp3 == OBJ_PHYSICS_SHALLOW_WATER) {
+        goto setGroundStatus;
+    }
+
+    if (mp3 != OBJ_PHYSICS_GRASS) {
+        goto setGroundStatusEnd;
+    }
+
+    ground_status++; /* becomes 3: TALL_GRASS */
+
+setGroundStatus:
+    gb_write(gb, wEntitiesGroundStatusTable + bc, ground_status);
+
+setGroundStatusEnd:
+    if ((gb_read(gb, wEntitiesOptions1Table + bc) & ENTITY_OPT1_SPLASH_IN_WATER) != 0) {
+        uint8_t cur_ground = gb_read(gb, wEntitiesGroundStatusTable + bc);
+        uint8_t old_ground = gb_read_hram(gb, hMultiPurpose0);
+        if (old_ground != cur_ground &&
+            cur_ground != ENTITY_GROUND_STATUS_TALL_GRASS &&
+            old_ground != ENTITY_GROUND_STATUS_TALL_GRASS) {
+            if (gb_read_hram(gb, hIsSideScrolling) != 0) {
+                if (gb_read_hram(gb, hActiveEntityType) != ENTITY_CHEEP_CHEEP_JUMPING) {
+                    uint8_t speed_y = gb_read(gb, wEntitiesSpeedYTable + bc);
+                    if ((speed_y & 0x80) == 0) {
+                        gb_write(gb, wEntitiesSpeedYTable + bc, 0);
+                        int8_t speed_x = (int8_t)gb_read(gb, wEntitiesSpeedXTable + bc);
+                        gb_write(gb, wEntitiesSpeedXTable + bc, (uint8_t)(speed_x >> 1));
+                    }
+                }
+            } else {
+                uint8_t speed_z = gb_read(gb, wEntitiesSpeedZTable + bc);
+                if ((speed_z & 0x80) != 0 && speed_z < 0xE7) {
+                    goto checkSplashCountdown;
+                }
+                goto createWaterSplashEnd;
+            }
+
+checkSplashCountdown:
+            if (gb_read(gb, wEntitiesPrivateCountdown3Table + bc) == 0) {
+createWaterSplash:
+                gb_write_hram(gb, hMultiPurpose0, gb_read(gb, wEntitiesPosXTable + bc));
+                gb_write_hram(gb, hMultiPurpose1, gb_read(gb, wEntitiesPosYTable + bc));
+                gb_write_hram(gb, hJingle, JINGLE_WATER_SPLASH);
+                AddTranscientVfx(gb, TRANSCIENT_VFX_WATER_SPLASH);
+            }
+        }
+    }
+
+createWaterSplashEnd:
+    {
+        uint8_t mp3_c = gb_read_hram(gb, hMultiPurpose3);
+        if ((uint8_t)(mp3_c + 1) >= (uint8_t)(OBJ_PHYSICS_CONVEYOR + 1)) {
+            uint8_t conv_idx = (uint8_t)(mp3_c - OBJ_PHYSICS_CONVEYOR);
+            if ((gb_read_hram(gb, hFrameCounter) & 0x03) == 0) {
+                uint8_t px = gb_read(gb, wEntitiesPosXTable + bc);
+                gb_write(gb, wEntitiesPosXTable + bc, (uint8_t)(px + EntityOnConveyorMovementX[conv_idx & 0x07]));
+                uint8_t py = gb_read(gb, wEntitiesPosYTable + bc);
+                gb_write(gb, wEntitiesPosYTable + bc, (uint8_t)(py + EntityOnConveyorMovementY[conv_idx & 0x07]));
+            }
+            goto interactWithGroundEnd;
+        }
+    }
+
+    {
+        uint8_t obj_under_ent = gb_read_hram(gb, hObjectUnderEntity);
+        uint8_t mp3_val = gb_read_hram(gb, hMultiPurpose3);
+        bool on_pit = (obj_under_ent == OBJECT_WELL) ||
+                      (mp3_val == OBJ_PHYSICS_PIT) ||
+                      (mp3_val == OBJ_PHYSICS_PIT_WARP);
+        if (on_pit) {
+            uint8_t active_type = gb_read_hram(gb, hActiveEntityType);
+            if (active_type == ENTITY_BOW_WOW ||
+                active_type == ENTITY_ROOSTER ||
+                active_type == ENTITY_HEART_CONTAINER) {
+                goto interactWithGroundEnd;
+            }
+
+            if (active_type == ENTITY_MARIN_AT_THE_SHORE) {
+                if (gb_read(gb, wLinkMotionState) != LINK_MOTION_FALLING_DOWN ||
+                    gb_read_hram(gb, hObjectUnderEntity) != OBJECT_WELL) {
+                    goto interactWithGroundEnd;
+                }
+            }
+
+            uint8_t ignore_hits = gb_read(gb, wEntitiesIgnoreHitsCountdownTable + bc);
+            if (ignore_hits == 0) {
+                goto interactWithGroundEnd;
+            }
+
+            gb_write(gb, wEntitiesIgnoreHitsCountdownTable + bc, (uint8_t)(ignore_hits - 1));
+            gb_write(gb, wEntitiesFlashCountdownTable + bc, 0);
+            gb_write(gb, wEntitiesStatusTable + bc, ENTITY_STATUS_FALLING);
+
+            uint8_t left = gb_read_hram(gb, hIntersectedObjectLeft);
+            gb_write(gb, wEntitiesFallingTargetXTable + bc, (uint8_t)(left + 8));
+
+            uint8_t top = gb_read_hram(gb, hIntersectedObjectTop);
+            gb_write(gb, wEntitiesFallingTargetYTable + bc, (uint8_t)(top + 16));
+
+            gb_write(gb, wEntitiesTransitionCountdownTable + bc, 0x6F);
+
+            if (active_type == ENTITY_MOBLIN_SWORD ||
+                active_type == ENTITY_MOBLIN ||
+                active_type == ENTITY_OCTOROK) {
+                goto interactWithGroundEnd;
+            }
+
+            gb_write(gb, wEntitiesTransitionCountdownTable + bc, 0x48);
+            if (gb_read(gb, wEntitiesIgnoreHitsCountdownTable + bc) == 0) {
+                gb_write(gb, wEntitiesTransitionCountdownTable + bc, 0x2F);
+                gb_write_hram(gb, hJingle, JINGLE_ITEM_FALLING);
+            }
+        }
+    }
+
+interactWithGroundEnd:
+    if (gb_read_hram(gb, hActiveEntityType) == ENTITY_BOW_WOW) {
+        return;
+    }
+
+    gb_write(gb, wEntityHorizontallyCollidedObject, 0);
+    uint8_t hitbox_flags = gb_read(gb, wEntitiesHitboxFlagsTable + bc);
+    uint8_t mp0 = (uint8_t)((hitbox_flags & 0x03) << 2);
+    gb_write_hram(gb, hMultiPurpose0, mp0);
+    gb_write(gb, wEntitiesCollisionsTable + bc, 0);
+
+    uint8_t speed_x = gb_read(gb, wEntitiesSpeedXTable + bc);
+    if (speed_x != 0) {
+        uint16_t de_x = ((speed_x & 0x80) != 0) ? 1 : 0;
+        bool no_collision_x = ApplyEntityCollisionWithObject(gb, bc, de_x);
+        if (!no_collision_x) {
+            uint8_t obj_col = gb_read_hram(gb, hObjectUnderEntity);
+            gb_write(gb, wEntityHorizontallyCollidedObject, obj_col);
+            if (gb_read_hram(gb, hActiveEntityNoBGCollision) == 0) {
+                gb_write(gb, wEntitiesPosXTable + bc, gb_read_hram(gb, hActiveEntityPosX));
+            }
+        }
+    }
+
+    uint8_t speed_y = gb_read(gb, wEntitiesSpeedYTable + bc);
+    if (speed_y != 0) {
+        uint16_t de_y = ((speed_y & 0x80) != 0) ? 2 : 3;
+        bool no_collision_y = ApplyEntityCollisionWithObject(gb, bc, de_y);
+        if (!no_collision_y) {
+            uint8_t obj_col = gb_read_hram(gb, hObjectUnderEntity);
+            gb_write(gb, wEntityVerticallyCollidedObject, obj_col);
+            if (gb_read_hram(gb, hActiveEntityNoBGCollision) == 0) {
+                gb_write(gb, wEntitiesPosYTable + bc, gb_read_hram(gb, hActiveEntityPosY));
+            }
+        }
+    }
 }
 
 /* ===== ApplySwordIntersectionWithObjects (03:8194) ===== */

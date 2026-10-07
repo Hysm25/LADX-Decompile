@@ -184,6 +184,8 @@
 #define wEntitiesOptions1Table                0xC430
 #define wEntitiesLoadOrderTable               0xC460
 #define wEntitiesPowerRecoilingTable          0xC4A0
+#define wEntitiesFallingTargetXTable          0xC4B0
+#define wEntitiesFallingTargetYTable          0xC4C0
 #define wEntitiesGroundStatusTable            0xC470
 #define wEntitiesSpeedZTable                  0xC320
 #define wEntitiesSpeedZAccTable               0xC330
@@ -297,6 +299,7 @@
 #define hLinkSlowWalkingSpeed                 0xFFB2
 #define hDialogBackgroundTile                 0xFFE8
 #define hDefaultMusicTrackAlt                 0xFFBD
+#define hActiveEntityNoBGCollision            0xFFBE
 #define hJingle                      0xFFF2
 #define hWaveSfx                     0xFFF3
 #define hNoiseSfx                    0xFFF4

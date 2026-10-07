@@ -26,6 +26,7 @@
 #define OBJ_PHYSICS_LAVA               0x0B
 #define OBJ_PHYSICS_CONVEYOR           0xF0
 #define OBJ_PHYSICS_SPIKES             0xE0
+#define OBJ_PHYSICS_LEDGE              0xD0 /* jumpable, 0-3: direction */
 #define OBJ_PHYSICS_LEDGE_OVERWORLD    0x10 /* jumpable, only downwards */
 #define OBJ_PHYSICS_REMOVABLE_OBSTACLE 0x30 /* bush/rock/keyblock/cracked block/sword-crystals */
 #define OBJ_PHYSICS_PIT                0x50

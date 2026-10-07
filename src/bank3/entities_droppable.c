@@ -1,4 +1,5 @@
 #include "bank3/entities_droppable.h"
+#include "bank3/entities_physics.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
 #include "constants/rooms.h"
@@ -242,14 +243,6 @@ setOptionsAndReveal:
 
 remainInvisible:
     return;
-}
-
-/* ===== func_003_7E0E (03:7E0E) - GetVectorTowardsLink wrapper ===== */
-void func_003_7E0E(GBState *gb, uint16_t bc) {
-    if (!gb) return;
-    /* call GetVectorTowardsLink */
-    uint8_t x, y;
-    GetVectorTowardsLink(gb, &x, &y);
 }
 
 /* ===== func_003_61C0 (03:61C0) ===== */

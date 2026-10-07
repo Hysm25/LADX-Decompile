@@ -9,10 +9,29 @@
 #include "constants/directions.h"
 #include "constants/gameplay.h"
 #include "constants/sfx.h"
+#include "constants/audio.h"
+#include "constants/physics.h"
+#include "constants/gfx.h"
+#include "constants/rooms.h"
 #include "bank3/entities_bomb.h"
 #include "bank3/entities_pushed_block.h"
 #include "home/entities.h"
 #include "home/link.h"
+
+static uint8_t mock_physics_rom[0x4000 * 0x09];
+#define ROM_BANK_8_OFFSET(addr) ((0x08 * 0x4000) + ((addr) - 0x4000))
+
+static void init_mock_physics_rom(GBState *gb) {
+    memset(mock_physics_rom, 0, sizeof(mock_physics_rom));
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x21)] = OBJ_PHYSICS_SOLID;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x00)] = OBJ_PHYSICS_NONE;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x05)] = OBJ_PHYSICS_SHALLOW_WATER;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x07)] = OBJ_PHYSICS_DEEP_WATER;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x50)] = OBJ_PHYSICS_PIT;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + OBJECT_LOWERED_BLOCK)] = OBJ_PHYSICS_OCEAN_SWITCH_BLOCK;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + (OBJ_PHYSICS_CONVEYOR + 3))] = (uint8_t)(OBJ_PHYSICS_CONVEYOR + 3);
+    gb_attach_rom(gb, mock_physics_rom, sizeof(mock_physics_rom));
+}
 
 /* Test GetEntityXDistanceToLink_03 */
 static void test_GetEntityXDistanceToLink(void) {
@@ -856,6 +875,223 @@ static void test_PushedBlockEntityHandler(void) {
     printf("[PASS] PushedBlockEntityHandler\n");
 }
 
+static void test_EntityBackgroundTables(void) {
+    printf("[RUN ] EntityBackgroundTables\n");
+
+    /* Verify EntityCollisionPointsX */
+    assert(EntityCollisionPointsX[0] == 13);
+    assert(EntityCollisionPointsX[1] == 2);
+    assert(EntityCollisionPointsX[2] == 8);
+    assert(EntityCollisionPointsX[3] == 8);
+    assert(EntityCollisionPointsX[8] == 16);
+    assert(EntityCollisionPointsX[9] == -1);
+
+    /* Verify EntityCollisionPointsY */
+    assert(EntityCollisionPointsY[0] == 8);
+    assert(EntityCollisionPointsY[2] == 2);
+    assert(EntityCollisionPointsY[3] == 13);
+    assert(EntityCollisionPointsY[10] == -1);
+    assert(EntityCollisionPointsY[11] == 16);
+
+    /* Verify CollisionsTableFlagPerDirection */
+    assert(CollisionsTableFlagPerDirection[0] == 0x01);
+    assert(CollisionsTableFlagPerDirection[1] == 0x02);
+    assert(CollisionsTableFlagPerDirection[2] == 0x04);
+    assert(CollisionsTableFlagPerDirection[3] == 0x08);
+
+    /* Verify EntityOnConveyorMovement */
+    assert(EntityOnConveyorMovementX[2] == -1);
+    assert(EntityOnConveyorMovementX[3] == 1);
+    assert(EntityOnConveyorMovementY[0] == 1);
+    assert(EntityOnConveyorMovementY[1] == -1);
+
+    /* Verify SwitchBlockLoweredStatePerObject */
+    assert(SwitchBlockLoweredStatePerObject[0] == 0x00);
+    assert(SwitchBlockLoweredStatePerObject[1] == 0x02);
+
+    /* Verify FineCollisionShapes */
+    assert(FineCollisionShapes[0] == 1);
+    assert(FineCollisionShapes[1] == 0);
+
+    printf("[PASS] EntityBackgroundTables\n");
+}
+
+static void test_func_003_7E0E(void) {
+    printf("[RUN ] func_003_7E0E (Entity tile & physics flags)\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    uint16_t bc = 3;
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x41);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x37);
+    gb_write(&gb, wIsIndoor, 0x00);
+
+    gb_write(&gb, wRoomObjects + 0x34, OBJECT_SHORT_GRASS);
+
+    func_003_7E0E(&gb, bc);
+
+    assert(gb_read_hram(&gb, hMultiPurpose4) == 0x40);
+    assert(gb_read_hram(&gb, hIntersectedObjectLeft) == 0x40);
+    assert(gb_read_hram(&gb, hMultiPurpose5) == 0x30);
+    assert(gb_read_hram(&gb, hIntersectedObjectTop) == 0x30);
+    assert(gb_read_hram(&gb, hObjectUnderEntity) == OBJECT_SHORT_GRASS);
+
+    printf("[PASS] func_003_7E0E (Entity tile & physics flags)\n");
+}
+
+static void test_ApplyEntityCollisionWithObject(void) {
+    printf("[RUN ] ApplyEntityCollisionWithObject\n");
+
+    GBState gb;
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+
+    uint16_t bc = 1;
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesHitboxFlagsTable + bc, 0x00);
+    gb_write_hram(&gb, hMultiPurpose0, 0x00);
+
+    /* Position entity in tile 0x22: X=0x28, Y=0x30 */
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x28);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x30);
+    gb_write(&gb, wIsIndoor, 0x00);
+
+    /* Case 1: Solid wall at tile 0x22 */
+    gb_write(&gb, wRoomObjects + 0x22, 0x21);
+    bool no_col = ApplyEntityCollisionWithObject(&gb, bc, 0);
+    assert(!no_col);
+    assert((gb_read(&gb, wEntitiesCollisionsTable + bc) & 0x01) != 0);
+
+    /* Case 2: No collision (OBJ_PHYSICS_NONE) at tile 0x22 */
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+    gb_write(&gb, wRoomObjects + 0x22, 0x00);
+    no_col = ApplyEntityCollisionWithObject(&gb, bc, 0);
+    assert(no_col);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* Case 3: Water entity (Fish) on shallow water */
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_FISH);
+    gb_write(&gb, wRoomObjects + 0x22, 0x05);
+    no_col = ApplyEntityCollisionWithObject(&gb, bc, 0);
+    assert(no_col);
+
+    /* Case 4: Switch block interaction */
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wRoomObjects + 0x22, OBJECT_LOWERED_BLOCK);
+    gb_write(&gb, wSwitchBlocksState, 0x00);
+    no_col = ApplyEntityCollisionWithObject(&gb, bc, 0);
+    assert(no_col);
+
+    gb_write(&gb, wSwitchBlocksState, 0x02);
+    no_col = ApplyEntityCollisionWithObject(&gb, bc, 0);
+    assert(!no_col);
+
+    printf("[PASS] ApplyEntityCollisionWithObject\n");
+}
+
+static void test_ApplyEntityInteractionWithBackground(void) {
+    printf("[RUN ] ApplyEntityInteractionWithBackground\n");
+
+    GBState gb;
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+
+    uint16_t bc = 2;
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x2E);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x30);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write(&gb, wEntitiesOptions1Table + bc, 0x00);
+
+    /* Case 1: Entity moving right with collision against wall */
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x08);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x00);
+    /* For bc=2, PosX=0x30, sub_x=0x28, point=0x28+13=0x35 -> tile col 3.
+     * PosY=0x30, sub_y=0x20, point=0x20+8=0x28 -> tile row 2 (0x20).
+     * tile_idx = 0x23! */
+    gb_write(&gb, wRoomObjects + 0x23, 0x21);
+
+    ApplyEntityInteractionWithBackground(&gb, bc);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + bc) == 0x2E);
+    assert((gb_read(&gb, wEntitiesCollisionsTable + bc) & 0x01) != 0);
+
+    /* Case 2: Water splash when falling into deep water */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x20);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x20);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write(&gb, wEntitiesGroundStatusTable + bc, ENTITY_GROUND_STATUS_NORMAL);
+    gb_write(&gb, wEntitiesOptions1Table + bc, ENTITY_OPT1_SPLASH_IN_WATER);
+    gb_write(&gb, wEntitiesSpeedZTable + bc, 0xE0);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x00);
+    gb_write_hram(&gb, hIsSideScrolling, 0x00);
+    gb_write(&gb, wRoomObjects + 0x11, 0x07);
+
+    ApplyEntityInteractionWithBackground(&gb, bc);
+
+    /* Non-water entity (Octorok) unloads and splashes */
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_WATER_SPLASH);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    /* Water entity (Fish) survives and gets ground status 2 */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_FISH);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x20);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x20);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write(&gb, wRoomObjects + 0x11, 0x07);
+    ApplyEntityInteractionWithBackground(&gb, bc);
+    assert(gb_read(&gb, wEntitiesGroundStatusTable + bc) == 0x02);
+
+    /* Case 3: Pit interaction */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_GEL);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x24);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x28);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write(&gb, wEntitiesIgnoreHitsCountdownTable + bc, 0x05);
+    /* For bc=2, PosX=0x24, PosX-1=0x23 -> left=0x20. PosY=0x28, PosY-7=0x21 -> top=0x20. tile_idx = 0x22 */
+    gb_write(&gb, wRoomObjects + 0x22, 0x50);
+
+    ApplyEntityInteractionWithBackground(&gb, bc);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_FALLING);
+    assert(gb_read(&gb, wEntitiesIgnoreHitsCountdownTable + bc) == 0x04);
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + bc) == 0x48);
+
+    /* Case 4: Conveyor belt movement */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write_hram(&gb, hFrameCounter, 0x00);
+    /* PosX=0x40, PosX-1=0x3F -> left=0x30, col=3. PosY=0x40, PosY-7=0x39 -> top=0x30, row=3. tile_idx=0x33 */
+    gb_write(&gb, wRoomObjects + 0x33, OBJ_PHYSICS_CONVEYOR + 3);
+
+    ApplyEntityInteractionWithBackground(&gb, bc);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + bc) == 0x41);
+
+    printf("[PASS] ApplyEntityInteractionWithBackground\n");
+}
 
 void test_bank3_entities_physics(void) {
     test_GetEntityXDistanceToLink();
@@ -878,4 +1114,8 @@ void test_bank3_entities_physics(void) {
     test_BombBounceOffWalls();
     test_func_003_51C9();
     test_PushedBlockEntityHandler();
+    test_EntityBackgroundTables();
+    test_func_003_7E0E();
+    test_ApplyEntityCollisionWithObject();
+    test_ApplyEntityInteractionWithBackground();
 }

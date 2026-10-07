@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~77.1%
-* **Number of Verified Functions**: 1007
-* **Number of Decompiled Functions**: 807
-* **Number Remaining**: ~205 functions
-* **Current Subsystem**: ROM Bank 2 / ROM Bank 3 / Home (Audit & ASM Parity Fixes)
-* **Current Task**: Comprehensive Audit and ASM Parity Fixes Completed
-* **Last Completed Task**: Audit of Decompiled Functions Against ASM Source of Truth (`LoadHeartsCount`, `ThresholdLowHealthTable`, `LoadRupeesDigits`, `func_002_60E0`, `PushedBlockEntityHandler`, `func_003_51C9`, `EntityCheckThrowAtTriggers`, `BombBounceOffWalls`, `SpawnNewEntity_trampoline`).
-* **Last Update Timestamp**: 2026-10-07T15:45:00+00:00
+* **Current Overall Progress**: ~77.3%
+* **Number of Verified Functions**: 1010
+* **Number of Decompiled Functions**: 810
+* **Number Remaining**: ~202 functions
+* **Current Subsystem**: ROM Bank 3 (Entity Background Physics & Tile Collision)
+* **Current Task**: Batch 94 Verification Completed
+* **Last Completed Task**: Batch 94 Verification — Background Interaction Physics & Collision Handlers (`ApplyEntityInteractionWithBackground`, `ApplyEntityCollisionWithObject`, `func_003_7E0E`).
+* **Last Update Timestamp**: 2026-10-07T16:24:00+00:00
 
 ---
 
@@ -978,3 +978,30 @@
   - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s).
   - Strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` syntax checks PASS.
   - `git diff --check` PASS with zero errors or whitespace issues.
+
+---
+
+## Batch 94 Verification — Background Interaction Physics & Collision Handlers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:7893`-`03:7CA8`, `03:7E0E`-`03:7E44`). Three functions and seven data tables implemented in `src/bank3/entities_physics.c` with declarations in `include/bank3/entities_physics.h`:
+  - `ApplyEntityInteractionWithBackground` (`03:7893`-`03:7A84`): Primary background, tile, water, pit, conveyor, and wall interaction physics state machine for entities:
+    - Ground status reset and Z-axis check: Positive Z values bypass water and grass interaction directly to wall collision.
+    - Water & lava interaction: Identifies deep water, lava, water ladder side-scroll, shallow water, and tall grass. Water entities (`ENTITY_FISH`, `ENTITY_PEAHAT`, `ENTITY_ROOSTER`, `ENTITY_BOW_WOW`, `ENTITY_MARIN_AT_THE_SHORE`) survive deep water/lava with ground status 2; other entities are unloaded via `UnloadEntity` and trigger a water splash.
+    - Water splash logic: Checks `ENTITY_OPT1_SPLASH_IN_WATER` flag, state transitions (excluding tall grass), side-scrolling downward movement damping (Y velocity cleared, X velocity halved via `sra`), or top-down downward velocity threshold (`speed_z < 0xE7`). Triggers `JINGLE_WATER_SPLASH` and `TRANSCIENT_VFX_WATER_SPLASH`.
+    - Conveyor belt physics: Detects `OBJ_PHYSICS_CONVEYOR` to `$FE`. Every 4 frames, shifts entity coordinates using `EntityOnConveyorMovementX` and `EntityOnConveyorMovementY`.
+    - Pit & well interaction: Detects `OBJECT_WELL`, `OBJ_PHYSICS_PIT`, and `OBJ_PHYSICS_PIT_WARP`. Exempts Bow Wow, Rooster, Heart Container, and Marin (unless falling down a well with Link). Decrements `wEntitiesIgnoreHitsCountdownTable`, resets flash countdown, transitions entity to `ENTITY_STATUS_FALLING`, computes center falling coordinates, sets countdown timers, and plays `JINGLE_ITEM_FALLING`.
+    - Wall & obstacle collisions: Runs directional checks for non-zero X and Y velocities against `ApplyEntityCollisionWithObject`. Stores collided object in `wEntityHorizontallyCollidedObject` / `wEntityVerticallyCollidedObject`, and restores pre-collision coordinate from `hActiveEntityPosX` / `hActiveEntityPosY` if `hActiveEntityNoBGCollision == 0`.
+  - `ApplyEntityCollisionWithObject` (`03:7ACD`-`03:7CA8`): Detailed single-direction tile/object collision evaluator:
+    - Single collision point lookup: Reads `EntityCollisionPointsX` and `EntityCollisionPointsY` indexed by collision box type (`hMultiPurpose0`) and direction (`de`). Includes downward Z-elevation adjustment for wrecking ball and liftable rock.
+    - Physics rules: Queries physics flags via `GetObjectPhysicsFlagsAndRestoreBank3`. Enforces specific rules for water entities, pits, open doors (sparks and bosses blocked), fine 8x8 quadrant collisions (`FineCollisionShapes`), directional ledges (`OBJ_PHYSICS_LEDGE`), ocean switch blocks (`SwitchBlockLoweredStatePerObject`), and hookshot chain latching. Sets collision bitmask in `wEntitiesCollisionsTable[bc]` on collision.
+  - `func_003_7E0E` (`03:7E0E`-`03:7E44`): Entity tile locator helper. Computes tile index at `(PosX - 1, PosY - 7)`, sets `hIntersectedObjectLeft`, `hIntersectedObjectTop`, `hObjectUnderEntity`, and retrieves physics flags into `hMultiPurpose3`.
+  - Data tables: `EntityCollisionPointsX`, `EntityCollisionPointsY`, `CollisionsTableFlagPerDirection`, `EntityOnConveyorMovementX`, `EntityOnConveyorMovementY`, `FineCollisionShapes`, `SwitchBlockLoweredStatePerObject`.
+
+- **Tests:** Comprehensive behavioral tests in `tests/bank3/test_entities_physics.c`:
+  - `test_EntityBackgroundTables`: Verifies 100% byte fidelity for collision points, direction flags, conveyor deltas, fine collision shapes, and switch block tables.
+  - `test_func_003_7E0E`: Verifies coordinate subtraction, bounding tile offset, room object lookup, and physics flag retrieval.
+  - `test_ApplyEntityCollisionWithObject`: Tests wall collision, passable tiles, fish water bypass, switch block raised/lowered states, and collision table bitmasks.
+  - `test_ApplyEntityInteractionWithBackground`: Tests wall collision with position rollback, deep water splash and non-water entity unloading, pit transition and coordinate calculation, and 4-frame conveyor shifts.
+  - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1010 verified functions passing.
+
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Carry return conventions and directional bitmasks verified exact to assembly instruction sequence.

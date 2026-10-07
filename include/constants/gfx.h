@@ -62,7 +62,9 @@
 #define OBJECT_WEATHER_VANE_BASE     0x5E
 #define OBJECT_WEATHER_VANE_TOP      0x91
 #define OBJECT_POT_WITH_SWITCH       0x8E
+#define OBJECT_LIFTABLE_ROCK         0x20
 #define OBJECT_WELL                  0x61
+#define OBJECT_WATER_LADDER_SIDESCROLL 0x67
 #define OBJECT_CHEST_CLOSED          0xA0
 #define OBJECT_CHEST_OPEN            0xA1
 #define OBJECT_BOMBABLE_BLOCK        0xA9

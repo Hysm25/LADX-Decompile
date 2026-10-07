@@ -36,6 +36,18 @@ void func_003_7565_with_length(GBState *gb, uint8_t length);
 /* func_003_75A2 (03:75A2) - Entity collision detection with other entities */
 void func_003_75A2(GBState *gb, uint16_t bc);
 
+/* Tables for background and entity interaction */
+extern const int8_t EntityCollisionPointsX[16];
+extern const int8_t EntityCollisionPointsY[16];
+extern const uint8_t CollisionsTableFlagPerDirection[4];
+extern const int8_t EntityOnConveyorMovementX[8];
+extern const int8_t EntityOnConveyorMovementY[8];
+extern const uint8_t FineCollisionShapes[72];
+extern const uint8_t SwitchBlockLoweredStatePerObject[2];
+
+/* ApplyEntityCollisionWithObject (03:7ACD) */
+bool ApplyEntityCollisionWithObject(GBState *gb, uint16_t bc, uint16_t de);
+
 /* ApplyEntityInteractionWithBackground (03:7386) */
 void ApplyEntityInteractionWithBackground(GBState *gb, uint16_t bc);
 
