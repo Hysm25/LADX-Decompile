@@ -70,6 +70,7 @@
 #define OBJECT_BOMBABLE_BLOCK        0xA9
 #define OBJECT_SWITCH_BUTTON         0xAA
 #define OBJECT_TORCH_UNLIT           0xAB
+#define OBJECT_TORCH_LIT             0xAC
 #define OAM_GBC_PAL_0                0
 #define OAM_GBC_PAL_1                1
 #define OAM_GBC_PAL_2                2

@@ -244,7 +244,15 @@ void func_003_51C9(GBState *gb, uint16_t bc, const uint8_t *data_ptr, uint8_t b_
     gb_write(gb, wDDD8, b_val);
     BackupObjectInRAM2(gb, room_obj_addr, 0x03);
 
-    /* label_003_51F5: call label_2887 */
+    /* label_003_51F5: draw command append */
+    label_003_51F5(gb, data_ptr);
+}
+
+/* ===== label_003_51F5 (03:51F5) ===== */
+void label_003_51F5(GBState *gb, const uint8_t *data_ptr) {
+    if (!gb || !data_ptr) return;
+
+    /* call label_2887 */
     GetIntersectedObjectBGAddress(gb);
 
     /* ld a, [wDrawCommandsSize]; ld e, a; ld d, $00; ld hl, wDrawCommand; add hl, de; add $0A; ld [wDrawCommandsSize], a */

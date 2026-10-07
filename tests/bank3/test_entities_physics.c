@@ -30,6 +30,9 @@ static void init_mock_physics_rom(GBState *gb) {
     mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x50)] = OBJ_PHYSICS_PIT;
     mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + OBJECT_LOWERED_BLOCK)] = OBJ_PHYSICS_OCEAN_SWITCH_BLOCK;
     mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + (OBJ_PHYSICS_CONVEYOR + 3))] = (uint8_t)(OBJ_PHYSICS_CONVEYOR + 3);
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x30)] = 0xD1;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + 0x31)] = 0xFF;
+    mock_physics_rom[ROM_BANK_8_OFFSET(OverworldObjectPhysicFlags + OBJECT_TORCH_UNLIT)] = OBJ_PHYSICS_SOLID;
     gb_attach_rom(gb, mock_physics_rom, sizeof(mock_physics_rom));
 }
 
@@ -1093,6 +1096,156 @@ static void test_ApplyEntityInteractionWithBackground(void) {
     printf("[PASS] ApplyEntityInteractionWithBackground\n");
 }
 
+/* Test ApplySwordIntersectionWithObjects, label_003_51F5, and Data_003_69A2 */
+static void test_ApplySwordIntersectionWithObjects(void) {
+    printf("[RUN ] ApplySwordIntersectionWithObjects & label_003_51F5\n");
+
+    /* 1. Verify Data_003_69A2 byte table fidelity */
+    const uint8_t expected_torch_tiles[8] = { 0x6C, 0x74, 0x6D, 0x75, 0x00, 0x00, 0x00, 0x00 };
+    assert(memcmp(Data_003_69A2, expected_torch_tiles, sizeof(Data_003_69A2)) == 0);
+
+    /* 2. Test label_003_51F5 draw command generation */
+    GBState gb;
+    gb_init(&gb);
+    gb_write(&gb, wDrawCommandsSize, 0x00);
+    gb_write_hram(&gb, hIntersectedObjectTop, 0x10);
+    gb_write_hram(&gb, hIntersectedObjectLeft, 0x20);
+    gb_write_hram(&gb, hIsGBC, 0x00);
+
+    label_003_51F5(&gb, Data_003_69A2);
+
+    assert(gb_read(&gb, wDrawCommandsSize) == 10);
+    assert(gb_read(&gb, wDrawCommand + 0) == 0x98);
+    assert(gb_read(&gb, wDrawCommand + 1) == 0x44);
+    assert(gb_read(&gb, wDrawCommand + 2) == 0x81);
+    assert(gb_read(&gb, wDrawCommand + 3) == 0x6C);
+    assert(gb_read(&gb, wDrawCommand + 4) == 0x74);
+    assert(gb_read(&gb, wDrawCommand + 5) == 0x98);
+    assert(gb_read(&gb, wDrawCommand + 6) == 0x45);
+    assert(gb_read(&gb, wDrawCommand + 7) == 0x81);
+    assert(gb_read(&gb, wDrawCommand + 8) == 0x6D);
+    assert(gb_read(&gb, wDrawCommand + 9) == 0x75);
+    assert(gb_read(&gb, wDrawCommand + 10) == 0x00);
+
+    /* 3. Test ApplySwordIntersectionWithObjects on OBJECT_TORCH_LIT */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    uint16_t bc = 0x02;
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x38);
+    /* PosX=0x30 -> left=0x30, col=3; PosY=0x38, PosY-8=0x30 -> top=0x30, row=3 -> tile_idx=0x33 */
+    gb_write(&gb, wRoomObjects + 0x33, OBJECT_TORCH_LIT);
+
+    bool res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == false);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0);
+
+    /* 4. Test ApplySwordIntersectionWithObjects on OBJECT_TORCH_UNLIT with Magic Rod Fireball indoors */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x38);
+    gb_write(&gb, wRoomObjects + 0x33, OBJECT_TORCH_UNLIT);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_MAGIC_ROD_FIREBALL);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wC1A2, 0x02);
+    gb_write(&gb, wC3CD, 0x10);
+
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == false);
+    assert(gb_read(&gb, wRoomObjects + 0x33) == OBJECT_TORCH_LIT);
+    assert(gb_read(&gb, wDDD8) == OBJECT_TORCH_LIT);
+    assert(gb_read(&gb, wC1A2) == 0x03);
+    assert(gb_read(&gb, wC3CD) == 0x0C);
+    assert(gb_read(&gb, wBGPaletteTransitionEffect) == 0x40);
+    assert(gb_read(&gb, wDDD7) == 0x0B);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_BURSTING_FLAME);
+
+    /* 5. Test solid wall collision with coordinate rollback */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x32);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3A);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x28);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x20);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    /* PosX=0x32 -> col=3, PosY=0x3A - 8 = 0x32 -> row=3 -> tile_idx=0x33 */
+    gb_write(&gb, wRoomObjects + 0x33, 0x21); /* OBJ_PHYSICS_SOLID */
+
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == true);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x01);
+    assert(gb_read(&gb, wEntitiesPosXTable + bc) == 0x28);
+    assert(gb_read(&gb, wEntitiesPosYTable + bc) == 0x20);
+
+    /* 6. Test passable tile (OBJ_PHYSICS_NONE) */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x32);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3A);
+    gb_write(&gb, wRoomObjects + 0x33, 0x00); /* OBJ_PHYSICS_NONE */
+
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == false);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x00);
+
+    /* 7. Test out-of-bounds tile (physics == 0xFF) */
+    /* Non-boomerang: unloads entity */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x32);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3A);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARROW);
+    gb_write(&gb, wRoomObjects + 0x33, 0x31); /* mock physics 0xFF */
+
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == false);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == 0); /* unloaded */
+
+    /* Boomerang: collides instead of unload */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x32);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3A);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x28);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x20);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BOOMERANG);
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x05);
+    gb_write(&gb, wRoomObjects + 0x33, 0x31); /* mock physics 0xFF */
+
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == true);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x01);
+    assert(gb_read(&gb, wEntitiesPosXTable + bc) == 0x28);
+
+    /* 8. Test directional ledge physics (0xD1 = ledge direction 1) */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x32);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3A);
+    gb_write(&gb, wRoomObjects + 0x33, 0x30); /* mock physics 0xD1 */
+    gb_write(&gb, wEntitiesThrownDirectionTable + bc, 0x01); /* matching ledge */
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x08); /* airborne: Z > 0 */
+    gb_write(&gb, wEntitiesUnknowTableJ + bc, 0x02);
+
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == false);
+    assert(gb_read(&gb, wEntitiesUnknowTableJ + bc) == 0x03);
+
+    /* Ledge ground impact (Z == 0) -> collision */
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x30);
+    res = ApplySwordIntersectionWithObjects(&gb, bc);
+    assert(res == true);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x01);
+
+    printf("[PASS] ApplySwordIntersectionWithObjects & label_003_51F5\n");
+}
+
 void test_bank3_entities_physics(void) {
     test_GetEntityXDistanceToLink();
     test_GetEntityYDistanceToLink();
@@ -1118,4 +1271,5 @@ void test_bank3_entities_physics(void) {
     test_func_003_7E0E();
     test_ApplyEntityCollisionWithObject();
     test_ApplyEntityInteractionWithBackground();
+    test_ApplySwordIntersectionWithObjects();
 }

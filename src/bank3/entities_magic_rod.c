@@ -1,5 +1,6 @@
 #include "bank3/entities_magic_rod.h"
 #include "bank3/entities_physics.h"
+#include "bank3/entities_arrow.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
 #include "constants/rooms.h"
@@ -76,6 +77,32 @@ void MagicRodFireballEntityHandler(GBState *gb, uint16_t bc) {
 beforeHittingWall:
     /* ld de, MagicRodFireballSpriteVariants; call ArrowRenderAndMove.skipLoadingSprites */
     RenderActiveEntitySpritesPair(gb, MagicRodFireballSpriteVariants, NULL);
+
+    /* call ReturnIfNonInteractive_03 */
+    if (ReturnIfNonInteractive_03(gb, false)) {
+        return;
+    }
+
+    /* call GetEntityTransitionCountdown; jr nz, ArrowRockAfterHittingWall */
+    if (GetEntityTransitionCountdown(gb, bc) != 0) {
+        ArrowRockAfterHittingWall(gb, bc);
+        return;
+    }
+
+    /* call UpdateEntityPosWithSpeed_03 */
+    UpdateEntityPosWithSpeed_03(gb, bc);
+
+    /* call ApplySwordIntersectionWithObjects */
+    ApplySwordIntersectionWithObjects(gb, bc);
+
+    /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and a; jr z, EntityBounceOffWallX.return */
+    if (gb_read(gb, wEntitiesCollisionsTable + bc) != 0) {
+        /* call GetEntityTransitionCountdown; ldh a, [hActiveEntityType]; cp ENTITY_MAGIC_ROD_FIREBALL; jr nz, .fireballEnd */
+        /* call GetEntityPrivateCountdown1; ld [hl], $30; ret */
+        GetEntityPrivateCountdown1(gb, bc);
+        gb_write(gb, wEntitiesPrivateCountdown1Table + bc, 0x30);
+        return;
+    }
 
     /* call ReturnIfNonInteractive_03 */
     if (ReturnIfNonInteractive_03(gb, false)) {

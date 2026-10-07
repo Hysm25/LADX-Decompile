@@ -51,8 +51,11 @@ bool ApplyEntityCollisionWithObject(GBState *gb, uint16_t bc, uint16_t de);
 /* ApplyEntityInteractionWithBackground (03:7386) */
 void ApplyEntityInteractionWithBackground(GBState *gb, uint16_t bc);
 
-/* ApplySwordIntersectionWithObjects (03:8194) */
-void ApplySwordIntersectionWithObjects(GBState *gb, uint16_t bc);
+/* ApplySwordIntersectionWithObjects (03:7CAB) */
+bool ApplySwordIntersectionWithObjects(GBState *gb, uint16_t bc);
+
+/* Data_003_69A2 (03:69A2) - Lit torch replacement tiles */
+extern const uint8_t Data_003_69A2[8];
 
 /* GetVectorTowardsLink (03:8508) */
 void GetVectorTowardsLink(GBState *gb, uint8_t *x, uint8_t *y);

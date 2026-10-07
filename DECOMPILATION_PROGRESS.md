@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~77.3%
-* **Number of Verified Functions**: 1010
-* **Number of Decompiled Functions**: 810
-* **Number Remaining**: ~202 functions
-* **Current Subsystem**: ROM Bank 3 (Entity Background Physics & Tile Collision)
-* **Current Task**: Batch 94 Verification Completed
-* **Last Completed Task**: Batch 94 Verification — Background Interaction Physics & Collision Handlers (`ApplyEntityInteractionWithBackground`, `ApplyEntityCollisionWithObject`, `func_003_7E0E`).
-* **Last Update Timestamp**: 2026-10-07T16:24:00+00:00
+* **Current Overall Progress**: ~77.5%
+* **Number of Verified Functions**: 1012
+* **Number of Decompiled Functions**: 812
+* **Number Remaining**: ~200 functions
+* **Current Subsystem**: ROM Bank 3 (Entity Projectile & Sword Collision Handlers)
+* **Current Task**: Batch 95 Verification Completed
+* **Last Completed Task**: Batch 95 Verification — Projectile & Sword Object Intersection Physics (`ApplySwordIntersectionWithObjects`, `label_003_51F5`, `Data_003_69A2`).
+* **Last Update Timestamp**: 2026-10-07T17:00:00+00:00
 
 ---
 
@@ -1003,5 +1003,38 @@
   - `test_ApplyEntityCollisionWithObject`: Tests wall collision, passable tiles, fish water bypass, switch block raised/lowered states, and collision table bitmasks.
   - `test_ApplyEntityInteractionWithBackground`: Tests wall collision with position rollback, deep water splash and non-water entity unloading, pit transition and coordinate calculation, and 4-frame conveyor shifts.
   - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1010 verified functions passing.
+
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Carry return conventions and directional bitmasks verified exact to assembly instruction sequence.
+
+---
+
+## Batch 95 Verification — Projectile & Sword Object Intersection Physics
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:7CAB`-`03:7E0B`, `03:51F5`-`03:5235`) and `03_bomb.asm` (`03:69A2`). Two functions and one data table implemented in `src/bank3/entities_physics.c` and `src/bank3/entities_pushed_block.c` with declarations in `include/bank3/entities_physics.h` and `include/bank3/entities_pushed_block.h`:
+  - `ApplySwordIntersectionWithObjects` (`03:7CAB`-`03:7E0B`): Universal tile/obstacle collision and torch-lighting routine for projectiles, sword beams, and boomerangs:
+    - Bounding tile locator: Computes tile index at `(PosX & 0xF0, (PosY - 8) & 0xF0)`, setting `hIntersectedObjectLeft`, `hIntersectedObjectTop`, `hIndexOfObjectBelowLink`, and retrieving object tile from `wRoomObjects` into `hObjectUnderEntity`.
+    - Torch interaction: Lit torches (`OBJECT_TORCH_LIT`) bypass collision (`false`). Unlit torches (`OBJECT_TORCH_UNLIT`) hit by magic rod fireballs indoors trigger bursting flame noise (`NOISE_SFX_BURSTING_FLAME`), spawn `ENTITY_MAGIC_POWDER_SPRINKLE`, convert tile to `OBJECT_TORCH_LIT` (`0xAC`) in `wRoomObjects` and `wDDD8`, configure sprinkle entity state/position, increment `wC1A2`, decrement `wC3CD` by 4, configure CGB palette transitions (`wBGPaletteTransitionEffect = 0x40`, `wDDD7 = 0x0B`), and issue 2x2 draw command via `label_003_51F5` with `Data_003_69A2`.
+    - Physics rules via `GetObjectPhysicsFlagsAndRestoreBank3`: Passable tiles (`0x00`) return `false`. Out of bounds (`0xFF`) unloads the projectile entity via `UnloadEntity(gb, bc)`, except for `ENTITY_BOOMERANG` which transitions to collision handling.
+    - Directional ledges (`0xD0`..`0xD3`): Compares thrown direction in `wEntitiesThrownDirectionTable` against ledge direction. When matching and airborne (`PosZ > 0`), increments `wEntitiesUnknowTableJ` and passes through; if grounded (`PosZ == 0`), triggers collision. When non-matching, decrements `wEntitiesUnknowTableJ` based on frame counter parity or triggers collision when zero.
+    - Wall & obstacle collision (`jr_003_7DE3`): Sets `wEntitiesCollisionsTable[bc] = 1`. For boomerangs, tests `GetEntityTransitionCountdown` (returns `false` if zero). Otherwise, restores pre-collision coordinate from `hActiveEntityPosX`/`hActiveEntityPosY` and returns `true` (carry set convention).
+  - `label_003_51F5` (`03:51F5`-`03:5235` in `src/bank3/entities_pushed_block.c`): 2x2 tile draw command generator:
+    - Calls `GetIntersectedObjectBGAddress` (`label_2887`) to resolve VRAM tile coordinates.
+    - Appends 10-byte draw command sequence (`bg_high`, `bg_low`, `0x81`, `tile0`, `tile1`, `bg_high`, `bg_low + 1`, `0x81`, `tile2`, `tile3`, `0x00`) to `wDrawCommand` and increments `wDrawCommandsSize` by 10.
+    - Calls `func_91D` on GBC to apply palette updates.
+    - Factored as a shared helper utilized by both `func_003_51C9` (pushed blocks) and `ApplySwordIntersectionWithObjects` (torch lighting).
+  - Data table `Data_003_69A2` (`03:69A2`): 8-byte lit torch tile replacement table `{0x6C, 0x74, 0x6D, 0x75, 0x00, 0x00, 0x00, 0x00}`.
+  - Subsystem Integration: Updated `MagicRodFireballEntityHandler` in `src/bank3/entities_magic_rod.c` to execute full authentic projectile movement, wall collision, and countdown logic via `ApplySwordIntersectionWithObjects`.
+
+- **Tests:** Comprehensive behavioral tests in `tests/bank3/test_entities_physics.c`:
+  - `test_ApplySwordIntersectionWithObjects`:
+    - Verifies 100% byte fidelity of `Data_003_69A2`.
+    - Tests `label_003_51F5` draw command buffer generation and 10-byte structure.
+    - Tests lit torch bypass (`OBJECT_TORCH_LIT`).
+    - Tests unlit torch lighting by fireball indoors (`OBJECT_TORCH_UNLIT` -> `OBJECT_TORCH_LIT`, sprinkle entity spawning, `wC1A2` increment, `wC3CD` decrement, palette effect update).
+    - Tests solid wall collision with coordinate rollback (`hActiveEntityPosX`/`PosY`).
+    - Tests passable tile (`OBJ_PHYSICS_NONE`).
+    - Tests out-of-bounds tile (`0xFF`) unloading non-boomerang projectiles and preserving/colliding boomerangs.
+    - Tests directional ledge elevation and matching/non-matching thrown directions with `wEntitiesUnknowTableJ`.
+  - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1012 verified functions passing.
 
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Carry return conventions and directional bitmasks verified exact to assembly instruction sequence.

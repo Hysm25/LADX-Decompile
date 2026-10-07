@@ -688,7 +688,7 @@ void func_003_6B7B(GBState *gb, uint16_t entity_index);
  * @param gb Pointer to Game Boy hardware state
  * @param entity_index Entity slot index (0..15)
  */
-void ApplySwordIntersectionWithObjects(GBState *gb, uint16_t entity_index);
+bool ApplySwordIntersectionWithObjects(GBState *gb, uint16_t entity_index);
 
 /**
  * AnimateRoamingEnemy (03:583C)

@@ -12,4 +12,7 @@ void func_003_52D4(GBState *gb, uint16_t bc);
 /* func_003_51C9 (03:51C9) - Tile replacement and draw command helper for pushed blocks */
 void func_003_51C9(GBState *gb, uint16_t bc, const uint8_t *data_ptr, uint8_t b_val);
 
+/* label_003_51F5 (03:51F5) - Appends 2x2 tile draw command for intersected object */
+void label_003_51F5(GBState *gb, const uint8_t *data_ptr);
+
 #endif /* LADX_BANK3_ENTITIES_PUSHED_BLOCK_H */
