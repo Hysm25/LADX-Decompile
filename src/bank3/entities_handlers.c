@@ -1,4 +1,5 @@
 #include "bank3/entities_handlers.h"
+#include "bank3/entities_bomb.h"
 #include "bank3/entities_physics.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
@@ -254,12 +255,10 @@ void EntityThrownHandler(GBState *gb, uint16_t bc) {
     gb_write(gb, wEntitiesIgnoreHitsCountdownTable + bc, 0);
 
     /* call BombEntityHandler.BounceOffWalls */
-    /* Note: This calls a bank 4 function. For now, we'll stub it. */
-    (void)gb;
+    BombBounceOffWalls(gb, bc);
 
     /* call EntityCheckThrowAtTriggers */
-    /* Note: This calls a bank 3 function at 03:5438. For now, we'll stub it. */
-    (void)gb;
+    EntityCheckThrowAtTriggers(gb, bc);
 
     /* ldh a, [hActiveEntityType]; cp ENTITY_GENIE; jr nz, .genieEnd */
     if (gb_read_hram(gb, hActiveEntityType) == ENTITY_GENIE) {

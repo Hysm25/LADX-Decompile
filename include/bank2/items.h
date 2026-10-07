@@ -131,5 +131,6 @@ void UpdateHealth(GBState *gb);
 void LoadRupeesDigits(GBState *gb);
 void LoadHeartsCount(GBState *gb);
 void func_002_61BA(GBState *gb);
+extern const uint8_t ThresholdLowHealthTable[16];
 
 #endif /* LADX_BANK2_ITEMS_H */

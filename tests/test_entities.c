@@ -107,6 +107,28 @@ void test_spawn_entity_trampolines(void) {
     assert(de == 0x05);
     assert(gb.rom_bank == 0x02); /* ReloadSavedBank restored wCurrentBank */
 
+    /* 1b. SpawnNewEntity_trampoline with NULL callback (fallback allocator) */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesPosXTable + 2, 0x48);
+    gb_write(&gb, wEntitiesPosYTable + 2, 0x58);
+    /* Mark slot 15 active, slot 14 disabled */
+    gb_write(&gb, wEntitiesStatusTable + 15, ENTITY_STATUS_ACTIVE);
+    de = SpawnNewEntity_trampoline(&gb, ENTITY_BOMB, NULL);
+    assert(de == 14);
+    assert(gb_read(&gb, wEntitiesStatusTable + 14) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, wEntitiesTypeTable + 14) == ENTITY_BOMB);
+    assert(gb_read_hram(&gb, hMultiPurpose0) == 0x48);
+    assert(gb_read_hram(&gb, hMultiPurpose1) == 0x58);
+    assert(gb_read(&gb, wEntitiesIgnoreHitsCountdownTable + 14) == 0x01);
+
+    /* 1c. All slots active -> returns 0xFFFF */
+    for (int i = 0; i < 16; i++) {
+        gb_write(&gb, wEntitiesStatusTable + i, ENTITY_STATUS_ACTIVE);
+    }
+    de = SpawnNewEntity_trampoline(&gb, ENTITY_BOMB, NULL);
+    assert(de == 0xFFFF);
+
     /* 2. SpawnNewEntityInRange_trampoline */
     spawn_called = 0;
     gb_write(&gb, wCurrentBank, 0x04);
@@ -444,6 +466,7 @@ static void mock_status_active_handler(GBState *gb) {
 static uint8_t dispatched_bank = 0;
 static uint16_t dispatched_addr = 0;
 static void mock_handler_dispatch(GBState *gb, uint8_t bank, uint16_t addr) {
+    (void)gb;
     dispatched_bank = bank;
     dispatched_addr = addr;
 }
@@ -1257,6 +1280,66 @@ static void test_load_entity_from_definition_and_room(void) {
     assert(gb.rom_bank == 1);
 }
 
+static void test_entity_check_throw_at_triggers(void) {
+    GBState gb;
+    gb_init(&gb);
+
+    /* Case 1: No collisions -> does nothing */
+    gb_write(&gb, wEntitiesCollisionsTable + 2, 0x00);
+    gb_write(&gb, wRoomEvent, TRIGGER_THROW_POT_AT_CHEST);
+    gb_write(&gb, wEntityHorizontallyCollidedObject, OBJECT_CHEST_CLOSED);
+    EntityCheckThrowAtTriggers(&gb, 2);
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x00);
+
+    /* Case 2: TRIGGER_THROW_POT_AT_CHEST with horizontal chest collision */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesCollisionsTable + 2, 0x01); /* Collided */
+    gb_write(&gb, wRoomEvent, TRIGGER_THROW_POT_AT_CHEST);
+    gb_write(&gb, wEntityHorizontallyCollidedObject, OBJECT_CHEST_CLOSED);
+    EntityCheckThrowAtTriggers(&gb, 2);
+    assert(gb_read_hram(&gb, hIntersectedObjectLeft) == 0x30);
+    assert(gb_read_hram(&gb, hIntersectedObjectTop) == 0x20);
+    assert(gb_read_hram(&gb, hMultiPurpose8) == CHEST_NIGHTMARE_KEY);
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x01);
+    assert(gb_read(&gb, hJingle) == JINGLE_PUZZLE_SOLVED);
+
+    /* Case 3: TRIGGER_THROW_POT_AT_CHEST without chest collision */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesCollisionsTable + 2, 0x01);
+    gb_write(&gb, wRoomEvent, TRIGGER_THROW_POT_AT_CHEST);
+    gb_write(&gb, wEntityHorizontallyCollidedObject, 0x10);
+    gb_write(&gb, wEntityVerticallyCollidedObject, 0x10);
+    EntityCheckThrowAtTriggers(&gb, 2);
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x00);
+
+    /* Case 4: TRIGGER_THROW_AT_DOOR with vertical door collision (0x35..0x3C) */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesCollisionsTable + 3, 0x04); /* Vert collision */
+    gb_write(&gb, wRoomEvent, TRIGGER_THROW_AT_DOOR);
+    gb_write(&gb, wEntityVerticallyCollidedObject, 0x38);
+    EntityCheckThrowAtTriggers(&gb, 3);
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x01);
+    assert(gb_read(&gb, hJingle) == JINGLE_PUZZLE_SOLVED);
+
+    /* Case 5: TRIGGER_THROW_AT_DOOR with horizontal door collision */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesCollisionsTable + 3, 0x02); /* Horiz collision */
+    gb_write(&gb, wRoomEvent, TRIGGER_THROW_AT_DOOR);
+    gb_write(&gb, wEntityHorizontallyCollidedObject, 0x35);
+    EntityCheckThrowAtTriggers(&gb, 3);
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x01);
+
+    /* Case 6: Non-matching door tile */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesCollisionsTable + 3, 0x02);
+    gb_write(&gb, wRoomEvent, TRIGGER_THROW_AT_DOOR);
+    gb_write(&gb, wEntityHorizontallyCollidedObject, 0x34);
+    gb_write(&gb, wEntityVerticallyCollidedObject, 0x3D);
+    EntityCheckThrowAtTriggers(&gb, 3);
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x00);
+}
+
+
 #define RUN_ENTITY_TEST(fn, name) \
     do { \
         printf("[RUN ] %s\n", name); \
@@ -1278,5 +1361,6 @@ void run_entities_tests(void) {
     RUN_ENTITY_TEST(test_entity_rendering_routines, "EntityRenderingRoutines");
     RUN_ENTITY_TEST(test_boss_and_entity_init_trampolines, "BossAndEntityInitTrampolines");
     RUN_ENTITY_TEST(test_recoil_and_kill_enemy_routines, "RecoilAndKillEnemyRoutines");
+    RUN_ENTITY_TEST(test_entity_check_throw_at_triggers, "EntityCheckThrowAtTriggers");
     printf("[PASS] Entities (Bank 0)\n\n");
 }

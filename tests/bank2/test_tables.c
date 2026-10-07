@@ -46,4 +46,13 @@ void test_bank2_tables(void) {
     assert(HookshotChainSpeedY[DIRECTION_UP] == -0x30);
     assert(HookshotChainSpeedY[DIRECTION_DOWN] == 0x30);
 
+    /* Test ThresholdLowHealthTable (02:6308) */
+    assert(sizeof(ThresholdLowHealthTable) == 16);
+    static const uint8_t expected_thresholds[16] = {
+        0x00, 0x22, 0xC9, 0x05, 0x05, 0x05, 0x09, 0x09,
+        0x09, 0x11, 0x11, 0x11, 0x19, 0x19, 0x19, 0x19
+    };
+    for (int i = 0; i < 16; i++) {
+        assert(ThresholdLowHealthTable[i] == expected_thresholds[i]);
+    }
 }

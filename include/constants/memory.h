@@ -225,6 +225,7 @@
 #define wSwordMoblinAlertingSoundCounter      0xC502
 #define wEntityHorizontallyCollidedObject     0xC503
 #define wPickedUpRockIndex                    0xC50C
+#define wEntityVerticallyCollidedObject       0xC50D
 
 /* WRAM Transient VFX Tables */
 #define wTranscientVfxTypeTable      0xC510

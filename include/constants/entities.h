@@ -100,6 +100,7 @@
 #define CHEST_SEASHELL               0x20
 #define CHEST_MESSAGE                0x21
 #define CHEST_FLIPPERS               0x0C
+#define CHEST_NIGHTMARE_KEY          0x19
 
 #define MAX_ENTITIES 16
 
@@ -219,6 +220,7 @@
 
 /* Trigger types */
 #define TRIGGER_THROW_POT_AT_CHEST   0x0D
+#define TRIGGER_THROW_AT_DOOR        0x0B
 #define TRIGGER_PUSH_SINGLE_BLOCK    0x02
 #define TRIGGER_PUSH_BLOCKS          0x07
 #define TRIGGER_SHOOT_STATUE_EYE     0x0F

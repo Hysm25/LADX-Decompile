@@ -12,5 +12,6 @@ void RenderBomb(GBState *gb, uint16_t bc);
 void CheckForBombDestroyableObjectPuzzle(GBState *gb, uint16_t bc);
 void CheckForBombDestroyableObjectBasic(GBState *gb, uint16_t bc);
 void CheckExplosionInteractionWithEntities(GBState *gb, uint16_t bc);
+void BombBounceOffWalls(GBState *gb, uint16_t bc);
 
 #endif /* LADX_BANK3_ENTITIES_BOMB_H */

@@ -7,10 +7,10 @@
 * **Number of Verified Functions**: 1007
 * **Number of Decompiled Functions**: 807
 * **Number Remaining**: ~205 functions
-* **Current Subsystem**: ROM Bank 3 (Entity Damage, Projectiles & Collision Handlers)
-* **Current Task**: Batch 93 Verification Completed
-* **Last Completed Task**: Batch 93 Verification — Projectile & Explosion Collision Handlers (`func_003_75A2`, `func_003_77A7`, `func_003_77D6`, `CheckExplosionInteractionWithEntities`, `GetVectorTowardsOtherEntity`, `label_003_71C0`).
-* **Last Update Timestamp**: 2026-10-07T14:31:00+00:00
+* **Current Subsystem**: ROM Bank 2 / ROM Bank 3 / Home (Audit & ASM Parity Fixes)
+* **Current Task**: Comprehensive Audit and ASM Parity Fixes Completed
+* **Last Completed Task**: Audit of Decompiled Functions Against ASM Source of Truth (`LoadHeartsCount`, `ThresholdLowHealthTable`, `LoadRupeesDigits`, `func_002_60E0`, `PushedBlockEntityHandler`, `func_003_51C9`, `EntityCheckThrowAtTriggers`, `BombBounceOffWalls`, `SpawnNewEntity_trampoline`).
+* **Last Update Timestamp**: 2026-10-07T15:45:00+00:00
 
 ---
 
@@ -927,3 +927,54 @@
   - Full Debug build/CTest PASS (100% tests passed in ~2.8s); strict C11 `-Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1007 verified functions passing.
 
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Bitwise arithmetic shifts (`sra; sra; cpl`) and bounding box radius offsets verified exact to assembly instruction sequence. Cross-bank calls remain callback-modeled.
+
+---
+
+## Comprehensive Codebase Audit & ASM Parity Fixes
+
+- **Scope:** Complete systematic audit of previously marked functions across ROM Bank 2, Bank 3, and Home against the original disassembly (`LADX-Disassembly/src/`). Identified incomplete implementations, buffer handling deviations, swapped tables, and missing branches. Applied proven fixes strictly using original assembly as source of truth.
+
+- **Audit Findings & Verified Fixes:**
+  1. **`LoadHeartsCount` (`02:6414`-`02:64FF` in `src/bank2/items.c`):**
+     - Corrected header byte and table structure matching authentic ROM `Data_002_63FF` layout (`$9C, $48, $07`, `$9C, $68, $07`, `$FF`).
+     - Implemented authentic two-row heart display wrapping at heart index 7 (`hl += 3` skip to advance to second row destination).
+     - Restored exact tile constants matching disassembly: full heart `$A9`, half heart `$CE`, empty heart `$CD`.
+  2. **`ThresholdLowHealthTable` (`02:6308`-`02:6317` in `src/bank2/items.c` & `include/bank2/items.h`):**
+     - Replaced inaccurate placeholder values with authentic ROM table contents `{0x00, 0x22, 0xC9, 0x05, 0x05, 0x05, 0x09, 0x09, 0x09, 0x11, 0x11, 0x11, 0x19, 0x19, 0x19, 0x19}`.
+     - Exported table symbol at file scope with shared header declaration for behavioral unit testing.
+  3. **`LoadRupeesDigits` (`02:62CE`-`02:6307` in `src/bank2/items.c`):**
+     - Fixed 9-byte buffer overrun bug; function now writes exactly 6 bytes (`$9C, $2A, $02` command header followed by 3 BCD digits biased by `+$B0`) as per assembly, preserving downstream buffer memory.
+  4. **`func_002_60E0` (`02:60E0`-`02:6206` in `src/bank2/items.c`):**
+     - Fixed inverted indoor condition: rooms >= `INDOOR_ROOM_MIN_E0` (Color Dungeon, Tail Cave, Egg) route to minimap tileset, whereas indoor houses route to inventory tileset.
+     - Corrected destination register to `hNeedsUpdatingBGTiles` (`0xFF90`) per disassembly.
+  5. **`PushedBlockEntityHandler` (`03:5249`-`03:52C9` in `src/bank3/entities_pushed_block.c`):**
+     - Corrected swapped delta tables: `Data_003_515E` maps Link direction to target tile offset; `Data_003_5162` maps to neighbor tile offset.
+     - Fixed inverted indoor/outdoor branch: indoors uses replacement tile `$A6`, outdoors uses replacement tile `$C4`.
+     - Added Link position coordinate rounding and reset on successful push per assembly.
+  6. **`func_003_51C9` (`03:51C9`-`03:5248` in `src/bank3/entities_pushed_block.c`):**
+     - Implemented full room object replacement helper: updates `wRoomObjects` and `wDDD8`, invokes `BackupObjectInRAM2`, constructs 10-byte draw command in `wDrawCommand`, and handles CGB palette helper `func_91D`.
+  7. **`EntityCheckThrowAtTriggers` (`03:5438`-`03:54E2` in `src/home/entities.c`):**
+     - Implemented full collision checks against room triggers: `TRIGGER_THROW_POT_AT_CHEST` and `TRIGGER_THROW_AT_DOOR`, setting resolved status and triggering effects.
+  8. **`BombBounceOffWalls` (`03:66FA`-`03:6727` in `src/bank3/entities_bomb.c`):**
+     - Implemented authentic wall collision bouncing: negates X velocity on horizontal collision, negates Y velocity on vertical collision (bypassed in side-scrolling mode).
+  9. **`SpawnNewEntity_trampoline` (`src/home/entities.c`):**
+     - Added robust fallback entity allocation search across slots `ENTITY_COUNT - 1` down to 0 when `spawn_new_entity == NULL`, initializing status, type, and multipurpose coordinate registers.
+
+- **Behavioral Tests Added & Updated:**
+  - `tests/bank2/test_tables.c`: Added `ThresholdLowHealthTable` assertions verifying authentic ROM 16-byte contents.
+  - `tests/bank2/test_func_60E0.c`:
+    - `test_LoadRupeesDigits`: Verified exact 6-byte output and guard byte preservation.
+    - `test_LoadHeartsCount`: Full hearts, half heart, 0 health, and 10 max hearts spanning 2 rows.
+    - `test_func_002_60E0`: Verified `hNeedsUpdatingBGTiles` routing for Tail Cave, Color Dungeon, Egg, and House.
+  - `tests/test_entities.c`:
+    - `test_SpawnNewEntity_trampoline`: Added unit tests for slot allocation, coordinate initialization, and full-slot exhaustion.
+    - `test_entity_check_throw_at_triggers`: Added 6 unit test cases covering pot at chest trigger, pot at door trigger, and non-triggers.
+  - `tests/bank3/test_entities_physics.c`:
+    - `test_BombBounceOffWalls`: Tested side-scrolling bypass, top-down X/Y bounces, and no-collision cases.
+    - `test_func_003_51C9`: Tested room object, `wDDD8`, draw command buffer and size update.
+    - `test_PushedBlockEntityHandler`: Tested indoor ($A6) and outdoor ($C4) block push, Link pushing flag, and puzzle trigger resolution.
+
+- **Validation:**
+  - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s).
+  - Strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` syntax checks PASS.
+  - `git diff --check` PASS with zero errors or whitespace issues.

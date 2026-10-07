@@ -1,4 +1,5 @@
 #include "bank3/entities_bomb.h"
+#include "bank3/entities_arrow.h"
 #include "bank3/entities_physics.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
@@ -206,4 +207,26 @@ void CheckForBombDestroyableObjectBasic(GBState *gb, uint16_t bc) {
     if (!gb) return;
     /* Placeholder - checks if bomb can destroy basic objects */
     (void)bc;
+}
+
+/* ===== BombBounceOffWalls (03:66FA) ===== */
+void BombBounceOffWalls(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and $03; jr z, .noCollisionX */
+    uint8_t collisions = gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc));
+    if ((collisions & 0x03) != 0) {
+        EntityBounceOffWallX(gb, bc);
+    }
+
+    /* ldh a, [hIsSideScrolling]; and a; ret nz */
+    if (gb_read_hram(gb, hIsSideScrolling) != 0) {
+        return;
+    }
+
+    /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and $0C; ret z */
+    collisions = gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc));
+    if ((collisions & 0x0C) != 0) {
+        EntityBounceOffWallY(gb, bc);
+    }
 }

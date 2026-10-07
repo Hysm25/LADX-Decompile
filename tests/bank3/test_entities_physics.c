@@ -9,6 +9,10 @@
 #include "constants/directions.h"
 #include "constants/gameplay.h"
 #include "constants/sfx.h"
+#include "bank3/entities_bomb.h"
+#include "bank3/entities_pushed_block.h"
+#include "home/entities.h"
+#include "home/link.h"
 
 /* Test GetEntityXDistanceToLink_03 */
 static void test_GetEntityXDistanceToLink(void) {
@@ -683,6 +687,176 @@ static void test_CheckLinkCollisionWithEnemy(void) {
     printf("[PASS] CheckLinkCollisionWithEnemy\n");
 }
 
+static void test_BombBounceOffWalls(void) {
+    printf("[RUN ] BombBounceOffWalls\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x03;
+
+    /* Case 1: Side scrolling with X and Y collisions */
+    gb_write_hram(&gb, hIsSideScrolling, 0x01);
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x01 | 0x04);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x20);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x20);
+
+    BombBounceOffWalls(&gb, bc);
+
+    /* Speed X bounced: (~0x20 + 1) >> 3 = -32 >> 3 = -4 = 0xFC */
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0xFC);
+    /* Speed Y untouched because side scrolling returns early */
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x20);
+
+    /* Case 2: Top-down with both X and Y collisions */
+    gb_write_hram(&gb, hIsSideScrolling, 0x00);
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x02 | 0x08);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x18);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x18);
+
+    BombBounceOffWalls(&gb, bc);
+
+    /* Both X and Y bounced: -24 >> 3 = -3 = 0xFD */
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0xFD);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0xFD);
+
+    /* Case 3: Top-down with only Y collision */
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x04);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x10);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x10);
+
+    BombBounceOffWalls(&gb, bc);
+
+    /* Speed X untouched, Speed Y bounced: -16 >> 3 = -2 = 0xFE */
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x10);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0xFE);
+
+    /* Case 4: No collision -> neither changes */
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x10);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x10);
+
+    BombBounceOffWalls(&gb, bc);
+
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x10);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x10);
+
+    printf("[PASS] BombBounceOffWalls\n");
+}
+
+static void test_func_003_51C9(void) {
+    printf("[RUN ] func_003_51C9\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Active entity at PosY = 0x3F, PosX = 0x47 */
+    /* top = 0x3F - 0x0F = 0x30, left = 0x47 - 0x07 = 0x40 */
+    /* de_offset = (0x30 & 0xF0) | ((0x40 >> 4) & 0x0F) = 0x34 */
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wDrawCommandsSize, 0x00);
+
+    static const uint8_t test_tiles[4] = { 0xF8, 0xF9, 0xFA, 0xFB };
+    func_003_51C9(&gb, 0, test_tiles, 0xA6);
+
+    /* Room object updated */
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0xA6);
+    assert(gb_read(&gb, wDDD8) == 0xA6);
+
+    /* Draw commands size incremented by 10 */
+    assert(gb_read(&gb, wDrawCommandsSize) == 10);
+
+    /* Check draw command tiles */
+    uint8_t bg_high = gb_read_hram(&gb, hIntersectedObjectBGAddressHigh);
+    uint8_t bg_low = gb_read_hram(&gb, hIntersectedObjectBGAddressLow);
+
+    assert(gb_read(&gb, wDrawCommand + 0) == bg_high);
+    assert(gb_read(&gb, wDrawCommand + 1) == bg_low);
+    assert(gb_read(&gb, wDrawCommand + 2) == 0x81);
+    assert(gb_read(&gb, wDrawCommand + 3) == 0xF8);
+    assert(gb_read(&gb, wDrawCommand + 4) == 0xF9);
+    assert(gb_read(&gb, wDrawCommand + 5) == bg_high);
+    assert(gb_read(&gb, wDrawCommand + 6) == (uint8_t)(bg_low + 1));
+    assert(gb_read(&gb, wDrawCommand + 7) == 0x81);
+    assert(gb_read(&gb, wDrawCommand + 8) == 0xFA);
+    assert(gb_read(&gb, wDrawCommand + 9) == 0xFB);
+    assert(gb_read(&gb, wDrawCommand + 10) == 0x00); /* Terminator */
+
+    printf("[PASS] func_003_51C9\n");
+}
+
+static void test_PushedBlockEntityHandler(void) {
+    printf("[RUN ] PushedBlockEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x02;
+
+    /* Setup active entity 2 */
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+
+    /* Link collided with pushed block */
+    gb_write_hram(&gb, hLinkPositionX, 0x3F);
+    gb_write_hram(&gb, hLinkPositionY, 0x37);
+    gb_write_hram(&gb, hLinkFinalPositionX, 0x40);
+    gb_write_hram(&gb, hLinkFinalPositionY, 0x30);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wEntitiesInertiaTable + bc, 0x20); /* Next increment reaches 0x21 */
+    gb_write(&gb, wRoomEvent, TRIGGER_PUSH_SINGLE_BLOCK);
+
+    PushedBlockEntityHandler(&gb, bc);
+
+    /* Link position restored to final position */
+    assert(gb_read_hram(&gb, hLinkPositionX) == 0x40);
+    assert(gb_read_hram(&gb, hLinkPositionY) == 0x30);
+    assert(gb_read(&gb, wIsLinkPushing) == 0x03);
+
+    /* Entity unloaded after inertia reaches 0x21 */
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    /* Indoor tile 0xA6 placed at room objects */
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0xA6);
+    assert(gb_read(&gb, wDDD8) == 0xA6);
+
+    /* Single block push resolved */
+    assert(gb_read(&gb, wRoomEventEffectExecuted) == 0x01);
+    assert(gb_read(&gb, hJingle) == JINGLE_PUZZLE_SOLVED);
+
+    /* Test outdoor block push */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+    gb_write(&gb, wIsIndoor, 0x00); /* Outdoor */
+    gb_write(&gb, wEntitiesInertiaTable + bc, 0x20);
+    gb_write(&gb, wRoomEvent, TRIGGER_PUSH_SINGLE_BLOCK);
+
+    PushedBlockEntityHandler(&gb, bc);
+
+    /* Outdoor tile 0xC4 placed */
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0xC4);
+    assert(gb_read(&gb, wDDD8) == 0xC4);
+
+    printf("[PASS] PushedBlockEntityHandler\n");
+}
+
+
 void test_bank3_entities_physics(void) {
     test_GetEntityXDistanceToLink();
     test_GetEntityYDistanceToLink();
@@ -701,4 +875,7 @@ void test_bank3_entities_physics(void) {
     test_ReturnIfNonInteractive();
     test_ApplyRecoilIfNeeded();
     test_CheckLinkCollisionWithEnemy();
+    test_BombBounceOffWalls();
+    test_func_003_51C9();
+    test_PushedBlockEntityHandler();
 }

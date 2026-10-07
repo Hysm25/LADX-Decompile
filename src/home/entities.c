@@ -10,6 +10,9 @@
 #include "constants/vfx.h"
 #include "constants/audio.h"
 #include "constants/dialog.h"
+#include "home/link.h"
+#include "home/room.h"
+#include "bank2/room_events.h"
 
 uint8_t IsZero(GBState *gb, uint16_t hl, uint16_t bc) {
     if (!gb) return 0;
@@ -53,12 +56,27 @@ void CreateTradingItemEntity(GBState *gb, uint16_t (*spawn_func)(GBState *, uint
 }
 
 uint16_t SpawnNewEntity_trampoline(GBState *gb, uint8_t entity_type, uint16_t (*spawn_new_entity)(GBState *, uint8_t)) {
-    if (!gb) return 0;
+    if (!gb) return 0xFFFF;
 
     gb_write(gb, rSelectROMBank, 0x03);
-    uint16_t de = 0;
+    uint16_t de = 0xFFFF;
     if (spawn_new_entity) {
         de = spawn_new_entity(gb, entity_type);
+    } else {
+        uint8_t active_idx = gb_read(gb, wActiveEntityIndex);
+        for (int8_t i = 15; i >= 0; i--) {
+            if (gb_read(gb, (uint16_t)(wEntitiesStatusTable + i)) == 0) {
+                gb_write(gb, (uint16_t)(wEntitiesStatusTable + i), ENTITY_STATUS_ACTIVE);
+                gb_write(gb, (uint16_t)(wEntitiesTypeTable + i), entity_type);
+                gb_write_hram(gb, hMultiPurpose0, gb_read(gb, (uint16_t)(wEntitiesPosXTable + active_idx)));
+                gb_write_hram(gb, hMultiPurpose1, gb_read(gb, (uint16_t)(wEntitiesPosYTable + active_idx)));
+                gb_write_hram(gb, hMultiPurpose2, gb_read(gb, (uint16_t)(wEntitiesDirectionTable + active_idx)));
+                gb_write_hram(gb, hMultiPurpose3, gb_read(gb, (uint16_t)(wEntitiesPosZTable + active_idx)));
+                gb_write(gb, (uint16_t)(wEntitiesIgnoreHitsCountdownTable + i), 0x01);
+                de = (uint16_t)i;
+                break;
+            }
+        }
     }
     ReloadSavedBank(gb);
     return de;
@@ -1152,27 +1170,51 @@ void LoadRoomEntities(GBState *gb,
 
 /* Bank 3 entity helper callbacks */
 
-void EntityCheckThrowAtTriggers(GBState *gb, uint16_t entity_index) {
+/* ===== EntityCheckThrowAtTriggers (03:5438) ===== */
+void EntityCheckThrowAtTriggers(GBState *gb, uint16_t bc) {
     if (!gb) return;
-    /* Stub: Check if thrown entity hit a trigger */
-    (void)entity_index;
-}
 
-void func_003_51C9(GBState *gb, uint16_t entity_index, const uint8_t *data_ptr, uint8_t b_val) {
-    if (!gb) return;
-    /* Stub: Helper function for PushedBlockEntityHandler trigger checking */
-    (void)entity_index;
-    (void)data_ptr;
-    (void)b_val;
+    /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and a; ret z */
+    uint8_t collisions = gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc));
+    if (collisions == 0) return;
+
+    /* ld a, [wRoomEvent]; and EVENT_TRIGGER_MASK; cp TRIGGER_THROW_POT_AT_CHEST; jr nz, jr_003_5467 */
+    uint8_t trigger = (uint8_t)(gb_read(gb, wRoomEvent) & EVENT_TRIGGER_MASK);
+    if (trigger == TRIGGER_THROW_POT_AT_CHEST) {
+        uint8_t horiz = gb_read(gb, wEntityHorizontallyCollidedObject);
+        uint8_t vert = gb_read(gb, wEntityVerticallyCollidedObject);
+        if (horiz == OBJECT_CHEST_CLOSED || vert == OBJECT_CHEST_CLOSED) {
+            gb_write_hram(gb, hIntersectedObjectLeft, 0x30);
+            gb_write_hram(gb, hIntersectedObjectTop, 0x20);
+            gb_write_hram(gb, hMultiPurpose8, CHEST_NIGHTMARE_KEY);
+            SpawnChestWithItem(gb, NULL);
+            MarkTriggerAsResolved(gb);
+            return;
+        }
+        return;
+    }
+
+    /* jr_003_5467: cp TRIGGER_THROW_AT_DOOR; ret nz */
+    if (trigger != TRIGGER_THROW_AT_DOOR) {
+        return;
+    }
+
+    uint8_t vert = gb_read(gb, wEntityVerticallyCollidedObject);
+    if (vert >= 0x35 && vert < 0x3D) {
+        MarkTriggerAsResolved(gb);
+        return;
+    }
+
+    uint8_t horiz = gb_read(gb, wEntityHorizontallyCollidedObject);
+    if (horiz >= 0x35 && horiz < 0x3D) {
+        MarkTriggerAsResolved(gb);
+        return;
+    }
 }
 
 void CopyLinkFinalPositionToActivePosition(GBState *gb) {
     if (!gb) return;
-    /* Stub: Copies Link's final position to active position */
-    uint8_t final_x = gb_read(gb, hLinkFinalPositionX);
-    uint8_t final_y = gb_read(gb, hLinkFinalPositionY);
-    gb_write_hram(gb, hActiveEntityPosX, final_x);
-    gb_write_hram(gb, hActiveEntityPosY, final_y);
+    CopyLinkFinalPositionToPosition(gb);
 }
 
 void OpenDialogInTable0_trampoline(GBState *gb, uint8_t dialog_id) {

@@ -562,31 +562,20 @@ void LoadRupeesDigits(GBState *gb) {
 
     uint8_t a = gb_read(gb, wDrawCommandsSize);
     uint8_t e = a;
-    a = a + 0x06;
+    a = (uint8_t)(a + 0x06);
     gb_write(gb, wDrawCommandsSize, a);
-    uint16_t hl = wDrawCommand;
-    hl += e;
+
+    uint16_t hl = (uint16_t)(wDrawCommand + e);
     gb_write(gb, hl++, 0x9C);
     gb_write(gb, hl++, 0x2A);
     gb_write(gb, hl++, 0x02);
-    uint16_t de = hl;
+
     uint8_t rupee_high = gb_read(gb, wRupeeCountHigh);
-    rupee_high &= 0x0F;
-    e = rupee_high;
-    e += 0xB0;
-    hl = de;
-    gb_write(gb, hl++, e);
-    gb_write(gb, hl++, 0x9C);
-    gb_write(gb, hl++, 0x0D);
-    gb_write(gb, hl++, 0x06);
-    e = gb_read(gb, wRupeeCountLow);
-    e = (e >> 4) & 0x0F;
-    e += 0xB0;
-    gb_write(gb, hl++, e);
-    e = gb_read(gb, wRupeeCountLow);
-    e &= 0x0F;
-    e += 0xB0;
-    gb_write(gb, hl++, e);
+    gb_write(gb, hl++, (uint8_t)((rupee_high & 0x0F) + 0xB0));
+
+    uint8_t rupee_low = gb_read(gb, wRupeeCountLow);
+    gb_write(gb, hl++, (uint8_t)(((rupee_low >> 4) & 0x0F) + 0xB0));
+    gb_write(gb, hl++, (uint8_t)((rupee_low & 0x0F) + 0xB0));
 }
 
 /* UpdateRupeesCount (02:6209-02:62CB)
@@ -697,6 +686,26 @@ void UpdateRupeesCount(GBState *gb) {
     LoadRupeesDigits(gb);
 }
 
+/* ThresholdLowHealthTable (02:6308) */
+const uint8_t ThresholdLowHealthTable[16] = {
+    0x00, /*  0 max hearts */
+    0x22, /*  1 max hearts */
+    0xC9, /*  2 max hearts */
+    0x05, /*  3 max hearts */
+    0x05, /*  4 max hearts */
+    0x05, /*  5 max hearts */
+    0x09, /*  6 max hearts */
+    0x09, /*  7 max hearts */
+    0x09, /*  8 max hearts */
+    0x11, /*  9 max hearts */
+    0x11, /* 10 max hearts */
+    0x11, /* 11 max hearts */
+    0x19, /* 12 max hearts */
+    0x19, /* 13 max hearts */
+    0x19, /* 14 max hearts */
+    0x19  /* 15 max hearts */
+};
+
 /* UpdateHealth (02:6317-02:63D8)
  * Updates health display and handles low health warnings.
  */
@@ -708,12 +717,7 @@ void UpdateHealth(GBState *gb) {
 
     uint8_t max_hearts = gb_read(gb, wMaxHearts);
 
-    /* Check if health is below low health threshold */
-    static const uint8_t ThresholdLowHealthTable[16] = {
-        0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40,
-        0x48, 0x50, 0x58, 0x60, 0x68, 0x70, 0x78, 0x80
-    };
-
+    /* Check if health is below low health threshold (02:6308) */
     if (gb_read(gb, wHealth) < ThresholdLowHealthTable[max_hearts & 0x0F]) {
         /* Low health */
         gb_write(gb, wIsOnLowHeath, 0x01);
@@ -796,29 +800,62 @@ void LoadHeartsCount(GBState *gb) {
 
     uint8_t a = gb_read(gb, wDrawCommandsSize);
     uint8_t e = a;
-    a = a + 0x14;
+    a = (uint8_t)(a + 0x14);
     gb_write(gb, wDrawCommandsSize, a);
-    uint16_t hl = wDrawCommand;
-    hl += e;
+
+    uint16_t hl = (uint16_t)(wDrawCommand + e);
+
+    /* 21 bytes copied from Data_002_63FF (02:63FF) */
     static const uint8_t Data_002_63FF[21] = {
         0x9C, 0x0D, 0x06, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F,
-        0x9C, 0x2D, 0x06, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x00
+        0x9C, 0x2D, 0x06, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F,
+        0x00
     };
-    const uint8_t *bc = Data_002_63FF;
-    e = 0x15;
-    while (e != 0) {
-        gb_write(gb, hl++, *bc++);
-        e--;
+    for (uint8_t i = 0; i < 21; i++) {
+        gb_write(gb, hl++, Data_002_63FF[i]);
     }
 
-    /* Draw heart count */
-    hl = (uint16_t)(wDrawCommand + 0x04);
-    hl += e;
+    /* Draw heart tiles starting at wDrawCommand.data + de = wDrawCommand + e + 3 */
+    hl = (uint16_t)(wDrawCommand + e + 3);
+    uint8_t c = 0;
     uint8_t health = gb_read(gb, wHealth);
-    while (health >= ONE_HEART) {
-        health -= ONE_HEART;
+    if (health == 0) {
+        goto draw_empty_hearts;
     }
-    /* TODO: Complete heart drawing logic */
+    gb_write_hram(gb, hMultiPurpose0, health);
+
+draw_full_hearts:
+    health = gb_read_hram(gb, hMultiPurpose0);
+    if (health < ONE_HEART) {
+        /* Partial heart */
+        if (health != 0) {
+            gb_write(gb, hl++, 0xCE); /* half heart tile */
+            c++;
+            if (c == 7) {
+                hl += 3; /* skip second row command header (0x9C, 0x2D, 0x06) */
+            }
+        }
+        goto draw_empty_hearts;
+    }
+    health -= ONE_HEART;
+    gb_write_hram(gb, hMultiPurpose0, health);
+    gb_write(gb, hl++, 0xA9); /* full heart tile */
+    c++;
+    if (c == 7) {
+        hl += 3; /* skip second row command header (0x9C, 0x2D, 0x06) */
+    }
+    goto draw_full_hearts;
+
+draw_empty_hearts:
+    if (c >= gb_read(gb, wMaxHearts)) {
+        return;
+    }
+    gb_write(gb, hl++, 0xCD); /* empty heart tile */
+    c++;
+    if (c == 7) {
+        hl += 3; /* skip second row command header (0x9C, 0x2D, 0x06) */
+    }
+    goto draw_empty_hearts;
 }
 
 /* func_002_60E0 (02:60E0-02:6206)
@@ -955,12 +992,10 @@ void func_002_60E0(GBState *gb) {
 
     if (is_indoor != 0) {
         uint8_t map_id = gb_read_hram(gb, hMapId);
-        if (map_id == MAP_COLOR_DUNGEON) {
+        if (map_id == MAP_COLOR_DUNGEON || map_id < MAP_WINDFISHS_EGG) {
             tileset = TILESET_LOAD_DUNGEON_MINIMAP;
-        } else if (map_id < MAP_WINDFISHS_EGG) {
-            tileset = TILESET_LOAD_INVENTORY;
         } else {
-            tileset = TILESET_LOAD_DUNGEON_MINIMAP;
+            tileset = TILESET_LOAD_INVENTORY;
         }
     }
 
