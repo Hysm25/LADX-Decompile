@@ -1026,6 +1026,334 @@ static void test_ApplySwordDamagesToEnemy_DyingAndDefeat(void) {
     printf("  PASSED\n");
 }
 
+/* Test Data_003_74E4 and Data_003_74E8 ROM tables */
+static void test_DataTables_SwordEnemyCollision(void) {
+    printf("Testing Data_003_74E4 and Data_003_74E8...\n");
+
+    assert(sizeof(Data_003_74E4) == 4);
+    assert(Data_003_74E4[0] == 0x00);
+    assert(Data_003_74E4[1] == 0xF0);
+    assert(Data_003_74E4[2] == 0xF8);
+    assert(Data_003_74E4[3] == 0xFC);
+
+    assert(sizeof(Data_003_74E8) == 4);
+    assert(Data_003_74E8[0] == 0xFC);
+    assert(Data_003_74E8[1] == 0xFC);
+    assert(Data_003_74E8[2] == 0xF0);
+    assert(Data_003_74E8[3] == 0x00);
+
+    printf("  PASSED\n");
+}
+
+/* Test func_003_73EB early branches to label_003_74EC */
+static void test_func_003_73EB_EarlyBranches(void) {
+    printf("Testing func_003_73EB (early branches to label_003_74EC)...\n");
+
+    GBState gb;
+    uint16_t bc = 0x01;
+
+    /* Case 1: wIgnoreLinkCollisionsCountdown != 0 */
+    gb_init(&gb);
+    gb_write(&gb, wIgnoreLinkCollisionsCountdown, 0x05);
+    gb_write(&gb, wC140, 0x40);
+    gb_write(&gb, wC141, 0x08);
+    gb_write(&gb, wC142, 0x40);
+    gb_write(&gb, wC143, 0x08);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_LEFT);
+    func_003_73EB(&gb, bc);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
+    assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x05);
+
+    /* Case 2: wC1AC != 0 */
+    gb_init(&gb);
+    gb_write(&gb, wC1AC, 0x02);
+    gb_write(&gb, wC140, 0x40);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    func_003_73EB(&gb, bc);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
+
+    /* Case 3: hLinkPunchedAwayCountdown != 0 */
+    gb_init(&gb);
+    gb_write_hram(&gb, hLinkPunchedAwayCountdown, 0x04);
+    gb_write(&gb, wC140, 0x40);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    func_003_73EB(&gb, bc);
+    assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x00);
+
+    /* Case 4: wIsUsingSpinAttack != 0 */
+    gb_init(&gb);
+    gb_write(&gb, wIsUsingSpinAttack, 0x01);
+    gb_write(&gb, wC140, 0x40);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    func_003_73EB(&gb, bc);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
+
+    /* Case 5: wC140 == 0 */
+    gb_init(&gb);
+    gb_write(&gb, wC140, 0x00);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    func_003_73EB(&gb, bc);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
+
+    /* Case 6: Same direction (Link facing RIGHT, Entity facing RIGHT) */
+    gb_init(&gb);
+    gb_write(&gb, wC140, 0x40);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_RIGHT);
+    func_003_73EB(&gb, bc);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
+
+    /* Case 7: Out of X range */
+    gb_init(&gb);
+    gb_write(&gb, wC140, 0x20); /* Sword X = 0x20 */
+    gb_write(&gb, wC141, 0x04); /* Sword half-width = 4 */
+    gb_write(&gb, wD5C0, 0x00);
+    gb_write(&gb, wD5C1, 0x04); /* Entity half-width = 4 */
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40); /* Entity X = 0x40. Diff = 0x20 >= 8 */
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_LEFT);
+    func_003_73EB(&gb, bc);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x00);
+
+    printf("  PASSED\n");
+}
+
+/* Test func_003_73EB sword collision with non-Blaino enemy */
+static void test_func_003_73EB_SwordCollision_NonBlaino(void) {
+    printf("Testing func_003_73EB (sword collision with non-Blaino enemy)...\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x02;
+
+    /* Entity at (0x50, 0x50), weapon at (0x50, 0x50) */
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_MOBLIN_SWORD);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x50);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x50);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x00);
+    gb_write(&gb, wD5C0, 0x00);
+    gb_write(&gb, wD5C1, 0x08);
+    gb_write(&gb, wD5C2, 0x00);
+    gb_write(&gb, wD5C3, 0x08);
+
+    /* Sword active */
+    gb_write(&gb, wC140, 0x50);
+    gb_write(&gb, wC141, 0x08);
+    gb_write(&gb, wC142, 0x50);
+    gb_write(&gb, wC143, 0x08);
+
+    /* Link facing UP (2), entity facing DOWN (3) */
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_UP);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_DOWN);
+
+    /* Link position below entity */
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x70);
+
+    /* Pegasus boots active, sword charge active */
+    gb_write(&gb, wIsRunningWithPegasusBoots, 0x01);
+    gb_write(&gb, wSwordCharge, 0x20);
+
+    /* Spin attack timer */
+    gb_write(&gb, wIsUsingSpinAttack, 0x00);
+    gb_write(&gb, wC16A, 0x05);
+
+    func_003_73EB(&gb, bc);
+
+    /* Assertions */
+    assert(gb_read(&gb, wIsRunningWithPegasusBoots) == 0x00);
+    assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x08);
+    assert(gb_read(&gb, wEntitiesIgnoreHitsCountdownTable + bc) == 0x08);
+    assert(gb_read(&gb, wSwordCharge) == 0x00);
+    assert(gb_read(&gb, wC16D) == 0x0C);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x0C);
+
+    /* Spark coordinates in hMultiPurpose0/1 computed from Data_003_74E4/E8 with DIRECTION_UP (2) */
+    assert(gb_read_hram(&gb, hMultiPurpose0) == (uint8_t)(0x50 + 0xF8));
+    assert(gb_read_hram(&gb, hMultiPurpose1) == (uint8_t)(0x50 + 0xF0));
+
+    printf("  PASSED\n");
+}
+
+/* Test func_003_73EB sword collision with Blaino */
+static void test_func_003_73EB_SwordCollision_Blaino(void) {
+    printf("Testing func_003_73EB (sword collision with Blaino)...\n");
+
+    GBState gb;
+    uint16_t bc = 0x03;
+
+    /* Case A: wD205 == 0 -> Jingle bump, link punched away countdown 0x0C */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BLAINO);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wC140, 0x50);
+    gb_write(&gb, wC141, 0x08);
+    gb_write(&gb, wC142, 0x50);
+    gb_write(&gb, wC143, 0x08);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_LEFT);
+    gb_write(&gb, wD205, 0x00);
+
+    func_003_73EB(&gb, bc);
+
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_BUMP);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x0C);
+
+    /* Case B: wD205 == 1 -> countdown 0x10, punched away countdown 0x0C */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BLAINO);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wC140, 0x50);
+    gb_write(&gb, wC141, 0x08);
+    gb_write(&gb, wC142, 0x50);
+    gb_write(&gb, wC143, 0x08);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_LEFT);
+    gb_write(&gb, wD205, 0x01);
+
+    func_003_73EB(&gb, bc);
+
+    assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x10);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x0C);
+
+    /* Case C: wD205 == 3 with high inertia -> knockout punch */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BLAINO);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wC140, 0x50);
+    gb_write(&gb, wC141, 0x08);
+    gb_write(&gb, wC142, 0x50);
+    gb_write(&gb, wC143, 0x08);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_LEFT);
+    gb_write(&gb, wD205, 0x03);
+    gb_write(&gb, wEntitiesInertiaTable + bc, 0x30);
+
+    func_003_73EB(&gb, bc);
+
+    assert(gb_read(&gb, wLinkMotionState) == LINK_MOTION_UNKNOWN_0A);
+    assert(gb_read_hram(&gb, hLinkSpeedX) == 0xD0);
+    assert(gb_read_hram(&gb, hLinkSpeedY) == 0x00);
+    assert(gb_read_hram(&gb, hLinkVelocityZ) == 0x30);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_STRONG_BUMP);
+
+    /* Case D: wD205 == 2 -> countdown 0x20 */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BLAINO);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
+    gb_write(&gb, wC140, 0x50);
+    gb_write(&gb, wC141, 0x08);
+    gb_write(&gb, wC142, 0x50);
+    gb_write(&gb, wC143, 0x08);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_LEFT);
+    gb_write(&gb, wD205, 0x02);
+
+    func_003_73EB(&gb, bc);
+
+    assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x20);
+    assert(gb_read_hram(&gb, hLinkPunchedAwayCountdown) == 0x0C);
+
+    printf("  PASSED\n");
+}
+
+/* Test label_003_74EC body collision and Blaino responses */
+static void test_label_003_74EC_Behavior(void) {
+    printf("Testing label_003_74EC (body collision & Blaino responses)...\n");
+
+    GBState gb;
+    uint16_t bc = 0x02;
+
+    /* Case 1: Even frame parity -> skipped */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x02); /* (2 ^ 2) & 1 == 0 */
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x58);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x58);
+    label_003_74EC(&gb, bc);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0x00);
+
+    /* Case 2: Odd parity, but outside hitbox bounds */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x03); /* (3 ^ 2) & 1 == 1 */
+    gb_write_hram(&gb, hLinkPositionX, 0x10);
+    gb_write_hram(&gb, hLinkPositionY, 0x10);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x60);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x60);
+    label_003_74EC(&gb, bc);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0x00);
+
+    /* Case 3: Overlapping hit with regular enemy while invincible -> no damage */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x03);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x58);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x58);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write(&gb, wInvincibilityCounter, 0x20);
+    label_003_74EC(&gb, bc);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0x00);
+
+    /* Case 4: Overlapping hit with regular enemy -> takes damage */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x03);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x58);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x58);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    label_003_74EC(&gb, bc);
+    assert(gb_read(&gb, wSubtractHealthBuffer) > 0);
+
+    /* Case 5: Overlapping hit with Blaino in state 2 */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x03);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x58);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x58);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BLAINO);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write(&gb, wD205, 0x02);
+    label_003_74EC(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + bc) == 0xA0);
+    assert(gb_read(&gb, wIgnoreLinkCollisionsCountdown) == 0x20);
+
+    /* Case 6: Overlapping hit with Blaino knockout punch (wD205 = 3, inertia >= 0x22) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x03);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x58);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x58);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BLAINO);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write(&gb, wD205, 0x03);
+    gb_write(&gb, wEntitiesInertiaTable + bc, 0x28);
+    gb_write(&gb, wEntitiesDirectionTable + bc, 0x00);
+    label_003_74EC(&gb, bc);
+    assert(gb_read(&gb, wLinkMotionState) == LINK_MOTION_UNKNOWN_0A);
+    assert(gb_read_hram(&gb, hLinkSpeedX) == 0x30);
+    assert(gb_read_hram(&gb, hLinkVelocityZ) == 0x30);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_STRONG_BUMP);
+
+    printf("  PASSED\n");
+}
+
 void test_bank3_entities_collision(void) {
     test_EntityDamagesForGroup();
     test_ApplyLinkCollision_CheepCheep();
@@ -1040,4 +1368,9 @@ void test_bank3_entities_collision(void) {
     test_ApplySwordDamagesToEnemy_DamageTypes();
     test_ApplySwordDamagesToEnemy_SpecialDamages();
     test_ApplySwordDamagesToEnemy_DyingAndDefeat();
+    test_DataTables_SwordEnemyCollision();
+    test_func_003_73EB_EarlyBranches();
+    test_func_003_73EB_SwordCollision_NonBlaino();
+    test_func_003_73EB_SwordCollision_Blaino();
+    test_label_003_74EC_Behavior();
 }

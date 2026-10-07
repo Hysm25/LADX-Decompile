@@ -513,6 +513,7 @@
 #define wOBJ0Palette                            0xDB98
 #define wOBJ1Palette                            0xDB99
 #define hButtonsInactiveDelay                   0xFFB5
+#define hLinkPunchedAwayCountdown               0xFFB6
 #define wBGPalette                              0xDB97
 #define hDMARoutine                             0xFFC0
 #define wDB54                                 0xDB54

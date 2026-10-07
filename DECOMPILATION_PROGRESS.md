@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~76.6%
-* **Number of Verified Functions**: 1000
-* **Number of Decompiled Functions**: 800
-* **Number Remaining**: ~212 functions
+* **Current Overall Progress**: ~76.7%
+* **Number of Verified Functions**: 1002
+* **Number of Decompiled Functions**: 802
+* **Number Remaining**: ~210 functions
 * **Current Subsystem**: ROM Bank 3 (Entity Damage & Collision Handlers)
-* **Current Task**: Batch 91: Bank 3 Entity Sword Collision and Damage Handlers
-* **Last Completed Task**: Implementation and verification of 2 Bank 3 entity sword collision and damage handling functions (`EnemyCollidedWithSword`, `ApplySwordDamagesToEnemy`) and 4 ROM data tables (`Data_003_6FE4`, `Data_003_73E7`, `Data_003_43EC`, `Data_003_473C`) in `src/bank3/entities_collision.c`, wiring up `func_003_6E2B` to invoke `EnemyCollidedWithSword`.
-* **Last Update Timestamp**: 2026-10-04T02:40:00+00:00
+* **Current Task**: Batch 92: Bank 3 Entity Sword Collision Link Recoil and Blaino Handlers
+* **Last Completed Task**: Implementation and verification of 2 Bank 3 entity sword collision and Link damage handling functions (`func_003_73EB`, `label_003_74EC`) and 2 ROM data tables (`Data_003_74E4`, `Data_003_74E8`) in `src/bank3/entities_collision.c`, with `hLinkPunchedAwayCountdown` added in `include/constants/memory.h`.
+* **Last Update Timestamp**: 2026-10-07T11:53:00+00:00
 
 ---
 
@@ -819,3 +819,37 @@
   - Full Debug build/CTest PASS (100% tests passed); strict C11 `-Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1000 verified functions passing.
 
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Damage matrices, weapon type lookups, and boss defeat state machines verified exact to assembly instruction sequence. Cross-bank calls remain callback-modeled.
+
+---
+
+## Batch 92 Verification — Bank 3 Entity Sword Collision Link Recoil and Blaino Handlers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:73EB`-`03:7598`). Implemented and verified 2 core entity collision handlers (`func_003_73EB`, `label_003_74EC`), helper `BlainoKnockoutPunch`, and 2 ROM data tables (`Data_003_74E4`, `Data_003_74E8`) in `src/bank3/entities_collision.c`, with declarations in `include/bank3/entities_collision.h`. Added constant `hLinkPunchedAwayCountdown` ($FFB6) in `include/constants/memory.h`. All 1002 verified functions passing.
+
+- **Data Tables Implemented:**
+  - `Data_003_74E4` (`03:74E4`-`03:74E7`): 4-byte spark X offset table for non-Blaino sword collision clink (`{ 0x00, 0xF0, 0xF8, 0xFC }`).
+  - `Data_003_74E8` (`03:74E8`-`03:74EB`): 4-byte spark Y offset table for non-Blaino sword collision clink (`{ 0xFC, 0xFC, 0xF0, 0x00 }`).
+
+- **Functions Implemented & Verified:**
+  - `func_003_73EB` (`03:73EB`-`03:74E0`): Complete assembly-accurate entity sword collision response handler for sword-wielding enemies (Moblin Sword, Master Stalfos, Blaino).
+    - Early Rejections to Body Collision: Branches directly to `label_003_74EC` if `(wIgnoreLinkCollisionsCountdown | wC1AC | hLinkPunchedAwayCountdown | wIsUsingSpinAttack) != 0`, if weapon X coordinate `wC140 == 0`, if Link and the entity face the same direction (`hLinkDirection == wEntitiesDirectionTable[bc]`), or if weapon and entity bounding boxes do not overlap on either X or Y axes.
+    - Hitbox Bounding Box Collision: Calculates unsigned 8-bit difference `abs((hActiveEntityPosX + wD5C0) - wC140)` against sum of radii `wC141 + wD5C1`, and `abs((hActiveEntityVisualPosY + wD5C2) - wC142)` against `wC143 + wD5C3`.
+    - Collision Reactions: Resets Pegasus boots, sets `wIgnoreLinkCollisionsCountdown = $08`, applies scaled vector propulsion $12 to Link via `func_003_7565_with_length`, calculates vector towards Link with magnitude $18, applies inverted X and Y components to entity recoil velocities `wEntitiesRecoilVelocityX/Y`, calls `StartIgnoringHitsForEntity_idx` and sets ignore hits countdown to $08, resets sword charge `wSwordCharge = 0`, alerts sword Moblins via `AlertSwordMoblins`, and sets `wC16D = $0C` if spinning.
+    - Blaino Interaction (`ENTITY_BLAINO`): Plays `JINGLE_BUMP`. Dispatches on `wD205`: if 0, proceeds to punch countdown; if 1 or 4, sets ignore collision countdown $10 and vector length $20; if 3, dispatches knockout punch `BlainoKnockoutPunch`; otherwise sets ignore collision countdown $20 and vector length $20. Sets `hLinkPunchedAwayCountdown = $0C`.
+    - Non-Blaino Interaction: Calculates clink coordinates using directional offsets from `Data_003_74E4` and `Data_003_74E8`, spawns clink spark effects via `label_D15`, and sets `hLinkPunchedAwayCountdown = $0C`.
+  - `label_003_74EC` (`03:74EC`-`03:7598`): Complete assembly-accurate entity body collision processor for alternating frames.
+    - Alternating Frame Parity: Tests `(hFrameCounter ^ c) & 1 == 0`; returns immediately on even parity frames.
+    - Link Body Hitbox Overlap: Compares Link center `(hLinkPositionX + 8, hLinkPositionY + 8)` against entity hitbox `(hActiveEntityPosX + wD5C0, hActiveEntityVisualPosY + wD5C2)` using radii `4 + wD5C1` (X) and `5 + wD5C3` (Y).
+    - Invincibility & Damage: If `wInvincibilityCounter != 0`, returns without damage. Otherwise applies collision damage via `ApplyLinkCollisionWithEnemy(gb, bc)`.
+    - Blaino Specific Reactions: If `wD205` is 0, 1, or 4, returns. If `wD205 == 2`, sets entity private countdown 1 to `$A0`, sets ignore collision countdown to `$20`, and propels Link with vector length `$30`. Otherwise, executes `BlainoKnockoutPunch`.
+  - `BlainoKnockoutPunch` (`03:7571`-`03:7598`): Blaino powerful knockback reaction. Checks `wEntitiesInertiaTable[bc] >= $22`; sets `wLinkMotionState = LINK_MOTION_UNKNOWN_0A`, horizontal speed `hLinkSpeedX = $30` (if entity faces right) or `$D0` (if facing other directions), vertical speed 0, velocity Z `$30`, and plays `JINGLE_STRONG_BUMP`.
+
+- **Tests:** Extended `tests/bank3/test_entities_collision.c`:
+  - `test_DataTables_SwordEnemyCollision`: validates `Data_003_74E4` (4 bytes) and `Data_003_74E8` (4 bytes) values and sizes.
+  - `test_func_003_73EB_EarlyBranches`: validates early branch conditions to body collision handler (ignore countdown, duplicate weapon slot, punched away countdown, spin attack active, weapon inactive, facing same direction, and out-of-range hitbox bounding box).
+  - `test_func_003_73EB_SwordCollision_NonBlaino`: validates sword clink with non-Blaino enemy (Pegasus boots reset, ignore collisions countdown $08, ignore hits countdown $08, sword charge reset, spin timer $0C, punched away countdown $0C, and spark offsets from `Data_003_74E4`/`E8`).
+  - `test_func_003_73EB_SwordCollision_Blaino`: validates Blaino sword clink reactions (bump jingle, `wD205` 0, 1/4, 2, and 3 knockout punch).
+  - `test_label_003_74EC_Behavior`: validates alternating frame parity skipping, out-of-bounds rejection, invincibility damage immunity, regular enemy damage application, Blaino state 2 wind-up counter ($A0) and recoil, and Blaino knockout punch state transition (`LINK_MOTION_UNKNOWN_0A`).
+  - Full Debug build/CTest PASS (100% tests passed); strict C11 `-Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1002 verified functions passing.
+
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Fixed-point velocity calculations, directional spark offsets, and alternating frame parity rotations verified exact to assembly instruction sequence. Cross-bank calls remain callback-modeled.

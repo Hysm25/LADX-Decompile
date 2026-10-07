@@ -19,8 +19,11 @@ void ApplySwordDamagesToEnemy(GBState *gb, uint16_t bc);
 /* func_003_6B7B is declared in entities_physics.h */
 void func_003_6B7B(GBState *gb, uint16_t bc);
 
-/* Enemy Collision Handler for Link (03:73EB-03:74E0) */
+/* Enemy Collision Handler for Link (03:73EB-03:74E0, 03:74EC-03:7598) */
+extern const uint8_t Data_003_74E4[4];
+extern const uint8_t Data_003_74E8[4];
 void func_003_73EB(GBState *gb, uint16_t bc);
+void label_003_74EC(GBState *gb, uint16_t bc);
 
 /* GetEntityDirectionToLink_03 (03:8691) - Returns direction to Link */
 uint8_t GetEntityDirectionToLink_03(GBState *gb);
