@@ -87,6 +87,9 @@ void AddEntityZSpeedToPos_03(GBState *gb, uint16_t bc);
 /* ReturnIfNonInteractive_03 (03:8810) */
 bool ReturnIfNonInteractive_03(GBState *gb, bool allowInactiveEntity);
 
+/* CheckForEntityFallingDownQuicksandHole (03:5CEA) */
+bool CheckForEntityFallingDownQuicksandHole(GBState *gb, uint16_t bc);
+
 /* ApplyRecoilIfNeeded_03 (03:8850) */
 void ApplyRecoilIfNeeded_03(GBState *gb, uint16_t bc);
 

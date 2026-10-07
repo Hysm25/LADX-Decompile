@@ -135,6 +135,7 @@ add_executable(ladx_tests
     tests/bank3/test_entities_physics.c
     tests/bank3/test_entities_collision.c
     tests/bank3/test_entities_droppable.c
+    tests/bank3/test_entities_bomb.c
     tests/test_bank3.c
 )
 

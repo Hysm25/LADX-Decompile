@@ -1445,3 +1445,57 @@ void ApplyRecoilIfNeeded_03(GBState *gb, uint16_t bc) {
     /* call StopEntityRecoilOnCollision */
     StopEntityRecoilOnCollision(gb, bc);
 }
+
+/* ===== CheckForEntityFallingDownQuicksandHole (03:5CEA) ===== */
+bool CheckForEntityFallingDownQuicksandHole(GBState *gb, uint16_t bc) {
+    if (!gb) return false;
+
+    /* ld a, [wIsIndoor]; and a; jr nz, .jr_5D34 */
+    if (gb_read(gb, wIsIndoor) != 0) {
+        return false;
+    }
+
+    /* ldh a, [hMapRoom]; cp ROOM_OW_YARNA_LANMOLA; jr nz, .jr_5D34 */
+    if (gb_read_hram(gb, hMapRoom) != ROOM_OW_YARNA_LANMOLA) {
+        return false;
+    }
+
+    /* ldh a, [hActiveEntityPosY]; sub $48; add $03; cp $06; jr nc, .jr_5D34 */
+    uint8_t diff_y = (uint8_t)(gb_read_hram(gb, hActiveEntityPosY) - 0x48 + 0x03);
+    if (diff_y >= 0x06) {
+        return false;
+    }
+
+    /* ldh a, [hActiveEntityPosX]; sub $50; add $03; cp $06; jr nc, .jr_5D34 */
+    uint8_t diff_x = (uint8_t)(gb_read_hram(gb, hActiveEntityPosX) - 0x50 + 0x03);
+    if (diff_x >= 0x06) {
+        return false;
+    }
+
+    /* ld hl, wEntitiesPosZTable; add hl, bc; ld a, [hl]; and a; jr nz, .jr_5D34 */
+    if (gb_read(gb, (uint16_t)(wEntitiesPosZTable + bc)) != 0) {
+        return false;
+    }
+
+    /* ld hl, wEntitiesStatusTable; add hl, bc; ld a, [hl]; cp $05; jr nz, .jr_5D34 */
+    if (gb_read(gb, (uint16_t)(wEntitiesStatusTable + bc)) != ENTITY_STATUS_ACTIVE) {
+        return false;
+    }
+
+    /* ld [hl], $02 */
+    gb_write(gb, (uint16_t)(wEntitiesStatusTable + bc), ENTITY_STATUS_FALLING);
+
+    /* ld hl, wEntitiesFallingTargetXTable; add hl, bc; ld [hl], $50 */
+    gb_write(gb, (uint16_t)(wEntitiesFallingTargetXTable + bc), 0x50);
+
+    /* ld hl, wEntitiesFallingTargetYTable; add hl, bc; ld [hl], $48 */
+    gb_write(gb, (uint16_t)(wEntitiesFallingTargetYTable + bc), 0x48);
+
+    /* call GetEntityTransitionCountdown; ld [hl], $2F */
+    GetEntityTransitionCountdown(gb, bc);
+    gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0x2F);
+
+    /* ld a, JINGLE_ITEM_FALLING; ldh [hJingle], a; scf; ret */
+    gb_write_hram(gb, hJingle, JINGLE_ITEM_FALLING);
+    return true;
+}

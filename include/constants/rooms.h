@@ -152,5 +152,7 @@
 #define UNKNOWN_ROOM_DA                     0xDA
 #define UNKNOWN_ROOM_E2                     0xE2
 #define ROOM_INDOOR_B_CHRISTINE_HOUSE       0xD9
+#define ROOM_OW_YARNA_LANMOLA               0xCE
+#define OW_ROOM_STATUS_OPENED               0x04
 
 #endif /* LADX_CONSTANTS_ROOMS_H */

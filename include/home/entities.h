@@ -971,8 +971,8 @@ void SpawnOctorokRock(GBState *gb, uint16_t entity_index);
 /* Bomb Callbacks */
 void RenderBombExplosion(GBState *gb, uint16_t entity_index);
 void RenderBomb(GBState *gb, uint16_t entity_index);
-void CheckForBombDestroyableObjectPuzzle(GBState *gb, uint16_t entity_index);
-void CheckForBombDestroyableObjectBasic(GBState *gb, uint16_t entity_index);
+void CheckForBombDestroyableObjectPuzzle(GBState *gb, uint16_t entity_index, uint16_t de);
+void CheckForBombDestroyableObjectBasic(GBState *gb, uint16_t entity_index, uint16_t de);
 void CheckExplosionInteractionWithEntities(GBState *gb, uint16_t entity_index);
 
 /* Magic Rod Fireball Callback */

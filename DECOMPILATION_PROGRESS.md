@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~79.5%
-* **Number of Verified Functions**: 1041
-* **Number of Decompiled Functions**: 841
-* **Number Remaining**: ~171 functions
-* **Current Subsystem**: ROM Bank 3 (Droppable Item Collection Handlers & Spawning)
-* **Current Task**: Batch 96 Verification Completed
-* **Last Completed Task**: Batch 96 Verification — Droppable Item Collection Handlers & Spawning (`PickableCanBeCollectedBySwordTable`, `PickableHandleGrabbedByItemIfNeeded`, `PickableCollectIfNeeded`, `PickDroppableMagicPowder`, `PickSecretSeashell`, `IncreaseValueAtHLClampAt99`, `PickDroppableArrows`, `PickDroppableBombs`, `PickSirensInstrument`, `HoldPickupInTheAir`, `PickHeartContainer`, `PickToadstoolOrDungeonKey`, `PickHeartPiece`, `PickGuardianAcorn`, `PickPieceOfPower`, `ProcessPowerUp`, `MovePickupInTheAir`, `PickSword`, `GiveInventoryItem`, `PickDroppableKey`, `PickDroppableHeart`, `PickDroppableRupee`, `PickDroppableFairy`, `SpawnNewEntity`, `SpawnNewEntityInRange`, `ConfigureNewEntity_helper`, `MarkRoomCompleted`, `GetRoomStatusAddressInHL`, `DidKillEnemy_label_3F78`).
-* **Last Update Timestamp**: 2026-10-07T23:30:00+00:00
+* **Current Overall Progress**: ~80.3%
+* **Number of Verified Functions**: 1051
+* **Number of Decompiled Functions**: 851
+* **Number Remaining**: ~161 functions
+* **Current Subsystem**: ROM Bank 3 (Bomb Handlers, Visuals, Destruction & Physics)
+* **Current Task**: Batch 97 Verification Completed
+* **Last Completed Task**: Batch 97 Verification — ROM Bank 3 Bomb Handlers, Visuals, Destruction & Quicksand Hole Physics (`RenderBombExplosion`, `BombExplosionVisuals`, `BombExplosionHandler`, `BombBounceOffWalls`, `RenderBomb`, `BombEntityHandler`, `CheckForBombDestroyableObjectPuzzle`, `CheckForBombDestroyableObjectBasic`, `CheckForEntityFallingDownQuicksandHole`).
+* **Last Update Timestamp**: 2026-10-07T23:55:00+00:00
 
 ---
 
@@ -1095,3 +1095,39 @@
   - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1041 verified functions passing.
 
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Carry return conventions, stack pop bypass behavior (`pop de`), and BCD decimal adjustments verified exact to assembly instruction sequence.
+
+---
+
+## Batch 97 Verification — ROM Bank 3 Bomb Handlers, Visuals, Destruction & Physics
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/03_bomb.asm` (`03:6530`-`03:69A1`) and `LADX-Disassembly/src/code/entities/bank3.asm` (`03:5CEA`-`03:5D35`). Implemented in `src/bank3/entities_bomb.c` and `src/bank3/entities_physics.c` with declarations in `include/bank3/entities_bomb.h` and `include/bank3/entities_physics.h`. Constants and room enums updated in `include/constants/rooms.h` and `include/constants/memory.h`.
+- **Functions Decompiled & Verified:**
+  - `RenderBombExplosion` (`03:65B0`): Copies active entity X/Y positions to multipurpose registers, loops 8 sprite tiles (2x4) using `ExplosionSpriteRect` (`{0x00, 0x00, 0x08, 0x00, 0x10, 0x00, 0x18, 0x00, 0x00, 0x10, 0x08, 0x10, 0x10, 0x10, 0x18, 0x10}`), offsets by entity sprite variant frames (`ExplosionSpriteVariantFrames`), applies animation speed, and renders sprite pair.
+  - `BombExplosionVisuals` (`03:6650`) & `BombExplosionVisuals_smallExplosion` (`03:668C`): Handles explosion frame progression (`countdown > 0x18` renders small explosion sprite `BombRightBeforeExplodingSprite` via `RenderActiveEntitySpritesPair`). Updates screen shake effect (`hScreenShakeX`), triggers noise SFX `NOISE_SFX_EXPLOSION`, and applies palette flash (`wBGPalette = 0x84` on countdown bit 2 if `wRoomTransitionState == 0`, else `0xE4`).
+  - `BombExplosionHandler` (`03:65E2`): Manages bomb explosion logic. Invokes `BombExplosionVisuals`, checks interactive state (`ReturnIfNonInteractive_03`), unloads when countdown reaches 0. When countdown is between `0x0E` and `0x16`, calls `CheckForBombDestroyableObjectBasic` and `CheckForBombDestroyableObjectPuzzle` with offset `countdown - 0x0E`. At countdown `0x12`, checks `privateState4`: if Link bomb (0), calls `CheckExplosionInteractionWithEntities`; if enemy bomb (!= 0), checks Link distance within explosion radius (+-24 pixels), applies `ApplyLinkCollisionWithEnemy`, and doubles Link recoil speed (`hLinkSpeedX << 1`, `hLinkSpeedY << 1`). Finally sets `wSwordMoblinAlertingSoundCounter = 4`.
+  - `BombBounceOffWalls` (`03:66FA`): Checks horizontal wall collision bits (`wEntitiesCollisionsTable & 0x03`) and calls `EntityBounceOffWallX` (speed negated and right-shifted by 3). If not side-scrolling, checks vertical wall collision bits (`& 0x0C`) and calls `EntityBounceOffWallY`.
+  - `RenderBomb` (`03:6711`): Increments visual Y position by 2 pixels, calls `RenderActiveEntitySprite` with `BombSprite`, and invokes `CopyEntityPositionToActivePosition`.
+  - `BombEntityHandler` (`03:6696`): Main bomb entity lifecycle. Countdown 0x48 sets flash countdown to 0x30. Calls `RenderBomb` and `CheckForEntityFallingDownQuicksandHole`. If interactive, runs `BouncingEntityPhysics`, resets countdown 2 to 0xFF. If not held and not ignited by enemy, checks B/A button with `INVENTORY_BOMBS` equipped to lift bomb via `EntityGetLiftedUp`. Finally invokes `BombBounceOffWalls`.
+  - `CheckForBombDestroyableObjectPuzzle` (`03:6771`): Checks destroyable tiles/doors based on offset `de` using `BombObjectPuzzleDestroyingX` and `BombObjectPuzzleDestroyingY`. Checks 2x2 giant skull object (`OBJECT_GIANT_SKULL_TL`..`OBJECT_GIANT_SKULL_BR`), plays `JINGLE_PUZZLE_SOLVED`, spawns rubble entities, replaces tiles with `OBJECT_ROCKY_GROUND`, updates overworld room status with `OW_ROOM_STATUS_OPENED`, and calls `label_003_51F5` across 4 skull tiles with coordinate offsets. For doors, queries physics flags via `GetObjectPhysicsFlags_trampoline`; if door matches `OBJ_PHYSICS_DOOR_CLOSED | 0x09`..`0x0C`: outdoor replaces tile with `OBJECT_ROCKY_CAVE_DOOR` and draws cave door tiles (`BombedCaveDoorTilesIndexesDMG` / `BombedCaveDoorTilesIndexesGBC`); indoor updates current room status with `BombedWallCurrentRoomStatus[door_idx]`, updates adjacent room status via `GetRoomStatusAddressForMapPosition`, and replaces tile with `BombedWallObjects[door_idx]`.
+  - `CheckForBombDestroyableObjectBasic` (`03:68F8`): Checks basic destroyable tiles using `BombObjectBasicDestroyingX` and `BombObjectBasicDestroyingY`. Outdoor: tall grass (`OBJECT_TALL_GRASS`) or bushes (`OBJECT_BUSH`, `OBJECT_BUSH_GROUND_STAIRS`) calls `RevealObjectUnderObject_trampoline`. Indoor: bombable blocks (`OBJECT_BOMBABLE_BLOCK`) sets `ROOM_STATUS_EVENT_3` on room status address and calls `RevealObjectUnderObject_trampoline`.
+  - `CheckForEntityFallingDownQuicksandHole` (`03:5CEA`-`03:5D35`): If outdoors in `ROOM_OW_YARNA_LANMOLA` (`0xCE`), checks if grounded entity (PosZ == 0) is at quicksand center (X: 0x48..0x57, Y: 0x40..0x4F). If active, sets entity status to `ENTITY_STATUS_FALLING`, target coordinates to (0x50, 0x48), countdown to `0x2F`, and plays `JINGLE_ITEM_FALLING`.
+- **Data Tables Verified:**
+  - `BombSprite` (`03:6530`)
+  - `ExplosionSpriteRect` (`03:6532`)
+  - `ExplosionSpriteVariantFrames` (`03:65CA`)
+  - `BombObjectPuzzleDestroyingX` / `BombObjectPuzzleDestroyingY` (`03:671F`-`03:6728`)
+  - `BombedWallObjects`, `BombedWallTilesIndexes`, `BombedCaveDoorTilesIndexesDMG`, `BombedCaveDoorTilesIndexesGBC`, `BombedWallCurrentRoomStatus`, `BombedWallAdjacentRoomStatus`, `BombedWallAdjacentRoomMapPosDiff`, `BombedGiantSkullTilesIndexes`, `GiantSkullDiffFromPrevPositionX`, `GiantSkullDiffFromPrevPositionY` (`03:6739`-`03:676D`)
+  - `BombObjectBasicDestroyingX` / `BombObjectBasicDestroyingY` (`03:68E6`-`03:68EF`)
+- **Tests:** Dedicated test module `tests/bank3/test_entities_bomb.c` with 10 comprehensive tests:
+  - `test_RenderBombExplosion`: Verifies sprite rendering and coordinate preservation.
+  - `test_BombExplosionVisuals`: Tests small explosion sprite, palette flashing on bit 2, screen shake, and noise SFX.
+  - `test_BombExplosionHandler`: Tests countdown 0 entity unloading, destroyable object checking range (0x0E..0x16), Link-bomb entities explosion interaction, enemy-bomb Link proximity damage and recoil doubling, and distant enemy bomb immunity.
+  - `test_BombBounceOffWalls`: Tests horizontal and vertical wall collision bounce physics (`sra 3`) and side-scrolling bypass.
+  - `test_RenderBomb`: Tests visual Y coordinate shift and sprite rendering.
+  - `test_BombEntityHandler`: Tests countdown 0x48 flashing setup, quicksand falling check, and button-pressed lifting with `INVENTORY_BOMBS`.
+  - `test_CheckForBombDestroyableObjectPuzzle_GiantSkull`: Tests 2x2 giant skull puzzle solving, jingle, overworld room status opened bit, rocky ground tile replacement, and RAM backup.
+  - `test_CheckForBombDestroyableObjectPuzzle_Doors`: Tests outdoor bombable cave entrance tile/status replacement and indoor bombable vertical/horizontal passages and adjacent room status propagation.
+  - `test_CheckForBombDestroyableObjectBasic`: Tests outdoor grass/bush destruction with hidden droppable spawning and indoor bombable block room event 3 flag assignment.
+  - `test_CheckForEntityFallingDownQuicksandHole`: Tests indoor rejection, room ID validation, airborne bypass, inactive entity bypass, and successful falling transition setup.
+  - Full Debug build/CMake test suite PASS (100% tests passed in ~2.7s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1051 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Giant skull 2x2 tile alignment and indoor adjacent room offset calculations verified exact to assembly instruction sequence.
