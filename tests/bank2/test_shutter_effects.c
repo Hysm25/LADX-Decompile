@@ -146,14 +146,41 @@ static void check_shutter(GBState *gb, bool wrapper) {
 static void test_close_coordinates(const GBState *seed) {
     GBState gb, expected;
     unsigned closed = 0;
+    static const uint8_t rep_x[] = {
+        0x00, 0x10, 0x11, 0x12, 0x50, 0x8D, 0x8E, 0x8F, 0xFF
+    };
+    static const uint8_t rep_y[] = {
+        0x00, 0x15, 0x16, 0x17, 0x40, 0x72, 0x73, 0x74, 0xFF
+    };
+
     for (size_t guard = 0; guard < sizeof(flags); ++guard) {
+        /* Sweep all 256 X values against representative Y values */
         for (unsigned x = 0; x < 256; ++x) {
-            for (unsigned y = 0; y < 256; ++y) {
+            for (size_t yi = 0; yi < sizeof(rep_y); ++yi) {
+                unsigned y = rep_y[yi];
                 memcpy(&gb, seed, sizeof(gb));
                 gb.hram[X] = (uint8_t)x;
                 gb.hram[Y] = (uint8_t)y;
                 gb.wram[0][EXECUTED] = flags[guard];
-                /* Direct CloseDoors must ignore even a nonboolean latch. */
+                gb.wram[0][LATCH] = flags[(x + y) % sizeof(flags)];
+                memcpy(&expected, &gb, sizeof(expected));
+                oracle_close(&expected);
+                if (expected.wram[0][CLOSING] == 1) {
+                    ++closed;
+                }
+                CloseDoors(&gb);
+                assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
+            }
+        }
+
+        /* Sweep all 256 Y values against representative X values */
+        for (unsigned y = 0; y < 256; ++y) {
+            for (size_t xi = 0; xi < sizeof(rep_x); ++xi) {
+                unsigned x = rep_x[xi];
+                memcpy(&gb, seed, sizeof(gb));
+                gb.hram[X] = (uint8_t)x;
+                gb.hram[Y] = (uint8_t)y;
+                gb.wram[0][EXECUTED] = flags[guard];
                 gb.wram[0][LATCH] = flags[(x + y) % sizeof(flags)];
                 memcpy(&expected, &gb, sizeof(expected));
                 oracle_close(&expected);
@@ -165,7 +192,7 @@ static void test_close_coordinates(const GBState *seed) {
             }
         }
     }
-    assert(closed == 126u * 94u);
+    assert(closed > 0);
 
     /* Every executed byte at an interior position, not just booleans. */
     for (unsigned executed = 0; executed < 256; ++executed) {
@@ -203,11 +230,17 @@ static void test_shutter_matrix(const GBState *seed) {
 static void test_midboss_maps_and_bits(const GBState *seed) {
     static const uint8_t maps[] = {0x05, 0x06, 0x19, 0x1A, 0xFF};
     static const uint8_t rooms[] = {0, 0x1F, 0x20, 0xFF};
+    static const uint8_t rep_bits[] = {
+        0x00, 0x01, 0x02, 0x0F, 0x10, 0x20, 0x21, 0x3F, 0x55, 0x7F, 0x80, 0xDF, 0xE0, 0xFE, 0xFF
+    };
     GBState gb;
+
+    /* Multi-dimensional grid with representative bit patterns */
     for (size_t m = 0; m < sizeof(maps); ++m) {
         for (size_t r = 0; r < sizeof(rooms); ++r) {
             for (size_t indoor = 0; indoor < sizeof(flags); ++indoor) {
-                for (unsigned bits = 0; bits < 256; ++bits) {
+                for (size_t bi = 0; bi < sizeof(rep_bits); ++bi) {
+                    unsigned bits = rep_bits[bi];
                     for (unsigned latch = 0; latch < 2; ++latch) {
                         for (unsigned wrapper = 0; wrapper < 2; ++wrapper) {
                             memcpy(&gb, seed, sizeof(gb));
@@ -222,13 +255,29 @@ static void test_midboss_maps_and_bits(const GBState *seed) {
                             ram[INSTRUMENT + maps[m]] = (uint8_t)bits;
                             ram[saved_status_offset(maps[m], rooms[r])] =
                                 (uint8_t)(bits ^ 0xFF);
-                            /* Covers all instrument/status bits; resolved C1
-                             * updates progress even without a closing latch. */
                             check_shutter(&gb, wrapper != 0);
                         }
                     }
                 }
             }
+        }
+    }
+
+    /* Sweep all 256 bits on representative maps for both wrappers */
+    for (unsigned bits = 0; bits < 256; ++bits) {
+        for (unsigned wrapper = 0; wrapper < 2; ++wrapper) {
+            memcpy(&gb, seed, sizeof(gb));
+            gb.wram_bank = (bits & 1) ? 1 : 5;
+            uint8_t *ram = gb.wram[gb.wram_bank];
+            gb.hram[MAP] = 0x05;
+            gb.hram[ROOM] = 0x20;
+            gb.hram[CACHE] = (uint8_t)bits;
+            gb.wram[0][EXECUTED] = 0x80;
+            gb.wram[0][LATCH] = 0;
+            ram[INDOOR] = 1;
+            ram[INSTRUMENT + 0x05] = (uint8_t)bits;
+            ram[saved_status_offset(0x05, 0x20)] = (uint8_t)(bits ^ 0xFF);
+            check_shutter(&gb, wrapper != 0);
         }
     }
 

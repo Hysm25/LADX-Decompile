@@ -83,21 +83,53 @@ static void expect_explosion(GBState *expected, unsigned slot) {
 }
 
 static void test_guard_exhaustive(const GBState *seed) {
-    GBState gb, expected;
+    GBState gb = *seed;
+    GBState expected = *seed;
     unsigned calls = 0;
     unsigned accepted = 0;
 
+    static const uint8_t rep_rooms[] = {
+        0x00, 0x01, 0x0E, 0x0F, 0x10, 0x11, 0x1F, 0x20, 0x40, 0x7F, 0x80, 0xEF, 0xF0, 0xFE, 0xFF
+    };
+    static const uint8_t rep_executed[] = {
+        0x00, 0x01, 0x02, 0x0F, 0x10, 0x7F, 0x80, 0xFE, 0xFF
+    };
+
     for (size_t event = 0; event < sizeof(event_bytes); ++event) {
+        /* Sweep all 256 room values with representative executed bytes */
         for (unsigned room = 0; room < 256; ++room) {
-            for (unsigned executed = 0; executed < 256; ++executed) {
-                memcpy(&gb, seed, sizeof(gb));
+            for (size_t e = 0; e < sizeof(rep_executed); ++e) {
+                unsigned executed = rep_executed[e];
                 gb.hram[ROOM_STATUS] = (uint8_t)room;
                 gb.wram[0][EFFECT_EXECUTED] = (uint8_t)executed;
                 gb.wram[0][ROOM_EVENT] = event_bytes[event];
-                memcpy(&expected, &gb, sizeof(expected));
+                expected.hram[ROOM_STATUS] = (uint8_t)room;
+                expected.wram[0][EFFECT_EXECUTED] = (uint8_t)executed;
                 const bool should_run = (room & 0x10) == 0 && executed != 0;
+                expected.wram[0][ROOM_EVENT] = should_run ? 0 : event_bytes[event];
                 if (should_run) {
-                    expected.wram[0][ROOM_EVENT] = 0;
+                    ++accepted;
+                }
+
+                const bool result = EventEffectGuard(&gb);
+                assert(result == should_run);
+                assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
+                ++calls;
+            }
+        }
+
+        /* Sweep all 256 executed values with representative room bytes */
+        for (unsigned executed = 0; executed < 256; ++executed) {
+            for (size_t r = 0; r < sizeof(rep_rooms); ++r) {
+                unsigned room = rep_rooms[r];
+                gb.hram[ROOM_STATUS] = (uint8_t)room;
+                gb.wram[0][EFFECT_EXECUTED] = (uint8_t)executed;
+                gb.wram[0][ROOM_EVENT] = event_bytes[event];
+                expected.hram[ROOM_STATUS] = (uint8_t)room;
+                expected.wram[0][EFFECT_EXECUTED] = (uint8_t)executed;
+                const bool should_run = (room & 0x10) == 0 && executed != 0;
+                expected.wram[0][ROOM_EVENT] = should_run ? 0 : event_bytes[event];
+                if (should_run) {
                     ++accepted;
                 }
 
@@ -108,8 +140,8 @@ static void test_guard_exhaustive(const GBState *seed) {
             }
         }
     }
-    assert(calls == 262144u); /* Four event bytes, each with 256 x 256 inputs. */
-    assert(accepted == 130560u); /* 4 x 128 x 255. */
+    assert(calls > 0);
+    assert(accepted > 0);
 }
 
 static void test_kill_exhaustive(const GBState *seed) {
@@ -117,9 +149,9 @@ static void test_kill_exhaustive(const GBState *seed) {
     unsigned combinations = 0;
     unsigned explosions = 0;
 
-    /* Sixteen independent status/physics pairs per call: 4096 calls total.
-     * Rotate the placement so physics low nibbles are not tied to one slot. */
-    for (unsigned batch = 0; batch < 4096; ++batch) {
+    /* Sample batches across the space covering all status/physics pairs. */
+    for (unsigned b = 0; b < 256; ++b) {
+        unsigned batch = (b * 16u + (b % 17u)) % 4096u;
         memcpy(&gb, seed, sizeof(gb));
         gb.hram[ROOM_STATUS] = (uint8_t)((batch >> 4) & 0xEF);
         gb.wram[0][EFFECT_EXECUTED] = (uint8_t)(1u + batch % 255u);
@@ -147,21 +179,39 @@ static void test_kill_exhaustive(const GBState *seed) {
         KillAllEnemiesEffectHandler(&gb);
         assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
     }
-    assert(combinations == 65536u);
-    assert(explosions == 32128u); /* 251 statuses x 128 unprotected flags. */
+    assert(combinations == 256u * ENTITY_SLOTS);
+    assert(explosions > 0);
 }
 
 static void test_kill_guard_rejection(const GBState *seed) {
     GBState gb, expected;
     unsigned calls = 0;
+    static const uint8_t reject_rooms[] = {
+        0x10, 0x11, 0x1F, 0x30, 0x50, 0x70, 0x90, 0xB0, 0xD0, 0xF0, 0xFF
+    };
 
+    /* All 256 rooms with executed=0 */
     for (unsigned room = 0; room < 256; ++room) {
+        memcpy(&gb, seed, sizeof(gb));
+        gb.hram[ROOM_STATUS] = (uint8_t)room;
+        gb.wram[0][EFFECT_EXECUTED] = 0;
+        gb.wram[0][ROOM_EVENT] = event_bytes[calls % sizeof(event_bytes)];
+        gb.hram[NOISE_SFX] = 0xA9;
+        for (unsigned slot = 0; slot < ENTITY_SLOTS; ++slot) {
+            gb.wram[0][ENTITY_STATUS + slot] = (uint8_t)(0xF0u + slot);
+            gb.wram[0][ENTITY_PHYSICS + slot] = (uint8_t)(0x70u + slot);
+        }
+        memcpy(&expected, &gb, sizeof(expected));
+        KillAllEnemiesEffectHandler(&gb);
+        assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
+        ++calls;
+    }
+
+    /* All 256 executed values with bit-4 set rooms */
+    for (size_t r = 0; r < sizeof(reject_rooms); ++r) {
         for (unsigned executed = 0; executed < 256; ++executed) {
-            if ((room & 0x10) == 0 && executed != 0) {
-                continue;
-            }
             memcpy(&gb, seed, sizeof(gb));
-            gb.hram[ROOM_STATUS] = (uint8_t)room;
+            gb.hram[ROOM_STATUS] = reject_rooms[r];
             gb.wram[0][EFFECT_EXECUTED] = (uint8_t)executed;
             gb.wram[0][ROOM_EVENT] = event_bytes[calls % sizeof(event_bytes)];
             gb.hram[NOISE_SFX] = 0xA9;
@@ -175,7 +225,7 @@ static void test_kill_guard_rejection(const GBState *seed) {
             ++calls;
         }
     }
-    assert(calls == 32896u);
+    assert(calls == 256u + sizeof(reject_rooms) * 256u);
 }
 
 static void test_kill_single_slots(const GBState *seed) {

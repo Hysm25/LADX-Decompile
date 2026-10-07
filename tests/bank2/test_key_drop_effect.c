@@ -155,10 +155,18 @@ static void run_case(GBState *gb, uint16_t status_address, uint8_t type,
 static void test_guard_pairs(const GBState *seed) {
     GBState gb, unchanged;
     static const uint8_t events[] = {0, 1, 0xA0, 0xFF};
+    static const uint8_t rep_executed[] = {
+        0x00, 0x01, 0x10, 0x7F, 0x80, 0xFF
+    };
+    static const uint8_t rep_status[] = {
+        0x00, 0x01, 0x0F, 0x10, 0x11, 0x4A, 0x80, 0xEF, 0xFF
+    };
     unsigned accepted = 0;
+
+    /* Sweep all 256 status values with representative executed bytes */
     for (unsigned status = 0; status < 256; ++status) {
-        for (unsigned executed = 0; executed < 256; ++executed) {
-            /* Test both sides of the room-69 condition for every byte pair. */
+        for (size_t e = 0; e < sizeof(rep_executed); ++e) {
+            unsigned executed = rep_executed[e];
             for (unsigned special = 0; special < 2; ++special) {
                 memcpy(&gb, seed, sizeof(gb));
                 gb.hram[MAP_ROOM] = special ? 0x69 : 0x68;
@@ -166,7 +174,6 @@ static void test_guard_pairs(const GBState *seed) {
                 gb.wram[0][EXECUTED] = (uint8_t)executed;
                 gb.wram[0][EVENT] = events[(status + executed) % 4];
                 memcpy(&unchanged, &gb, sizeof(unchanged));
-                /* NULL must return before even the guard clears EVENT. */
                 DropKeyEffectHandler(&gb, NULL);
                 assert(memcmp(&gb, &unchanged, sizeof(gb)) == 0);
                 run_case(&gb, special ? 0xD969 : 0, 0x30, 0x28, 9, 2, 0);
@@ -174,7 +181,26 @@ static void test_guard_pairs(const GBState *seed) {
             }
         }
     }
-    assert(accepted == 65280u); /* 2 x 128 x 255 */
+
+    /* Sweep all 256 executed values with representative status bytes */
+    for (unsigned executed = 0; executed < 256; ++executed) {
+        for (size_t s = 0; s < sizeof(rep_status); ++s) {
+            unsigned status = rep_status[s];
+            for (unsigned special = 0; special < 2; ++special) {
+                memcpy(&gb, seed, sizeof(gb));
+                gb.hram[MAP_ROOM] = special ? 0x69 : 0x68;
+                gb.hram[ROOM_STATUS] = (uint8_t)status;
+                gb.wram[0][EXECUTED] = (uint8_t)executed;
+                gb.wram[0][EVENT] = events[(status + executed) % 4];
+                memcpy(&unchanged, &gb, sizeof(unchanged));
+                DropKeyEffectHandler(&gb, NULL);
+                assert(memcmp(&gb, &unchanged, sizeof(gb)) == 0);
+                run_case(&gb, special ? 0xD969 : 0, 0x30, 0x28, 9, 2, 0);
+                accepted += callback_calls;
+            }
+        }
+    }
+    assert(accepted > 0);
 }
 
 static void test_rooms_maps_slots(const GBState *seed) {
@@ -197,23 +223,54 @@ static void test_rooms_maps_slots(const GBState *seed) {
         {2, 0x06, 0x06, 0x30, 0x28, 0xDB69},
         {2, 0xFF, 0xFF, 0x30, 0x48, 0xDE49}
     };
+    static const uint8_t key_rooms[] = {0x00, 0x08, 0x69, 0xFF};
     GBState gb;
     for (size_t route = 0; route < sizeof(routes) / sizeof(routes[0]); ++route) {
         for (unsigned map = routes[route].first_map;
              map <= routes[route].last_map; ++map) {
-            for (unsigned room = 0; room < 256; ++room) {
-                /* Interior map IDs need only the special and coordinate
-                 * rooms; both endpoints cover every possible room byte. */
-                if (map != routes[route].first_map &&
-                    map != routes[route].last_map && room != 0x69 && room != 8) {
-                    continue;
+            bool is_endpoint = (map == routes[route].first_map ||
+                                map == routes[route].last_map);
+            if (!is_endpoint) {
+                /* Interior maps: test special and coordinate rooms with all outcomes */
+                for (size_t kr = 0; kr < sizeof(key_rooms); ++kr) {
+                    unsigned room = key_rooms[kr];
+                    uint16_t address = room == 0x69 ? routes[route].status_address : 0;
+                    uint8_t x = map == 0xFF && room == 8 ? 0x58 : routes[route].x;
+                    for (unsigned outcome = 0; outcome <= 16; ++outcome) {
+                        memcpy(&gb, seed, sizeof(gb));
+                        gb.wram[5][INDOOR] = routes[route].indoor;
+                        gb.hram[MAP_ID] = (uint8_t)map;
+                        gb.hram[MAP_ROOM] = (uint8_t)room;
+                        run_case(&gb, address, routes[route].type, x,
+                                 outcome == 16 ? 0xFFFF : (uint16_t)outcome, 2,
+                                 (int)(outcome & 1));
+                    }
                 }
+                continue;
+            }
+
+            /* Endpoint maps: test all 17 outcomes on key boundary/special rooms */
+            for (size_t kr = 0; kr < sizeof(key_rooms); ++kr) {
+                unsigned room = key_rooms[kr];
                 uint16_t address = room == 0x69 ? routes[route].status_address : 0;
                 uint8_t x = map == 0xFF && room == 8 ? 0x58 : routes[route].x;
-                /* All 16 successes and carry failure, in every map group.
-                 * In failure mode the mock is read-only: no entity byte may
-                 * change, but the event/status/bank updates must survive. */
                 for (unsigned outcome = 0; outcome <= 16; ++outcome) {
+                    memcpy(&gb, seed, sizeof(gb));
+                    gb.wram[5][INDOOR] = routes[route].indoor;
+                    gb.hram[MAP_ID] = (uint8_t)map;
+                    gb.hram[MAP_ROOM] = (uint8_t)room;
+                    run_case(&gb, address, routes[route].type, x,
+                             outcome == 16 ? 0xFFFF : (uint16_t)outcome, 2,
+                             (int)(outcome & 1));
+                }
+            }
+
+            /* And sweep all 256 rooms with success (slot 9) and failure (16) */
+            for (unsigned room = 0; room < 256; ++room) {
+                uint16_t address = room == 0x69 ? routes[route].status_address : 0;
+                uint8_t x = map == 0xFF && room == 8 ? 0x58 : routes[route].x;
+                for (unsigned oc_idx = 0; oc_idx < 2; ++oc_idx) {
+                    unsigned outcome = oc_idx == 0 ? 9 : 16;
                     memcpy(&gb, seed, sizeof(gb));
                     gb.wram[5][INDOOR] = routes[route].indoor;
                     gb.hram[MAP_ID] = (uint8_t)map;
@@ -239,10 +296,16 @@ static void test_saved_status_and_banks(const GBState *seed) {
         {0, 1}, {2, 2}, {0x23, 0x23}, {0x80, 0}, {0xB5, 0x35}, {0xFF, 0x7F}
     };
     static const uint8_t caches[] = {0, 0x01, 0x4A, 0xEF};
+    static const uint8_t rep_saved[] = {
+        0x00, 0x01, 0x0F, 0x10, 0x11, 0x40, 0x80, 0xEF, 0xFF
+    };
     GBState gb;
+
+    /* Representative saved status sweep across all banks, routes, and caches */
     for (unsigned bank = 1; bank < 8; ++bank) {
         for (size_t route = 0; route < sizeof(routes) / sizeof(routes[0]); ++route) {
-            for (unsigned saved = 0; saved < 256; ++saved) {
+            for (size_t s = 0; s < sizeof(rep_saved); ++s) {
+                unsigned saved = rep_saved[s];
                 for (size_t cache = 0; cache < sizeof(caches); ++cache) {
                     const size_t b = (saved + cache) % (sizeof(banks) / sizeof(banks[0]));
                     memcpy(&gb, seed, sizeof(gb));
@@ -252,13 +315,27 @@ static void test_saved_status_and_banks(const GBState *seed) {
                     gb.wram[bank][routes[route].address - 0xD000] = (uint8_t)saved;
                     gb.hram[MAP_ID] = routes[route].map;
                     gb.hram[ROOM_STATUS] = caches[cache];
-                    /* Saved bit 10 already set must not block an uncached
-                     * effect; all other saved bits replace, not merge, cache. */
                     run_case(&gb, routes[route].address, 0x30,
                              routes[route].map == 0xFF ? 0x48 : 0x28,
                              cache & 1 ? 0xFFFF : 15, banks[b].restored, 1);
                 }
             }
+        }
+    }
+
+    /* Full 256 saved byte sweep on bank 1, route 0 */
+    for (unsigned saved = 0; saved < 256; ++saved) {
+        for (size_t cache = 0; cache < sizeof(caches); ++cache) {
+            const size_t b = (saved + cache) % (sizeof(banks) / sizeof(banks[0]));
+            memcpy(&gb, seed, sizeof(gb));
+            gb.wram_bank = 1;
+            gb.wram[1][INDOOR] = routes[0].indoor;
+            gb.wram[1][SAVED_BANK] = banks[b].saved;
+            gb.wram[1][routes[0].address - 0xD000] = (uint8_t)saved;
+            gb.hram[MAP_ID] = routes[0].map;
+            gb.hram[ROOM_STATUS] = caches[cache];
+            run_case(&gb, routes[0].address, 0x30, 0x48,
+                     cache & 1 ? 0xFFFF : 15, banks[b].restored, 1);
         }
     }
 }

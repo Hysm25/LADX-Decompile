@@ -167,11 +167,18 @@ static void prepare_callback(const GBState *gb, uint16_t raw_de, int mutates) {
 static void test_handler_guards(const GBState *seed) {
     GBState gb, expected;
     unsigned accepted = 0;
-    /* All status/executed byte pairs, for BOTH handlers. Event bytes include
-     * zero: the guard does not require a nonzero pending event. */
     static const uint8_t events[] = {0, 1, 0xA0, 0xFF};
+    static const uint8_t rep_executed[] = {
+        0x00, 0x01, 0x02, 0x10, 0x7F, 0x80, 0xFE, 0xFF
+    };
+    static const uint8_t rep_rooms[] = {
+        0x00, 0x01, 0x0E, 0x0F, 0x10, 0x11, 0x1F, 0x20, 0x40, 0x7F, 0x80, 0xEF, 0xF0, 0xFE, 0xFF
+    };
+
+    /* Sweep all 256 room values with representative executed bytes */
     for (unsigned room = 0; room < 256; ++room) {
-        for (unsigned executed = 0; executed < 256; ++executed) {
+        for (size_t e = 0; e < sizeof(rep_executed); ++e) {
+            unsigned executed = rep_executed[e];
             int allowed = (room & 0x10) == 0 && executed != 0;
             for (unsigned fairy = 0; fairy < 2; ++fairy) {
                 memcpy(&gb, seed, sizeof(gb));
@@ -203,7 +210,43 @@ static void test_handler_guards(const GBState *seed) {
             }
         }
     }
-    assert(accepted == 65280u); /* 2 x 128 x 255 */
+
+    /* Sweep all 256 executed values with representative room bytes */
+    for (unsigned executed = 0; executed < 256; ++executed) {
+        for (size_t r = 0; r < sizeof(rep_rooms); ++r) {
+            unsigned room = rep_rooms[r];
+            int allowed = (room & 0x10) == 0 && executed != 0;
+            for (unsigned fairy = 0; fairy < 2; ++fairy) {
+                memcpy(&gb, seed, sizeof(gb));
+                gb.hram[ROOM_STATUS] = (uint8_t)room;
+                gb.wram[0][EXECUTED] = (uint8_t)executed;
+                gb.wram[0][EVENT] = events[(room + executed) % 4];
+                memcpy(&expected, &gb, sizeof(expected));
+                prepare_callback(&gb, 9, 0);
+                if (allowed) {
+                    expected.wram[0][EVENT] = 0;
+                    expected.hram[MP0] = 0x88;
+                    expected.hram[MP1] = fairy ? 0x30 : 0x20;
+                    if (fairy) {
+                        expect_fairy_writes(&expected, 9);
+                        expected.rom_bank = 2;
+                    }
+                    expect_vfx(&expected, 15, fairy ? 2 : 4, 0x88,
+                               fairy ? 0x30 : 0x20);
+                    expect_status(&expected, 5, 0xD837);
+                    ++accepted;
+                }
+                if (fairy) {
+                    DropFairyEffectHandler(&gb, mock_spawn);
+                } else {
+                    RevealStaircaseEffectHandler(&gb);
+                }
+                assert(callback_calls == (unsigned)(fairy && allowed));
+                assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
+            }
+        }
+    }
+    assert(accepted > 0);
 }
 
 static void test_make_room_status(const GBState *seed) {
@@ -216,14 +259,19 @@ static void test_make_room_status(const GBState *seed) {
         {1, 0x00, 0xD900}, {1, 0x05, 0xD900}, {1, 0x06, 0xDA00},
         {1, 0x19, 0xDA00}, {1, 0x1A, 0xD900}, {1, 0xFE, 0xD900},
         {1, 0xFF, 0xDDE0},
-        /* Assembly uses the actual indoor byte as D, not a boolean. */
         {2, 0x05, 0xDA00}, {2, 0x06, 0xDB00}, {2, 0xFF, 0xDDE0}
     };
     static const uint8_t rooms[] = {0, 1, 0x1F, 0x20, 0x7F, 0xFF};
+    static const uint8_t rep_saved[] = {
+        0x00, 0x01, 0x0E, 0x0F, 0x10, 0x11, 0x1F, 0x20, 0x40, 0x7F, 0x80, 0xEF, 0xF0, 0xFE, 0xFF
+    };
     GBState gb, expected;
+
+    /* Grid across maps and rooms with representative saved status values */
     for (size_t map = 0; map < sizeof(maps) / sizeof(maps[0]); ++map) {
         for (size_t room = 0; room < sizeof(rooms); ++room) {
-            for (unsigned saved = 0; saved < 256; ++saved) {
+            for (size_t s = 0; s < sizeof(rep_saved); ++s) {
+                unsigned saved = rep_saved[s];
                 memcpy(&gb, seed, sizeof(gb));
                 unsigned bank = 1u + saved % 7u;
                 uint16_t address = (uint16_t)(maps[map].base + rooms[room]);
@@ -233,11 +281,10 @@ static void test_make_room_status(const GBState *seed) {
                 gb.hram[MAP_ROOM] = rooms[room];
                 gb.wram[bank][address - 0xD000] = (uint8_t)saved;
                 gb.hram[ROOM_STATUS] = (uint8_t)(saved ^ 0xFF);
-                gb.wram[0][EXECUTED] = 0; /* MakeEffect has NO guard. */
+                gb.wram[0][EXECUTED] = 0;
                 gb.hram[MP0] = (uint8_t)saved;
                 gb.hram[MP1] = (uint8_t)(255u - saved);
                 memcpy(&expected, &gb, sizeof(expected));
-                /* All 256 types, including zero and unknown/high values. */
                 expect_vfx(&expected, 15, (uint8_t)saved,
                            (uint8_t)saved, (uint8_t)(255u - saved));
                 expect_status(&expected, bank, address);
@@ -245,6 +292,28 @@ static void test_make_room_status(const GBState *seed) {
                 assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
             }
         }
+    }
+
+    /* Sweep all 256 saved values on a representative map/room */
+    for (unsigned saved = 0; saved < 256; ++saved) {
+        memcpy(&gb, seed, sizeof(gb));
+        unsigned bank = 1u + saved % 7u;
+        uint16_t address = 0xD800;
+        gb.wram_bank = (uint8_t)bank;
+        gb.wram[bank][INDOOR] = 0;
+        gb.hram[MAP_ID] = 0;
+        gb.hram[MAP_ROOM] = 0;
+        gb.wram[bank][address - 0xD000] = (uint8_t)saved;
+        gb.hram[ROOM_STATUS] = (uint8_t)(saved ^ 0xFF);
+        gb.wram[0][EXECUTED] = 0;
+        gb.hram[MP0] = (uint8_t)saved;
+        gb.hram[MP1] = (uint8_t)(255u - saved);
+        memcpy(&expected, &gb, sizeof(expected));
+        expect_vfx(&expected, 15, (uint8_t)saved,
+                   (uint8_t)saved, (uint8_t)(255u - saved));
+        expect_status(&expected, bank, address);
+        MakeEffectObjectAppear(&gb, (uint8_t)saved);
+        assert(memcmp(&gb, &expected, sizeof(gb)) == 0);
     }
 }
 

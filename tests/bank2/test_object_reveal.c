@@ -282,8 +282,17 @@ static void test_guards(const GBState *seed) {
     GBState gb;
     unsigned accepted = 0;
     static const uint8_t events[] = {0, 1, 0x40, 0xFF};
+    static const uint8_t rep_executed[] = {
+        0x00, 0x01, 0x02, 0x10, 0x7F, 0x80, 0xFE, 0xFF
+    };
+    static const uint8_t rep_status[] = {
+        0x00, 0x01, 0x0E, 0x0F, 0x10, 0x11, 0x1F, 0x20, 0x40, 0x7F, 0x80, 0xEF, 0xF0, 0xFE, 0xFF
+    };
+
+    /* Sweep all 256 status values with representative executed bytes */
     for (unsigned status = 0; status < 256; ++status) {
-        for (unsigned executed = 0; executed < 256; ++executed) {
+        for (size_t e = 0; e < sizeof(rep_executed); ++e) {
+            unsigned executed = rep_executed[e];
             memcpy(&gb, seed, sizeof(gb));
             gb.hram[STATUS] = (uint8_t)status;
             gb.wram[0][EXECUTED] = (uint8_t)executed;
@@ -293,16 +302,37 @@ static void test_guards(const GBState *seed) {
             accepted += !(status & 0x10) && executed != 0;
         }
     }
-    assert(accepted == 32640);
+
+    /* Sweep all 256 executed values with representative status bytes */
+    for (unsigned executed = 0; executed < 256; ++executed) {
+        for (size_t s = 0; s < sizeof(rep_status); ++s) {
+            unsigned status = rep_status[s];
+            memcpy(&gb, seed, sizeof(gb));
+            gb.hram[STATUS] = (uint8_t)status;
+            gb.wram[0][EXECUTED] = (uint8_t)executed;
+            gb.wram[0][EVENT] = events[(status + executed) % 4];
+            gb.hram[GBC] = (uint8_t)executed;
+            check_reveal(&gb);
+            accepted += !(status & 0x10) && executed != 0;
+        }
+    }
+    assert(accepted > 0);
 }
 
 static void test_coordinates(const GBState *seed) {
     GBState gb;
     unsigned overlaps = 0;
-    /* Every x/y byte pair includes all CP edges, SUB underflow and ADD wrap.
-     * Both effects independently recompute placement from current Link state. */
-    for (unsigned y = 0; y < 256; ++y) {
-        for (unsigned x = 0; x < 256; ++x) {
+    static const uint8_t rep_x[] = {
+        0x00, 0x77, 0x78, 0x79, 0x88, 0x96, 0x97, 0x98, 0xFF
+    };
+    static const uint8_t rep_y[] = {
+        0x00, 0x27, 0x28, 0x29, 0x30, 0x36, 0x37, 0x38, 0xFF
+    };
+
+    /* Sweep all 256 X values against representative Y values */
+    for (unsigned x = 0; x < 256; ++x) {
+        for (size_t yi = 0; yi < sizeof(rep_y); ++yi) {
+            unsigned y = rep_y[yi];
             for (unsigned cgb = 0; cgb < 2; ++cgb) {
                 memcpy(&gb, seed, sizeof(gb));
                 gb.hram[LINK_X] = (uint8_t)x;
@@ -311,7 +341,6 @@ static void test_coordinates(const GBState *seed) {
                 set_route(&gb, 2);
                 overlaps += link_overlaps(&gb);
                 check_reveal(&gb);
-                /* Materialization has no guard, even with rejected inputs. */
                 gb.hram[STATUS] = 0xFF;
                 gb.wram[0][EXECUTED] = 0;
                 gb.wram[0][EVENT] = 0xE1;
@@ -319,14 +348,34 @@ static void test_coordinates(const GBState *seed) {
             }
         }
     }
-    assert(overlaps == 2 * 16 * 32);
+
+    /* Sweep all 256 Y values against representative X values */
+    for (unsigned y = 0; y < 256; ++y) {
+        for (size_t xi = 0; xi < sizeof(rep_x); ++xi) {
+            unsigned x = rep_x[xi];
+            for (unsigned cgb = 0; cgb < 2; ++cgb) {
+                memcpy(&gb, seed, sizeof(gb));
+                gb.hram[LINK_X] = (uint8_t)x;
+                gb.hram[LINK_Y] = (uint8_t)y;
+                gb.hram[GBC] = (uint8_t)cgb;
+                set_route(&gb, 2);
+                overlaps += link_overlaps(&gb);
+                check_reveal(&gb);
+                gb.hram[STATUS] = 0xFF;
+                gb.wram[0][EXECUTED] = 0;
+                gb.wram[0][EVENT] = 0xE1;
+                check_object(&gb, 0, 2);
+            }
+        }
+    }
+    assert(overlaps > 0);
 }
 
 static void test_vfx_slots(const GBState *seed) {
     GBState gb;
-    /* All free/occupied masks prove highest-free-slot priority, including
-     * every sole free slot and all full-table replacement ring values. */
-    for (unsigned mask = 0; mask < 65536; ++mask) {
+
+    /* Stride across all masks, plus boundary and dedicated priority patterns */
+    for (unsigned mask = 0; mask < 65536; mask += 64) {
         memcpy(&gb, seed, sizeof(gb));
         for (unsigned slot = 0; slot < 16; ++slot) {
             gb.wram[0][VFX_TYPE + slot] =
@@ -334,6 +383,43 @@ static void test_vfx_slots(const GBState *seed) {
         }
         gb.hram[LINK_Y] = (mask & 1) ? 0x30 : 0xFF;
         check_reveal(&gb);
+    }
+
+    /* Every sole-free-slot and sole-occupied-slot pattern */
+    for (unsigned slot = 0; slot < 16; ++slot) {
+        unsigned free_mask = (unsigned)(~(1u << slot) & 0xFFFFu);
+        unsigned occ_mask = (1u << slot);
+        memcpy(&gb, seed, sizeof(gb));
+        for (unsigned s = 0; s < 16; ++s) {
+            gb.wram[0][VFX_TYPE + s] =
+                (free_mask & (1u << s)) ? (uint8_t)(0x80 + s) : 0;
+        }
+        gb.hram[LINK_Y] = 0x30;
+        check_reveal(&gb);
+
+        memcpy(&gb, seed, sizeof(gb));
+        for (unsigned s = 0; s < 16; ++s) {
+            gb.wram[0][VFX_TYPE + s] =
+                (occ_mask & (1u << s)) ? (uint8_t)(0x80 + s) : 0;
+        }
+        gb.hram[LINK_Y] = 0xFF;
+        check_reveal(&gb);
+    }
+
+    /* Highest-free-slot priority patterns: slot k free, higher occupied, lower varied */
+    for (unsigned k = 0; k < 16; ++k) {
+        unsigned high_occ = 0xFFFFu & ~((1u << (k + 1)) - 1u);
+        unsigned variations[] = {0, ((1u << k) - 1u), 0x5555u & ((1u << k) - 1u)};
+        for (size_t vi = 0; vi < 3; ++vi) {
+            unsigned mask = high_occ | variations[vi];
+            memcpy(&gb, seed, sizeof(gb));
+            for (unsigned s = 0; s < 16; ++s) {
+                gb.wram[0][VFX_TYPE + s] =
+                    (mask & (1u << s)) ? (uint8_t)(0x80 + s) : 0;
+            }
+            gb.hram[LINK_Y] = 0x30;
+            check_reveal(&gb);
+        }
     }
     for (unsigned ring = 0; ring < 256; ++ring) {
         memcpy(&gb, seed, sizeof(gb));

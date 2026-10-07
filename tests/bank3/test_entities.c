@@ -1,4 +1,4 @@
-#include "../bank2/test_bank2.h"
+#include "test_bank3.h"
 #include "../bank2/test_support.h"
 
 #include "gb.h"

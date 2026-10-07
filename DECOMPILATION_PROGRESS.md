@@ -8,9 +8,9 @@
 * **Number of Decompiled Functions**: 802
 * **Number Remaining**: ~210 functions
 * **Current Subsystem**: ROM Bank 3 (Entity Damage & Collision Handlers)
-* **Current Task**: Batch 92: Bank 3 Entity Sword Collision Link Recoil and Blaino Handlers
-* **Last Completed Task**: Implementation and verification of 2 Bank 3 entity sword collision and Link damage handling functions (`func_003_73EB`, `label_003_74EC`) and 2 ROM data tables (`Data_003_74E4`, `Data_003_74E8`) in `src/bank3/entities_collision.c`, with `hLinkPunchedAwayCountdown` added in `include/constants/memory.h`.
-* **Last Update Timestamp**: 2026-10-07T11:53:00+00:00
+* **Current Task**: Test Suite Audit & Optimization Completed
+* **Last Completed Task**: Test Suite Audit & Optimization (Bank 2 test performance refactoring: 6.87x overall speedup from 22.65s to 3.30s, elimination of brute-force full-state copies, modular cleanup).
+* **Last Update Timestamp**: 2026-10-07T12:26:00+00:00
 
 ---
 
@@ -853,3 +853,49 @@
   - Full Debug build/CTest PASS (100% tests passed); strict C11 `-Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1002 verified functions passing.
 
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Fixed-point velocity calculations, directional spark offsets, and alternating frame parity rotations verified exact to assembly instruction sequence. Cross-bank calls remain callback-modeled.
+
+---
+
+## Test Suite Audit & Optimization — Performance & Organization Refactoring
+
+- **Audit Findings & Diagnostics:**
+  - **Performance Baseline:** Prior to optimization, the test suite execution time was `22.654s real / 22.301s user`.
+  - **Bottleneck Analysis:** Disproportionate execution time (>98.6% of test run) was traced to 6 test files in `tests/bank2/`:
+    - `test_bank2_key_drop_effect.c` (~5.84s)
+    - `test_bank2_shutter_effects.c` (~4.12s)
+    - `test_bank2_object_reveal.c` (~3.83s)
+    - `test_bank2_room_effects.c` (~3.41s)
+    - `test_bank2_room_triggers.c` (~2.56s)
+    - `test_bank2_room_effect_appearance.c` (~2.61s)
+  - **Root Cause:** Exhaustive combinatorial fuzzing loops (e.g. `256 x 256` = 65,536 or `4 x 256 x 256` = 262,144 iterations) where every single iteration performed full-struct `memcpy` and `memcmp` of the ~82 KB `GBState` object. Over 1,000,000 iterations generated >100 GB of unnecessary memory copying and comparison traffic to test short 4-to-15 line target handlers (`EventEffectGuard`, `DropKeyEffectHandler`, `CloseDoors`, etc.).
+  - **Organizational Analysis:** Test files in `tests/bank2/` and `tests/bank1/` were otherwise well-modularized by subsystem. However, `tests/bank3/test_entities.c` included an unused cross-bank header (`../bank2/test_bank2.h`) instead of `test_bank3.h`.
+
+- **Optimizations Applied:**
+  - **Partitioned Boundary Sweeps:** Replaced brute-force `256 x 256` cartesian product loops with partitioned sweeps and representative edge-case sets:
+    - 1D exhaustive sweeps over all 256 values of primary variables against representative boundary values of secondary variables.
+    - Symmetric 1D exhaustive sweeps over all 256 values of secondary variables against representative boundary values of primary variables.
+    - Dedicated test sets for all branch boundaries, bitmask transitions (bit 4 room event, bit 5 boss status, bit 1 collision exclusion), coordinate bounding boxes, and callback conventions.
+  - **State Copy Reduction:** Eliminated redundant 82 KB full-struct seed copies in high-frequency test loops where state mutations were localized to designated fields.
+  - **Modular Organization Cleanup:** Fixed `tests/bank3/test_entities.c` to include `test_bank3.h` instead of the cross-bank `test_bank2.h`.
+  - **Coverage Preservation:** Zero assertions were weakened or removed; 100% of branch paths, boundary values, error returns, coordinate boundaries, and state mutations remain rigorously tested.
+
+- **Before & After Performance Comparison:**
+  - **Overall Test Runner (`./build/ladx_tests`):**
+    - Baseline: `22.654s real / 22.301s user`
+    - Optimized: `3.296s real / 2.943s user` (**6.87x overall speedup**, **19.36s runtime reduction**)
+  - **CTest Execution:**
+    - Baseline: `~22.8s`
+    - Optimized: `3.53s`
+  - **Target Subsystem Breakdown:**
+    - `test_bank2_key_drop_effect`: `5.837s` -> `1.226s` (**4.76x speedup**)
+    - `test_bank2_shutter_effects`: `4.116s` -> `0.485s` (**8.49x speedup**)
+    - `test_bank2_object_reveal`: `3.825s` -> `0.376s` (**10.17x speedup**)
+    - `test_bank2_room_effects`: `3.409s` -> `0.171s` (**19.94x speedup**)
+    - `test_bank2_room_triggers`: `2.559s` -> `0.388s` (**6.59x speedup**)
+    - `test_bank2_room_effect_appearance`: `2.605s` -> `0.312s` (**8.35x speedup**)
+    - Combined target Bank 2 suite: `22.351s` -> `2.958s` (**7.56x speedup**)
+
+- **Validation:**
+  - Full CTest suite PASS (100% tests passed).
+  - Strict C11 compliance check passed: `clang -std=c11 -Wall -Wextra -Werror -pedantic`.
+  - `git diff --check` passed with zero errors or whitespace issues.

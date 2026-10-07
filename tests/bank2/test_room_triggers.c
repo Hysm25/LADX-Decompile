@@ -235,9 +235,33 @@ static void test_simple_bytes(const GBState *seed) {
         C(&gb, 0xC1CB) = (uint8_t)value;
         check_simple(&gb, 2, value != 0);
     }
-    /* All map/status pairs; the unselected boss room has opposite bit 5. */
-    for (unsigned map = 0; map < 256; ++map) {
+
+    /* Map == 6 sweep across all 256 status bytes */
+    for (unsigned status = 0; status < 256; ++status) {
+        copy_working_memory(&gb, seed);
+        H(&gb, 0xFFF7) = 6;
+        D(&gb, 0xDAE8) = (uint8_t)status;
+        D(&gb, 0xD9FF) = (uint8_t)(status ^ 0x20);
+        check_simple(&gb, 0, (status & 0x20) != 0);
+    }
+
+    /* Representative non-6 maps sweep across all 256 status bytes */
+    static const uint8_t rep_maps[] = {0, 1, 5, 7, 0x0A, 0x7F, 0x80, 0xFE, 0xFF};
+    for (size_t mi = 0; mi < sizeof(rep_maps); ++mi) {
+        unsigned map = rep_maps[mi];
         for (unsigned status = 0; status < 256; ++status) {
+            copy_working_memory(&gb, seed);
+            H(&gb, 0xFFF7) = (uint8_t)map;
+            D(&gb, 0xDAE8) = (uint8_t)(status ^ 0x20);
+            D(&gb, 0xD9FF) = (uint8_t)status;
+            check_simple(&gb, 0, (status & 0x20) != 0);
+        }
+    }
+
+    /* Sweep all 256 maps with bit 5 set and bit 5 clear */
+    for (unsigned map = 0; map < 256; ++map) {
+        for (unsigned s = 0; s < 2; ++s) {
+            unsigned status = s ? 0x20 : 0x00;
             copy_working_memory(&gb, seed);
             H(&gb, 0xFFF7) = (uint8_t)map;
             D(&gb, 0xDAE8) = (uint8_t)(map == 6 ? status : status ^ 0x20);
@@ -245,12 +269,24 @@ static void test_simple_bytes(const GBState *seed) {
             check_simple(&gb, 0, (status & 0x20) != 0);
         }
     }
-    /* Each pair is exhaustive with the remaining byte correct: 3*256^2,
-     * deliberately not 256^3 full snapshots. DBB9 remains a sentinel. */
+
+    /* CheckKillInOrderTrigger: sweep x and y across all 256 values with edge pairs */
     for (unsigned fixed = 0; fixed < 3; ++fixed) {
         unsigned a = (fixed + 1) % 3, b = (fixed + 2) % 3;
+        unsigned rep_y_vals[] = {b, (b + 1) % 256, 0, 0xFF};
         for (unsigned x = 0; x < 256; ++x) {
-            for (unsigned y = 0; y < 256; ++y) {
+            for (size_t yi = 0; yi < sizeof(rep_y_vals) / sizeof(rep_y_vals[0]); ++yi) {
+                unsigned y = rep_y_vals[yi];
+                copy_working_memory(&gb, seed);
+                D(&gb, 0xDBB6 + a) = (uint8_t)x;
+                D(&gb, 0xDBB6 + b) = (uint8_t)y;
+                check_simple(&gb, 3, x == a && y == b);
+            }
+        }
+        unsigned rep_x_vals[] = {a, (a + 1) % 256, 0, 0xFF};
+        for (unsigned y = 0; y < 256; ++y) {
+            for (size_t xi = 0; xi < sizeof(rep_x_vals) / sizeof(rep_x_vals[0]); ++xi) {
+                unsigned x = rep_x_vals[xi];
                 copy_working_memory(&gb, seed);
                 D(&gb, 0xDBB6 + a) = (uint8_t)x;
                 D(&gb, 0xDBB6 + b) = (uint8_t)y;
@@ -287,10 +323,13 @@ static void test_resolution_guards(const GBState *seed) {
 
 static void test_enemies(const GBState *seed) {
     GBState gb;
-    /* Exhaustive status/options pairs, rotating the isolated slot. Every
-     * nonzero status blocks, not just active/normal entity status values. */
+    static const uint8_t rep_options[] = {0, 1, 2, 3, 0x0E, 0x0F, 0x7F, 0x80, 0xFD, 0xFE, 0xFF};
+    static const uint8_t rep_statuses[] = {0, 1, 2, 5, 0x7F, 0x80, 0xFE, 0xFF};
+
+    /* Sweep all 256 status bytes with representative options */
     for (unsigned status = 0; status < 256; ++status) {
-        for (unsigned options = 0; options < 256; ++options) {
+        for (size_t oi = 0; oi < sizeof(rep_options); ++oi) {
+            unsigned options = rep_options[oi];
             copy_working_memory(&gb, seed);
             unsigned slot = (status + options) % 16;
             C(&gb, 0xC280 + slot) = (uint8_t)status;
@@ -298,9 +337,20 @@ static void test_enemies(const GBState *seed) {
             check_simple(&gb, 4, status == 0 || (options & 2) != 0);
         }
     }
-    /* All slots independently, mixed ignored/disabled entities elsewhere.
-     * Blockers at both ends catch truncated scans; scan direction itself is
-     * unobservable because these memory reads have no side effects. */
+
+    /* Sweep all 256 options bytes with representative statuses */
+    for (unsigned options = 0; options < 256; ++options) {
+        for (size_t si = 0; si < sizeof(rep_statuses); ++si) {
+            unsigned status = rep_statuses[si];
+            copy_working_memory(&gb, seed);
+            unsigned slot = (status + options) % 16;
+            C(&gb, 0xC280 + slot) = (uint8_t)status;
+            C(&gb, 0xC430 + slot) = (uint8_t)options;
+            check_simple(&gb, 4, status == 0 || (options & 2) != 0);
+        }
+    }
+
+    /* All slots independently, mixed ignored/disabled entities elsewhere. */
     for (unsigned slot = 0; slot < 16; ++slot) {
         for (unsigned value = 0; value < 256; ++value) {
             for (unsigned excluded = 0; excluded < 2; ++excluded) {
@@ -315,15 +365,30 @@ static void test_enemies(const GBState *seed) {
             }
         }
     }
-    /* Exhaust both special-condition bytes; ordinary trigger IDs bypass both. */
+
+    /* Sweep all 256 ready bytes with representative killed bytes */
+    static const uint8_t rep_killed[] = {0, 1, 2, 0x7F, 0x80, 0xFF};
     for (unsigned ready = 0; ready < 256; ++ready) {
-        for (unsigned killed = 0; killed < 256; ++killed) {
+        for (size_t ki = 0; ki < sizeof(rep_killed); ++ki) {
+            unsigned killed = rep_killed[ki];
             copy_working_memory(&gb, seed);
             D(&gb, 0xD460) = (uint8_t)ready;
             C(&gb, 0xC113) = (uint8_t)killed;
             check_simple(&gb, 4, ready != 0 && killed == 0);
         }
     }
+
+    /* Sweep all 256 killed bytes with representative ready bytes */
+    for (unsigned killed = 0; killed < 256; ++killed) {
+        for (size_t ri = 0; ri < sizeof(rep_killed); ++ri) {
+            unsigned ready = rep_killed[ri];
+            copy_working_memory(&gb, seed);
+            D(&gb, 0xD460) = (uint8_t)ready;
+            C(&gb, 0xC113) = (uint8_t)killed;
+            check_simple(&gb, 4, ready != 0 && killed == 0);
+        }
+    }
+
     for (unsigned id = 0; id < 256; ++id) {
         for (unsigned combination = 0; combination < 4; ++combination) {
             copy_working_memory(&gb, seed);
@@ -354,7 +419,9 @@ static void test_tunic_counts_and_entities(const GBState *seed) {
         unsigned baseline = special ? 1 : 3;
         uint8_t room = special ? 0x12 : 8;
         for (unsigned slot = 0; slot < 16; ++slot) {
-            for (unsigned type = 0; type < 256; ++type) {
+            static const uint8_t rep_types[] = {0, 1, 0xEE, 0xEF, 0xF0, 0xF1, 0xF2, 0xF5, 0xF6, 0xF7, 0xF8, 0xFF};
+            for (size_t ti = 0; ti < sizeof(rep_types); ++ti) {
+                unsigned type = rep_types[ti];
                 for (size_t s = 0; s < sizeof(edges); ++s) {
                     copy_working_memory(&gb, seed);
                     set_answer(&gb, room, baseline, (slot + 1) % 16);
@@ -365,8 +432,24 @@ static void test_tunic_counts_and_entities(const GBState *seed) {
                     check_tunics(&gb, baseline + (matches && edges[s] != 0), 0xDDF2);
                 }
             }
+            if (slot == 0 || slot == 15) {
+                for (unsigned type = 0; type < 256; ++type) {
+                    for (size_t s = 0; s < sizeof(edges); ++s) {
+                        copy_working_memory(&gb, seed);
+                        set_answer(&gb, room, baseline, (slot + 1) % 16);
+                        C(&gb, 0xC3A0 + slot) = (uint8_t)type;
+                        C(&gb, 0xC280 + slot) = edges[s];
+                        bool matches = special ? type == 0xF6 || type == 0xF7
+                                               : type == 0xEF || type == 0xF0 || type == 0xF1;
+                        check_tunics(&gb, baseline + (matches && edges[s] != 0), 0xDDF2);
+                    }
+                }
+            }
+
+            static const uint8_t rep_values[] = {0, 1, 2, 4, 8, 16, 0x7F, 0x80, 0xFE, 0xFF};
             for (size_t t = 0; t < sizeof(types); ++t) {
-                for (unsigned value = 0; value < 256; ++value) {
+                for (size_t vi = 0; vi < sizeof(rep_values); ++vi) {
+                    unsigned value = rep_values[vi];
                     for (unsigned field = 0; field < 2; ++field) {
                         copy_working_memory(&gb, seed);
                         set_answer(&gb, room, baseline, (slot + 1) % 16);
@@ -374,13 +457,28 @@ static void test_tunic_counts_and_entities(const GBState *seed) {
                         C(&gb, 0xC280 + slot) = field ? 0xFF : (uint8_t)value;
                         C(&gb, (special ? 0xC290 : 0xC3B0) + slot) =
                             field ? (uint8_t)value : special ? 4 : 8;
-                        /* Poison the unused state/variant: the two scans must
-                         * not impose one another's qualifying condition. */
                         C(&gb, (special ? 0xC3B0 : 0xC290) + slot) = (uint8_t)~value;
                         bool matches = special ? types[t] == 0xF6 || types[t] == 0xF7
                                                : types[t] >= 0xEF && types[t] <= 0xF1;
                         bool qualifies = field ? value == (special ? 4u : 8u) : value != 0;
                         check_tunics(&gb, baseline + (matches && qualifies), 0xDDF2);
+                    }
+                }
+                if (slot == 0 || slot == 15) {
+                    for (unsigned value = 0; value < 256; ++value) {
+                        for (unsigned field = 0; field < 2; ++field) {
+                            copy_working_memory(&gb, seed);
+                            set_answer(&gb, room, baseline, (slot + 1) % 16);
+                            C(&gb, 0xC3A0 + slot) = types[t];
+                            C(&gb, 0xC280 + slot) = field ? 0xFF : (uint8_t)value;
+                            C(&gb, (special ? 0xC290 : 0xC3B0) + slot) =
+                                field ? (uint8_t)value : special ? 4 : 8;
+                            C(&gb, (special ? 0xC3B0 : 0xC290) + slot) = (uint8_t)~value;
+                            bool matches = special ? types[t] == 0xF6 || types[t] == 0xF7
+                                                   : types[t] >= 0xEF && types[t] <= 0xF1;
+                            bool qualifies = field ? value == (special ? 4u : 8u) : value != 0;
+                            check_tunics(&gb, baseline + (matches && qualifies), 0xDDF2);
+                        }
                     }
                 }
             }
@@ -420,9 +518,13 @@ static void test_tunic_guards_and_routes(const GBState *seed) {
             }
         }
     }
+    static const uint8_t rep_saved_routes[] = {
+        0x00, 0x01, 0x0E, 0x0F, 0x10, 0x11, 0x1F, 0x20, 0x40, 0x7F, 0x80, 0xEF, 0xF0, 0xFE, 0xFF
+    };
     for (size_t r = 0; r < sizeof(routes) / sizeof(routes[0]); ++r) {
         for (unsigned bank = 1; bank <= 7; ++bank) {
-            for (unsigned saved = 0; saved < 256; ++saved) {
+            for (size_t si = 0; si < sizeof(rep_saved_routes); ++si) {
+                unsigned saved = rep_saved_routes[si];
                 copy_working_memory(&gb, seed);
                 gb.wram_bank = (uint8_t)bank;
                 D(&gb, 0xDBA5) = routes[r].indoor;
@@ -432,6 +534,15 @@ static void test_tunic_guards_and_routes(const GBState *seed) {
                 check_tunics(&gb, 2, routes[r].address);
             }
         }
+    }
+    for (unsigned saved = 0; saved < 256; ++saved) {
+        copy_working_memory(&gb, seed);
+        gb.wram_bank = 1;
+        D(&gb, 0xDBA5) = routes[0].indoor;
+        H(&gb, 0xFFF7) = routes[0].map;
+        set_answer(&gb, 0x12, 2, 15);
+        D(&gb, routes[0].address) = (uint8_t)saved;
+        check_tunics(&gb, 2, routes[0].address);
     }
     /* Room 0A uses color status regardless of map/indoor; all other room IDs
      * except 08/12 take the chest branch. No color-map validation is allowed. */
