@@ -15,4 +15,10 @@ void func_003_51C9(GBState *gb, uint16_t bc, const uint8_t *data_ptr, uint8_t b_
 /* label_003_51F5 (03:51F5) - Appends 2x2 tile draw command for intersected object */
 void label_003_51F5(GBState *gb, const uint8_t *data_ptr);
 
+/* MarkRoomCompleted (03:512A) */
+void MarkRoomCompleted(GBState *gb);
+
+/* GetRoomStatusAddressInHL (03:5134) */
+uint16_t GetRoomStatusAddressInHL(GBState *gb);
+
 #endif /* LADX_BANK3_ENTITIES_PUSHED_BLOCK_H */

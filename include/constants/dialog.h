@@ -58,5 +58,6 @@
 #define Dialog0B7                       0xB7
 #define Dialog0B9                       0xB9
 #define Dialog0BD                       0xBD
+#define Dialog0EF                       0xEF
 
 #endif /* LADX_CONSTANTS_DIALOG_H */

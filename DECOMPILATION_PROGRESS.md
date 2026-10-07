@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~77.5%
-* **Number of Verified Functions**: 1012
-* **Number of Decompiled Functions**: 812
-* **Number Remaining**: ~200 functions
-* **Current Subsystem**: ROM Bank 3 (Entity Projectile & Sword Collision Handlers)
-* **Current Task**: Batch 95 Verification Completed
-* **Last Completed Task**: Batch 95 Verification — Projectile & Sword Object Intersection Physics (`ApplySwordIntersectionWithObjects`, `label_003_51F5`, `Data_003_69A2`).
-* **Last Update Timestamp**: 2026-10-07T17:00:00+00:00
+* **Current Overall Progress**: ~79.5%
+* **Number of Verified Functions**: 1041
+* **Number of Decompiled Functions**: 841
+* **Number Remaining**: ~171 functions
+* **Current Subsystem**: ROM Bank 3 (Droppable Item Collection Handlers & Spawning)
+* **Current Task**: Batch 96 Verification Completed
+* **Last Completed Task**: Batch 96 Verification — Droppable Item Collection Handlers & Spawning (`PickableCanBeCollectedBySwordTable`, `PickableHandleGrabbedByItemIfNeeded`, `PickableCollectIfNeeded`, `PickDroppableMagicPowder`, `PickSecretSeashell`, `IncreaseValueAtHLClampAt99`, `PickDroppableArrows`, `PickDroppableBombs`, `PickSirensInstrument`, `HoldPickupInTheAir`, `PickHeartContainer`, `PickToadstoolOrDungeonKey`, `PickHeartPiece`, `PickGuardianAcorn`, `PickPieceOfPower`, `ProcessPowerUp`, `MovePickupInTheAir`, `PickSword`, `GiveInventoryItem`, `PickDroppableKey`, `PickDroppableHeart`, `PickDroppableRupee`, `PickDroppableFairy`, `SpawnNewEntity`, `SpawnNewEntityInRange`, `ConfigureNewEntity_helper`, `MarkRoomCompleted`, `GetRoomStatusAddressInHL`, `DidKillEnemy_label_3F78`).
+* **Last Update Timestamp**: 2026-10-07T23:30:00+00:00
 
 ---
 
@@ -1038,3 +1038,60 @@
   - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1012 verified functions passing.
 
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Carry return conventions and directional bitmasks verified exact to assembly instruction sequence.
+
+---
+
+## Batch 96 Verification — Droppable Item Collection Handlers & Entity Spawning
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:629E`-`03:652D`, `03:512A`-`03:5155`) and `LADX-Disassembly/src/code/home/entities.asm` (`00:3F78`-`00:3F8C`). Functions and data tables implemented across `src/bank3/entities_droppable.c`, `src/bank3/entities_pushed_block.c`, and `src/home/entities.c` with declarations in `include/bank3/entities_droppable.h`, `include/bank3/entities_pushed_block.h`, and `include/home/entities.h`:
+  - `PickableCanBeCollectedBySwordTable` (`03:629E`): 17-entry boolean table indicating whether an item can be collected by a sword slash (`{1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0}`).
+  - `PickableHandleGrabbedByItemIfNeeded` (`03:62AF`-`03:62EA`): Handles pickup when pulled by boomerang or hookshot. Returns early if `wEntitiesPrivateState5Table == 0`. If grabber entity is disabled or not a boomerang/hookshot, dispatches immediately to collect. If grabbed by active boomerang or hookshot chain, snaps entity `PosX` and `PosY` to grabber, clears `PosZ = 0`, and returns early (skipping normal physics/collection).
+  - `PickableCollectIfNeeded` (`03:62EB`-`03:634F`): Full collection dispatcher:
+    - Checks private countdown (`GetEntityPrivateCountdown1`), returning early if non-zero.
+    - If sword collection is permitted by `PickableCanBeCollectedBySwordTable`, clears `wEntitiesIgnoreHitsCountdownTable`, invokes `func_003_6E2B` (damage collision), and restores the countdown.
+    - Tests Link collision via `func_003_6C6B`.
+    - On collision: calls `DidKillEnemy_label_3F78` to record room cleared bit (for `load_order < 8`) and unload the entity.
+    - Triggers sound effect (`JINGLE_GOT_HEART` for heart/rupee, `WAVE_SFX_SEASHELL` for others).
+    - Dispatches to item handler via 17-entry jump table.
+  - `PickDroppableMagicPowder` (`03:6350`): Sets `hReplaceTiles = REPLACE_TILES_MAGIC_POWDER` (`0x0B`), calls `GiveInventoryItem` with `0x0C`, and adds 1 in BCD to `wMagicPowderCount` clamped to `wMaxMagicPowder`.
+  - `PickSecretSeashell` (`03:6368`): Opens dialog `Dialog0EF` (`0xEF`), marks room completed via `MarkRoomCompleted`, and increments `wSeashellsCount` in BCD clamped to 99 (`0x99`).
+  - `IncreaseValueAtHLClampAt99` / `IncreaseValueAtHLClampAt99_addr` (`03:6373`): Increments target byte at address in BCD (+1, decimal adjust), clamped at 99 (`0x99`).
+  - `PickDroppableArrows` (`03:637D`): Increments `wArrowCount` in BCD clamped to `wMaxArrows`.
+  - `PickDroppableBombs` (`03:6385`): Calls `GiveInventoryItem` with `0x02` (`INVENTORY_BOMB`), increments `wBombCount` in BCD clamped to `wMaxBombs`.
+  - `PickSirensInstrument` (`03:6392`): Clears `wBossDefeated` and `wObjectAffectingBGPalette`, sets `wMusicTrackToPlay = MUSIC_OBTAIN_INSTRUMENT` (`0x1B`), sets `wC167 = MUSIC_OBTAIN_INSTRUMENT`, and invokes `HoldPickupInTheAir`.
+  - `HoldPickupInTheAir` (`03:63A1`): Shifts `hLinkPositionX + 4`, calls `MovePickupInTheAir`, restores `hLinkPositionX`, configures transition countdown to `0x68`, sets `wC111 = 0x68`, entity status to `ENTITY_STATUS_ACTIVE` (`5`), and calls `ResetSpinAttack`.
+  - `PickHeartContainer` (`03:63B0`): Clears `wActivePowerUp`, sets `wMusicTrackToPlay = MUSIC_HEART_CONTAINER` (`0x25`), `wBossDefeated = MUSIC_HEART_CONTAINER`, transition countdown and `wC111 = 0x70`, entity status to active, and calls `ResetSpinAttack`.
+  - `PickToadstoolOrDungeonKey` (`03:63C7`): Sets `wMusicTrackToPlay = MUSIC_OBTAIN_ITEM` (`0x10`), transition countdown and `wC111 = 0x68`, entity status to active, and calls `ResetSpinAttack`.
+  - `PickHeartPiece` (`03:63E4`): Sets `wMusicTrackToPlay = MUSIC_OBTAIN_ITEM` (`0x10`), calls `IncrementEntityState`, entity status to active, and calls `ResetSpinAttack`.
+  - `PickGuardianAcorn` (`03:63F6`) / `PickPieceOfPower` (`03:63FC`) / `ProcessPowerUp` (`03:6400`): Sets `wActivePowerUp`, `wDialogGotItem`, dialog countdown and `wC111 = 0x30`, clears `wPowerUpHits = 0`, sets `wMusicTrackToPlay = MUSIC_OBTAIN_POWERUP` (`0x27`), `hDefaultMusicTrackAlt` and `hNextDefaultMusicTrack = MUSIC_ACTIVE_POWER_UP` (`0x49`), and calls `MovePickupInTheAir`.
+  - `MovePickupInTheAir` (`03:641E`): Loops 4 sparkling particles (`e = 3` down to 0), computes shifted coordinates from Link position using `Data_003_63EE` (`{0xE4, 0x14, 0xE4, 0x14}`) and `Data_003_63F2` (`{0xD4, 0xD4, 0x04, 0x04}`), spawns `TRANSCIENT_VFX_MOVING_SPARKLE` via `AddTranscientVfx`, sets countdown table to `0x22`, and sets `wC590[e] = e`.
+  - `PickSword` (`03:644D`): If `wSwordLevel == 0`, sets `wMusicTrackToPlay` and `wC167` to `MUSIC_OBTAIN_SWORD` (`0x0F`), calls `HoldPickupInTheAir`, transition countdown `0xA0`, and silences next track (`hNextDefaultMusicTrack = MUSIC_SILENCE`). If `wSwordLevel > 0`, equips shield level from entity private state 1 and calls `GiveInventoryItem(INVENTORY_SHIELD)`.
+  - `GiveInventoryItem` (`03:6472`): Inspects 12 player inventory slots starting at `wInventoryBButtonSlot` (`0xDB00`). If item is already present, returns immediately without modifying inventory. Otherwise, assigns item to the first empty slot (`0x00`).
+  - `PickDroppableKey` (`03:648F`): Checks room ID. If `ROOM_INDOOR_A_CATFISHS_MAW_MSTALFOS_4` (`0x80`), plays obtain item music and holds item in the air. If `ROOM_INDOOR_A_ANGLERS_TUNNEL_KEY_FALL` (`0x7C`), sets bit 4 in `wIndoorARoomStatus[0x69]`. If sprite variant != 0, plays obtain item music and holds item. Otherwise, calls `MarkRoomCompleted`, increments `wSmallKeysCount`, and synchronizes dungeon item flags via `SynchronizeDungeonsItemFlags_trampoline`.
+  - `PickDroppableHeart` (`03:64B7`): Adds 8 to `wAddHealthBuffer`.
+  - `PickDroppableRupee` (`03:64BF`): Adds 1 to `wAddRupeeBufferLow`.
+  - `PickDroppableFairy` (`03:64C6`): Adds `0x30` to `wAddHealthBuffer`.
+  - `SpawnNewEntity` (`03:64CA`) / `SpawnNewEntityInRange` (`03:64CC`) / `ConfigureNewEntity_helper` (`03:6524`): Entity allocation searching from slot `MAX_ENTITIES - 1` down to 0. Marks allocated slot as active (`ENTITY_STATUS_ACTIVE`), sets type, copies parent entity `PosX`, `PosY`, `Direction`, `PosZ` into multipurpose registers, invokes `ConfigureNewEntity_helper` (setting `wActiveEntityIndex = slot`), sets ignore hits countdown to 1, and copies `PosXSign` and `PosYSign`. Returns allocated slot index or `0xFFFF` on failure.
+  - `MarkRoomCompleted` (`03:512A`) & `GetRoomStatusAddressInHL` (`03:5134`): Calculates target room status address across Overworld (`0xD800 + room`), Indoors A (`0xD900 + room`), Indoors B (`0xDA00 + room` for `map >= 6 && map < 0x1A`), and Color Dungeon (`0xDDE0 + room` for `map == 0xFF`). Sets `ROOM_STATUS_EVENT_1` (`0x10`) in both SRAM status table and `hRoomStatus`.
+  - `DidKillEnemy_label_3F78` (`00:3F78`): Checks if entity `load_order < 8`, sets the corresponding bit in `wEntitiesClearedRooms[room]`, and unloads the entity slot via `UnloadEntity`.
+
+- **Tests:** Dedicated test module `tests/bank3/test_entities_droppable.c`:
+  - `test_PickableCanBeCollectedBySwordTable`: Verifies table lookup and ignore-hits countdown preservation during collection check.
+  - `test_PickableHandleGrabbedByItemIfNeeded`: Tests no-op when not grabbed, snapping to boomerang/hookshot coordinates and clearing Z position, immediate collection when grabber is disabled, and immediate collection when grabber is a bomb or other entity.
+  - `test_PickableCollectIfNeeded`: Verifies early return when countdown != 0, Link collision detection via `func_003_6C6B`, room cleared bit update for `load_order < 8`, entity unloading, health buffer addition, and jingle dispatch.
+  - `test_PickDroppableMagicPowder`: Tests tile replacement, inventory item insertion, and BCD addition with clamping at maximum.
+  - `test_PickSecretSeashell`: Tests room completed flag setting, dialog trigger, and seashell counter BCD addition with clamping at 99.
+  - `test_PickDroppableArrows_and_Bombs`: Tests arrow count and bomb count BCD increments and capacity clamping.
+  - `test_PickSirensInstrument`: Tests instrument obtaining flags, boss defeat reset, music trigger, and Link position restoration.
+  - `test_PickHeartContainer`: Tests active power-up reset, boss defeat assignment, music track, and transition countdown configuration.
+  - `test_PickToadstool_and_HeartPiece`: Tests state increment, transition countdown, and music triggers.
+  - `test_PowerUps`: Tests Guardian Acorn and Piece of Power activation, dialog IDs, hit counter reset, and background music alterations.
+  - `test_PickSword`: Tests sword level 0 animation/music/silence and sword level > 0 shield recovery logic.
+  - `test_GiveInventoryItem`: Tests first-empty-slot assignment, duplicate prevention, and full inventory boundary conditions.
+  - `test_PickDroppableKey`: Tests Master Stalfos room detection, Angler's Tunnel room 0x69 status bit update, sprite variant branches, room completion, and key counter increment.
+  - `test_PickDroppableHeart_Rupee_Fairy`: Tests health buffer addition (+8, +0x30) and rupee buffer increment (+1).
+  - `test_SpawnNewEntity`: Tests slot allocation from 15 down to 0, coordinate/direction/sign copying, ignore-hits countdown, and full-slot failure handling.
+  - `test_MarkRoomCompleted_and_GetRoomStatusAddressInHL`: Tests address resolution across Overworld, Indoors A, Indoors B, and Color Dungeon, and verifies `ROOM_STATUS_EVENT_1` assignment.
+  - Full Debug build/CMake test suite PASS (100% tests passed in ~2.9s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1041 verified functions passing.
+
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Carry return conventions, stack pop bypass behavior (`pop de`), and BCD decimal adjustments verified exact to assembly instruction sequence.

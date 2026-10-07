@@ -3,6 +3,7 @@
 #include "constants/entities.h"
 #include "constants/memory.h"
 #include "constants/rooms.h"
+#include "constants/maps.h"
 #include "constants/gameplay.h"
 #include "constants/directions.h"
 #include "constants/inventory.h"
@@ -291,4 +292,28 @@ void label_003_51F5(GBState *gb, const uint8_t *data_ptr) {
     if (gb_read_hram(gb, hIsGBC) != 0) {
         func_91D(gb, 0x03, NULL);
     }
+}
+
+/* ===== MarkRoomCompleted (03:512A) ===== */
+void MarkRoomCompleted(GBState *gb) {
+    if (!gb) return;
+    uint16_t addr = GetRoomStatusAddressInHL(gb);
+    uint8_t status = (uint8_t)(gb_read(gb, addr) | ROOM_STATUS_EVENT_1);
+    gb_write(gb, addr, status);
+    gb_write_hram(gb, hRoomStatus, status);
+}
+
+/* ===== GetRoomStatusAddressInHL (03:5134) ===== */
+uint16_t GetRoomStatusAddressInHL(GBState *gb) {
+    if (!gb) return 0;
+    uint8_t room = gb_read_hram(gb, hMapRoom);
+    uint8_t map = gb_read_hram(gb, hMapId);
+    if (map == MAP_COLOR_DUNGEON) {
+        return (uint16_t)(wColorDungeonRoomStatus + room);
+    }
+    uint8_t d = gb_read(gb, wIsIndoor);
+    if (map >= MAP_INDOORS_B_START && map < MAP_INDOORS_B_END) {
+        d++;
+    }
+    return (uint16_t)(wOverworldRoomStatus + ((uint16_t)d << 8) + room);
 }

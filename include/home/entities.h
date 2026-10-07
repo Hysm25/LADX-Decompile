@@ -879,6 +879,16 @@ void BossIntro(GBState *gb, uint16_t entity_index, void (*open_dialog)(GBState *
 void DidKillEnemy(GBState *gb, uint16_t entity_index, void (*spawn_enemy_drop)(GBState *, uint16_t));
 
 /**
+ * DidKillEnemy.label_3F78 (00:3F78)
+ * Checks load_order < 8, sets cleared room bit, and unloads entity.
+ *
+ * @param gb Pointer to Game Boy hardware state
+ * @param entity_index Active entity index
+ * @param load_order Entity load order
+ */
+void DidKillEnemy_label_3F78(GBState *gb, uint16_t entity_index, uint8_t load_order);
+
+/**
  * UnloadEntity / UnloadEntityAndReturn (00:3F8D)
  * Sets entity status to 0 (disabled).
  *

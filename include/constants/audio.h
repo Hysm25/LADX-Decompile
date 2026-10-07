@@ -16,8 +16,11 @@
 #define MUSIC_INSIDE_BUILDING           0x0A
 #define MUSIC_ANIMAL_VILLAGE            0x0B
 #define MUSIC_TITLE_SCREEN_NO_INTRO     0x0D
+#define MUSIC_OBTAIN_SWORD              0x0F
+#define MUSIC_OBTAIN_ITEM               0x10
 #define MUSIC_EGG_MAZE                  0x12
 #define MUSIC_KANALET_CASTLE            0x13
+#define MUSIC_OBTAIN_INSTRUMENT         0x1B
 #define MUSIC_TAIL_CAVE                 0x14
 #define MUSIC_BOTTLE_GROTTO             0x15
 #define MUSIC_KEY_CAVERN                0x16
@@ -28,7 +31,10 @@
 #define MUSIC_SOUTHERN_SHRINE           0x1F
 #define MUSIC_2D_UNDERGROUND            0x21
 #define MUSIC_OWL                       0x22
+#define MUSIC_HEART_CONTAINER           0x25
 #define MUSIC_CAVE                      0x26
+#define MUSIC_OBTAIN_POWERUP            0x27
+#define MUSIC_SILENCE                   0xFF
 #define MUSIC_MOBLIN_HIDEOUT            0x3E
 #define MUSIC_GHOST_HOUSE               0x48
 #define MUSIC_ACTIVE_POWER_UP           0x49

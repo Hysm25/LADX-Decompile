@@ -346,7 +346,9 @@
 #define wBlockItemUsage                 0xC50A
 #define wSwordCollisionEnabled          0xC5B0
 #define wInventoryItems_BButtonSlot     0xDB00
+#define wInventoryBButtonSlot           0xDB00
 #define wInventoryItems_AButtonSlot     0xDB01
+#define wSeashellsCount                 0xDB0F
 #define wShieldLevel                    0xDB44
 #define wBombCount                      0xDB4D
 #define hLinkInteractiveMotionBlocked   0xFFA1

@@ -18,10 +18,11 @@ void PickableCanBeCollectedBySwordTable(GBState *gb);
 void PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t bc);
 void PickableCollectIfNeeded(GBState *gb, uint16_t bc);
 
-/* Pickable Item Collection Functions (Stubs) */
+/* Pickable Item Collection Functions (03:6350-03:64C8) */
 void PickDroppableMagicPowder(GBState *gb, uint16_t bc);
 void PickSecretSeashell(GBState *gb, uint16_t bc);
 void IncreaseValueAtHLClampAt99(GBState *gb);
+void IncreaseValueAtHLClampAt99_addr(GBState *gb, uint16_t addr);
 void PickDroppableArrows(GBState *gb, uint16_t bc);
 void PickDroppableBombs(GBState *gb, uint16_t bc);
 void PickSirensInstrument(GBState *gb, uint16_t bc);
@@ -34,15 +35,18 @@ void PickPieceOfPower(GBState *gb, uint16_t bc);
 void ProcessPowerUp(GBState *gb, uint16_t bc);
 void MovePickupInTheAir(GBState *gb, uint16_t bc);
 void PickSword(GBState *gb, uint16_t bc);
-void GiveInventoryItem(GBState *gb, uint16_t bc);
+void GiveInventoryItem(GBState *gb, uint16_t item);
 void PickDroppableKey(GBState *gb, uint16_t bc);
 void PickDroppableHeart(GBState *gb, uint16_t bc);
 void PickDroppableRupee(GBState *gb, uint16_t bc);
 void PickDroppableFairy(GBState *gb, uint16_t bc);
 
-/* Entity Spawning Functions (Stubs) */
+/* Entity Spawning Functions (03:64CA-03:652D) */
 void SpawnNewEntity(GBState *gb, uint16_t bc);
 void SpawnNewEntityInRange(GBState *gb, uint16_t bc);
+uint16_t SpawnNewEntity_slot(GBState *gb, uint8_t entity_type);
+uint16_t SpawnNewEntityInRange_slot(GBState *gb, uint8_t entity_type, uint8_t start_slot);
+uint16_t SpawnNewEntityInRange_impl(GBState *gb, uint8_t entity_type, uint16_t bc, uint8_t start_e);
 void ConfigureNewEntity_helper(GBState *gb, uint16_t bc);
 
 #endif /* LADX_BANK3_ENTITIES_DROPPABLE_H */

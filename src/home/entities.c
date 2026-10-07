@@ -1033,6 +1033,12 @@ void DidKillEnemy(GBState *gb, uint16_t entity_index, void (*spawn_enemy_drop)(G
     gb_write(gb, wKillCount, (uint8_t)(kill_count + 1));
     gb_write(gb, (uint16_t)(wKillOrder + kill_count), load_order);
 
+    DidKillEnemy_label_3F78(gb, entity_index, load_order);
+}
+
+void DidKillEnemy_label_3F78(GBState *gb, uint16_t entity_index, uint8_t load_order) {
+    if (!gb) return;
+
     if (load_order < 0x08) {
         static const uint8_t s_data_3F48[8] = { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 };
         uint8_t bit = s_data_3F48[load_order];

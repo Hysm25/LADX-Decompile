@@ -22,9 +22,11 @@
 #define JINGLE_GHOST_PRESENCE                   0x2D
 #define JINGLE_FALL_DOWN                        0x08
 #define JINGLE_FOREST_LOST                      0x1E
+#define JINGLE_GOT_HEART                        0x14
 
 /* Values for hWaveSfx */
 #define WAVE_SFX_NONE                           0x00
+#define WAVE_SFX_SEASHELL                       0x01
 #define WAVE_SFX_LIFT_UP                        0x02
 #define WAVE_SFX_LINK_HURT                      0x03
 #define WAVE_SFX_LOW_HEARTS                     0x04
