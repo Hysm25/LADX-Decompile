@@ -6,6 +6,7 @@ void test_bank3_entities_physics(void);
 void test_bank3_entities_collision(void);
 void test_bank3_entities_droppable(void);
 void test_bank3_entities_bomb(void);
+void test_bank3_entities_arrow(void);
 
 void run_bank3_tests(void);
 

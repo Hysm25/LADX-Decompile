@@ -13,6 +13,13 @@ void EntityBounceOffWallX(GBState *gb, uint16_t bc);
 void EntityBounceOffWallY(GBState *gb, uint16_t bc);
 void ArrowRockAfterHittingWall(GBState *gb, uint16_t bc);
 
+/* Arrow and Bomb Arrow Data Tables (03:6A66-03:6B52, 03:6BC6) */
+extern const uint8_t EntityArrowSpriteVariants[16];
+extern const uint8_t BombArrowBombSprite[2];
+extern const int8_t BombArrowBombXOffsetPerDirection[4];
+extern const int8_t BombArrowBombYOffsetPerDirection[4];
+extern const uint8_t ArrowSpinningSpriteVariantFrames[4];
+
 /* Octorok Rock sprite variants (03:6A1E) */
 extern const uint8_t OctorokRockSpriteVariants[8];
 

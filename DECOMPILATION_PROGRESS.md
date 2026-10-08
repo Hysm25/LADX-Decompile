@@ -4,13 +4,13 @@
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
 * **Current Overall Progress**: ~84.0%
-* **Number of Verified Functions**: 1097
-* **Number of Decompiled Functions**: 897
-* **Number Remaining**: ~115 functions
-* **Current Subsystem**: ROM Bank 3 (Droppable and Pickable Entity Handlers & Helpers)
-* **Current Task**: Batch 100 Verification Completed
-* **Last Completed Task**: Batch 100 Verification — ROM Bank 3 Siren's Instrument Entity Handler and Post-Dungeon Events (`SirensInstrumentEntityHandler`, `SirensInstrumentState0Handler`-`SirensInstrumentState2Handler`, `func_003_5ED5`, `func_003_5F0C`, `func_003_5F33`, `func_003_5FBC`, `func_003_5FBF`, `animateSirensInstrumentPickup`, `AfterSirensInstrumentD1`-`AfterSirensInstrumentD7`).
-* **Last Update Timestamp**: 2026-10-08T09:58:00+00:00
+* **Number of Verified Functions**: 1116
+* **Number of Decompiled Functions**: 916
+* **Number Remaining**: ~96 functions
+* **Current Subsystem**: ROM Bank 3 (Arrow Entity Handlers, Bomb Arrow Mechanics, and Projectile Wall Physics)
+* **Current Task**: Batch 103 Verification Completed
+* **Last Completed Task**: Batch 103 Verification — ROM Bank 3 Arrow Entity Handlers, Bomb Arrow Mechanics, and Projectile Wall Physics (`ArrowEntityHandler`, `BombArrowHandler`, `MoblinArrowEntityHandler`, `ArrowRenderAndMove`, `ArrowRenderAndMove_skipRendering`, `EntityBounceOffWallX`, `EntityBounceOffWallY`, `ArrowRockAfterHittingWall`).
+* **Last Update Timestamp**: 2026-10-08T15:21:00+00:00
 
 ---
 
@@ -1304,3 +1304,34 @@
   - `test_OctorokRockEntityHandler`: Tests countdown != 0 collision bypass and countdown == 0 collision test with damage/shield response.
   - Full test suite PASS (405 passed test suites); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1108 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Projectile collision bounding boxes, shield deflection angles, and damage fallthrough verified exact to assembly instruction sequence.
+
+---
+
+## Batch 103 Verification — ROM Bank 3 Arrow Entity Handlers, Bomb Arrow Mechanics, and Projectile Wall Physics
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/03_arrow.asm` (`03:6A34`-`03:6B71`) and `bank3.asm`. Implemented in `src/bank3/entities_arrow.c` with declarations in `include/bank3/entities_arrow.h`.
+- **Functions Decompiled & Verified:**
+  - `ArrowEntityHandler` (`03:6A34`): Increments `wActiveProjectileCount`. If `hActiveEntityState != 0`, dispatches to `BombArrowHandler`. If `GetEntityTransitionCountdown != 0`, calls `ArrowRenderAndMove` and returns. Otherwise, sets `wAttackDamageType = DAMAGE_TYPE_ARROW`, calls `func_003_75A2`, and calls `ArrowRenderAndMove`. If moving upwards (`hActiveEntitySpriteVariant == DIRECTION_UP`), the room event trigger is `TRIGGER_SHOOT_STATUE_EYE`, and the object under entity is `OBJECT_ONE_EYED_STATUE`, resolves trigger via `MarkTriggerAsResolved` and unloads entity via `UnloadEntityAndReturn`.
+  - `BombArrowHandler` (`03:6A70`): Handles bomb arrows. When transition countdown reaches 0: spawns bomb entity (`ENTITY_BOMB`) via `SpawnNewEntityInRange_impl(gb, ENTITY_BOMB, bc, MAX_ENTITIES - 1)`. If spawn succeeds: sets bomb state to ignited (`wEntitiesStateTable = 1`), passes countdown (`wEntitiesTransitionCountdownTable = 0x50`), copies positions and sets options (`ENTITY_OPT1_IS_BOMB | ENTITY_OPT1_SPLASH_IN_WATER | ENTITY_OPT1_EXCLUDED_FROM_KILL_ALL`). Spawns transient explosion VFX (`TRANSIENT_VFX_EXPLOSION`) and unloads arrow entity via `UnloadEntityAndReturn`. Before exploding: renders arrow sprite and attached bomb sprite via `RenderActiveEntitySprite` with direction-specific offsets from `BombArrowBombXOffsetPerDirection` and `BombArrowBombYOffsetPerDirection`, then delegates to `ArrowRenderAndMove_skipRendering`.
+  - `MoblinArrowEntityHandler` (`03:6AB3`): Entity handler for Moblin arrows. If transition countdown is 0, checks projectile collision with Link via `CheckLinkCollisionWithProjectile`. Renders arrow sprite variants from `EntityArrowSpriteVariants` via `RenderActiveEntitySpritesPair` and moves via `ArrowRenderAndMove`.
+  - `ArrowRenderAndMove` (`03:6AD6`): Renders entity in all directions using `RenderEntityAllDirections` and falls through to `ArrowRenderAndMove_skipRendering`.
+  - `ArrowRenderAndMove_skipRendering` (`03:6B11`): Checks interactive status via `ReturnIfNonInteractive_03(gb, false)`. If transition countdown != 0, jumps to `ArrowRockAfterHittingWall`. Updates position with speed via `UpdateEntityPosWithSpeed_03` and tests room object interactions via `ApplySwordIntersectionWithObjects`. If wall collisions are 0, returns. For `ENTITY_MAGIC_ROD_FIREBALL`, sets private countdown 1 to `0x30` and returns. Otherwise, sets transition countdown to `0x18`, speed Z to `0x10`, alerts sword moblins via `AlertSwordMoblins`, and plays `JINGLE_SWORD_POKING` (unless collision is 0xFF). Bounces velocity off walls: player arrows negate and shift right 2 (`>> 2`), while enemy projectiles (Moblin arrow / Octorok rock) negate and shift right 3 (`>> 3`) via `EntityBounceOffWallY` and `EntityBounceOffWallX`.
+  - `EntityBounceOffWallX` (`03:6B53`): Reverses and dampens horizontal velocity: `SpeedX = (-(int8_t)SpeedX) >> 3`.
+  - `EntityBounceOffWallY` (`03:6B62`): Reverses and dampens vertical velocity: `SpeedY = (-(int8_t)SpeedY) >> 3`.
+  - `ArrowRockAfterHittingWall` (`03:6B7B`): Handles projectile falling and spinning physics after hitting a wall. Decrements slow transition countdown every 4 frames and updates sprite variant from `ArrowSpinningSpriteVariantFrames`. Updates gravity via `func_003_6B7B`. When transition countdown hits 1: plays `NOISE_SFX_EXPLOSION` for fireball or `NOISE_SFX_CLINK` for arrows, and unloads entity via `UnloadEntityAndReturn`.
+- **Data Tables Verified:**
+  - `EntityArrowSpriteVariants` (`03:6AC6`: 4 directional sprite definitions with OAM flags and tiles `$2C`/`$2E`/`$2A`)
+  - `BombArrowBombSprite` (`03:6A66`: `{0x80, OAM_GBC_PAL_5 | OAMF_PAL1}`)
+  - `BombArrowBombXOffsetPerDirection` (`03:6A68`: `{+4, -4, 0, 0}`)
+  - `BombArrowBombYOffsetPerDirection` (`03:6A6C`: `{-2, -2, -6, +4}`)
+  - `ArrowSpinningSpriteVariantFrames` (`03:6B48`: `{DIRECTION_RIGHT, DIRECTION_DOWN, DIRECTION_LEFT, DIRECTION_UP}`)
+- **Tests:** Dedicated test functions in `tests/bank3/test_entities_arrow.c`:
+  - `test_DataTables_Arrow`: Validates sprite attributes, bomb sprite, direction offsets, and spinning variant frames.
+  - `test_ArrowEntityHandler`: Tests projectile counter increment, bomb arrow dispatch, countdown early return, arrow damage type assignment, and Dungeon 8 statue eye shooting trigger resolution and unload.
+  - `test_BombArrowHandler`: Tests exploding phase (spawning bomb entity, copying state/timers/options, explosion VFX, arrow unload) and before-exploding phase (offsets, bomb sprite rendering, movement).
+  - `test_MoblinArrowEntityHandler`: Tests countdown bypass, collision check dispatch, and sprite pair rendering.
+  - `test_ArrowRenderAndMove`: Tests interactive filtering, countdown dispatch to spinning physics, movement displacement with 4.4 fixed-point velocity, fireball collision timer, player arrow wall bounce (>> 2), and moblin arrow wall bounce (>> 3).
+  - `test_EntityBounceOffWallX_and_Y`: Tests sign inversion, arithmetic shift right 3, zero handling, and NULL safety.
+  - `test_ArrowRockAfterHittingWall`: Tests slow countdown decrement, spinning animation frame cycling, gravity application, and transition countdown expiration clink SFX and unload.
+  - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1116 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Wall collision bounce physics, bomb arrow entity spawning/transfer, and statue eye trigger mechanics verified exact to assembly instruction sequence.

@@ -1,5 +1,6 @@
 #include "bank3/entities_arrow.h"
 #include "bank3/entities_physics.h"
+#include "bank3/entities_droppable.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
 #include "constants/rooms.h"
@@ -18,8 +19,8 @@
 
 /* ===== Data Tables (03:6AC6-03:6B52) ===== */
 
-/* EntityArrowSpriteVariants (03:6AC6) - 4 variants * 4 bytes each = 16 bytes */
-static const uint8_t EntityArrowSpriteVariants[16] = {
+/* EntityArrowSpriteVariants (03:6AC6 / 03:6BC6) - 4 variants * 4 bytes each = 16 bytes */
+const uint8_t EntityArrowSpriteVariants[16] = {
     /* variant 0 (right): tile $2E/$2C, attrs with XFLIP */
     0x2E, OAM_GBC_PAL_1 | OAMF_PAL0 | OAMF_XFLIP,
     0x2C, OAM_GBC_PAL_1 | OAMF_PAL0 | OAMF_XFLIP,
@@ -35,16 +36,16 @@ static const uint8_t EntityArrowSpriteVariants[16] = {
 };
 
 /* Bomb Arrow bomb sprite - from 03:6A66 */
-static const uint8_t BombArrowBombSprite[2] = {
+const uint8_t BombArrowBombSprite[2] = {
     0x80, OAM_GBC_PAL_5 | OAMF_PAL1  /* tile $80, palette 5 | OAMF_PAL1 */
 };
 
 /* Bomb Arrow offsets - from 03:6A68/03:6A6C */
-static const int8_t BombArrowBombXOffsetPerDirection[4] = { +4, -4, 0, 0 };
-static const int8_t BombArrowBombYOffsetPerDirection[4] = { -2, -2, -6, +4 };
+const int8_t BombArrowBombXOffsetPerDirection[4] = { +4, -4, 0, 0 };
+const int8_t BombArrowBombYOffsetPerDirection[4] = { -2, -2, -6, +4 };
 
 /* Arrow spinning sprite variant frames - from 03:6B48 */
-static const uint8_t ArrowSpinningSpriteVariantFrames[4] = {
+const uint8_t ArrowSpinningSpriteVariantFrames[4] = {
     DIRECTION_RIGHT, DIRECTION_DOWN, DIRECTION_LEFT, DIRECTION_UP
 };
 
@@ -120,21 +121,18 @@ void BombArrowHandler(GBState *gb, uint16_t bc) {
     }
 
     /* ld a, ENTITY_BOMB; call SpawnNewEntity; jr c, .unloadAndReturn */
-    uint16_t de = SpawnNewEntity_trampoline(gb, ENTITY_BOMB, NULL);
-    if (de == 0xFFFF) {
-        goto unloadAndReturn;
+    uint16_t de = SpawnNewEntityInRange_impl(gb, ENTITY_BOMB, bc, MAX_ENTITIES - 1);
+    if (de != 0xFFFF) {
+        /* ldh a, [hMultiPurpose0]; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesPosXTable + de), gb_read_hram(gb, hMultiPurpose0));
+        /* ldh a, [hMultiPurpose1]; ld hl, wEntitiesPosYTable; add hl, de; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesPosYTable + de), gb_read_hram(gb, hMultiPurpose1));
+        /* ld hl, wEntitiesTransitionCountdownTable; add hl, de; ld [hl], $17 */
+        gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + de), 0x17);
+        /* call PlayBombExplosionSfx */
+        PlayBombExplosionSfx(gb);
     }
 
-    /* ldh a, [hMultiPurpose0]; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
-    gb_write(gb, wEntitiesPosXTable + de, gb_read_hram(gb, hMultiPurpose0));
-    /* ldh a, [hMultiPurpose1]; ld hl, wEntitiesPosYTable; add hl, de; ld [hl], a */
-    gb_write(gb, wEntitiesPosYTable + de, gb_read_hram(gb, hMultiPurpose1));
-    /* ld hl, wEntitiesTransitionCountdownTable; add hl, de; ld [hl], $17 */
-    gb_write(gb, wEntitiesTransitionCountdownTable + de, 0x17);
-    /* call PlayBombExplosionSfx */
-    PlayBombExplosionSfx(gb);
-
-unloadAndReturn:
     /* jp UnloadEntityAndReturn */
     UnloadEntityAndReturn(gb, bc);
     return;
@@ -204,6 +202,14 @@ void ArrowRenderAndMove(GBState *gb, uint16_t bc) {
     }
     RenderActiveEntitySpritesPair(gb, sprite_variants, NULL);
 
+    /* .skipRendering: fallthrough to ArrowRenderAndMove_skipRendering */
+    ArrowRenderAndMove_skipRendering(gb, bc);
+}
+
+/* ===== ArrowRenderAndMove skipRendering entry point (03:6ADA) ===== */
+void ArrowRenderAndMove_skipRendering(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
     /* call ReturnIfNonInteractive_03; call GetEntityTransitionCountdown; jr nz, ArrowRockAfterHittingWall */
     if (ReturnIfNonInteractive_03(gb, false)) {
         return;
@@ -219,7 +225,7 @@ void ArrowRenderAndMove(GBState *gb, uint16_t bc) {
     ApplySwordIntersectionWithObjects(gb, bc);
 
     /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and a; jr z, EntityBounceOffWallX.return */
-    if (gb_read(gb, wEntitiesCollisionsTable + bc) == 0) {
+    if (gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc)) == 0) {
         return;
     }
 
@@ -230,16 +236,16 @@ void ArrowRenderAndMove(GBState *gb, uint16_t bc) {
     if (gb_read_hram(gb, hActiveEntityType) == ENTITY_MAGIC_ROD_FIREBALL) {
         /* call GetEntityPrivateCountdown1; ld [hl], $30; ret */
         GetEntityPrivateCountdown1(gb, bc);
-        gb_write(gb, wEntitiesPrivateCountdown1Table + bc, 0x30);
+        gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown1Table + bc), 0x30);
         return;
     }
 
-    /* ld [hl], $18; ld hl, wEntitiesSpeedZTable; add hl, bc; ld [hl], $10 */
-    gb_write(gb, wEntitiesTransitionCountdownTable + bc, 0x18);
-    gb_write(gb, wEntitiesSpeedZTable + bc, 0x10);
+    /* .fireballEnd: ld [hl], $18; ld hl, wEntitiesSpeedZTable; add hl, bc; ld [hl], $10 */
+    gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0x18);
+    gb_write(gb, (uint16_t)(wEntitiesSpeedZTable + bc), 0x10);
 
     /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; inc a; jr z, .skipSound */
-    uint8_t collisions = gb_read(gb, wEntitiesCollisionsTable + bc);
+    uint8_t collisions = gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc));
     if ((uint8_t)(collisions + 1) == 0) {
         goto skipSound;
     }
@@ -253,23 +259,24 @@ skipSound:
 
     /* ldh a, [hActiveEntityType]; cp ENTITY_ARROW; jr nz, .enemyProjectileBounce */
     if (gb_read_hram(gb, hActiveEntityType) == ENTITY_ARROW) {
-        /* Player arrows bounce more off walls */
-        /* call .playerArrowBounceY; ld hl, wEntitiesSpeedXTable; .playerArrowBounce: add hl, bc; ld a, [hl]; cpl; inc a; sra a; sra a; sra a; ld [hl], a; ret */
-        EntityBounceOffWallY(gb, bc);
-        EntityBounceOffWallX(gb, bc);
+        /* Player arrows bounce more off walls than Moblin arrows or Octorok rocks */
+        /* .playerArrowBounceY: SpeedY = (-(int8_t)SpeedY) >> 2 */
+        /* .playerArrowBounce:  SpeedX = (-(int8_t)SpeedX) >> 2 */
+        uint8_t raw_y = gb_read(gb, (uint16_t)(wEntitiesSpeedYTable + bc));
+        int8_t speed_y = (int8_t)(uint8_t)(~raw_y + 1);
+        speed_y >>= 2;
+        gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + bc), (uint8_t)speed_y);
+
+        uint8_t raw_x = gb_read(gb, (uint16_t)(wEntitiesSpeedXTable + bc));
+        int8_t speed_x = (int8_t)(uint8_t)(~raw_x + 1);
+        speed_x >>= 2;
+        gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + bc), (uint8_t)speed_x);
         return;
     }
 
-    /* call EntityBounceOffWallY; fallthrough to EntityBounceOffWallX */
+    /* .enemyProjectileBounce: call EntityBounceOffWallY; fallthrough to EntityBounceOffWallX */
     EntityBounceOffWallY(gb, bc);
     EntityBounceOffWallX(gb, bc);
-}
-
-/* ===== ArrowRenderAndMove skipRendering entry point ===== */
-void ArrowRenderAndMove_skipRendering(GBState *gb, uint16_t bc) {
-    if (!gb) return;
-    /* Skip rendering, just do the collision/movement logic */
-    ArrowRenderAndMove(gb, bc);
 }
 
 /* ===== EntityBounceOffWallX (03:6B34) ===== */
@@ -277,10 +284,10 @@ void EntityBounceOffWallX(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* ld hl, wEntitiesSpeedXTable; add hl, bc; ld a, [hl]; cpl; inc a; sra a; sra a; sra a; ld [hl], a; ret */
-    int8_t speed_x = (int8_t)gb_read(gb, wEntitiesSpeedXTable + bc);
-    speed_x = (int8_t)(~speed_x + 1);  /* cpl + 1 = negate */
-    speed_x >>= 3;  /* sra x3 */
-    gb_write(gb, wEntitiesSpeedXTable + bc, (uint8_t)speed_x);
+    uint8_t raw_x = gb_read(gb, (uint16_t)(wEntitiesSpeedXTable + bc));
+    int8_t speed_x = (int8_t)(uint8_t)(~raw_x + 1);
+    speed_x >>= 3;
+    gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + bc), (uint8_t)speed_x);
 }
 
 /* ===== EntityBounceOffWallY (03:6B43) ===== */
@@ -288,10 +295,10 @@ void EntityBounceOffWallY(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* ld hl, wEntitiesSpeedYTable; add hl, bc; ld a, [hl]; cpl; inc a; sra a; sra a; sra a; ld [hl], a; ret */
-    int8_t speed_y = (int8_t)gb_read(gb, wEntitiesSpeedYTable + bc);
-    speed_y = (int8_t)(~speed_y + 1);  /* cpl + 1 = negate */
-    speed_y >>= 3;  /* sra x3 */
-    gb_write(gb, wEntitiesSpeedYTable + bc, (uint8_t)speed_y);
+    uint8_t raw_y = gb_read(gb, (uint16_t)(wEntitiesSpeedYTable + bc));
+    int8_t speed_y = (int8_t)(uint8_t)(~raw_y + 1);
+    speed_y >>= 3;
+    gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + bc), (uint8_t)speed_y);
 }
 
 /* ===== ArrowRockAfterHittingWall (03:6B4C) ===== */
