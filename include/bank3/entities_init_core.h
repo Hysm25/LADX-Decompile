@@ -5,6 +5,7 @@
 
 /* Entity Configuration (03:485B-03:4891) */
 void ConfigureNewEntity(GBState *gb);
+void ConfigureNewEntity_attributes(GBState *gb, uint16_t bc);
 
 /* Entity Health Configuration (03:4895-03:48AC) */
 void ConfigureEntityHealth(GBState *gb, uint16_t bc, uint8_t entity_type, uint8_t d);

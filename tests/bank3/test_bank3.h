@@ -8,6 +8,7 @@ void test_bank3_entities_droppable(void);
 void test_bank3_entities_bomb(void);
 void test_bank3_entities_arrow(void);
 void test_bank3_entities_moblin(void);
+void test_bank3_entities_handlers(void);
 
 void run_bank3_tests(void);
 

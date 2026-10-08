@@ -19,22 +19,8 @@
 void func_003_52D4(GBState *gb, uint16_t bc);
 
 /* ===== ConfigureNewEntity (03:485B) ===== */
-void ConfigureNewEntity(GBState *gb) {
+void ConfigureNewEntity_attributes(GBState *gb, uint16_t bc) {
     if (!gb) return;
-
-    uint16_t bc = gb_read(gb, wActiveEntityIndex);
-
-    /* call ResetEntity_trampoline */
-    ResetEntity_trampoline(gb, NULL);
-
-    /* Store the entity room id */
-    /* ldh a, [hMapRoom]; ld hl, wEntitiesRoomTable; add hl, bc; ld [hl], a */
-    uint8_t map_room = gb_read_hram(gb, hMapRoom);
-    gb_write(gb, wEntitiesRoomTable + bc, map_room);
-
-    /* Set the entity load order to a default value */
-    /* ld hl, wEntitiesLoadOrderTable; add hl, bc; ld [hl], $FF */
-    gb_write(gb, wEntitiesLoadOrderTable + bc, 0xFF);
 
     /* .attributes: de = entity type */
     /* ld hl, wEntitiesTypeTable; add hl, bc; ld e, [hl]; ld d, b */
@@ -63,6 +49,26 @@ void ConfigureNewEntity(GBState *gb) {
 
     /* jp ConfigureEntityHitbox */
     ConfigureEntityHitbox(gb, bc);
+}
+
+void ConfigureNewEntity(GBState *gb) {
+    if (!gb) return;
+
+    uint16_t bc = gb_read(gb, wActiveEntityIndex);
+
+    /* call ResetEntity_trampoline */
+    ResetEntity_trampoline(gb, NULL);
+
+    /* Store the entity room id */
+    /* ldh a, [hMapRoom]; ld hl, wEntitiesRoomTable; add hl, bc; ld [hl], a */
+    uint8_t map_room = gb_read_hram(gb, hMapRoom);
+    gb_write(gb, wEntitiesRoomTable + bc, map_room);
+
+    /* Set the entity load order to a default value */
+    /* ld hl, wEntitiesLoadOrderTable; add hl, bc; ld [hl], $FF */
+    gb_write(gb, wEntitiesLoadOrderTable + bc, 0xFF);
+
+    ConfigureNewEntity_attributes(gb, bc);
 }
 
 /* ===== ConfigureEntityHealth (03:4895) ===== */

@@ -11,6 +11,7 @@ void run_bank3_tests(void) {
     test_bank3_entities_bomb();
     test_bank3_entities_arrow();
     test_bank3_entities_moblin();
+    test_bank3_entities_handlers();
 
     printf("[PASS] Bank 3 Subsystems\n\n");
 }

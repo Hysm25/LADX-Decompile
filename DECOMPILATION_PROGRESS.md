@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~84.0%
-* **Number of Verified Functions**: 1124
-* **Number of Decompiled Functions**: 924
-* **Number Remaining**: ~88 functions
-* **Current Subsystem**: ROM Bank 3 (Roaming Enemy Handlers & Projectile Spawning)
-* **Current Task**: Batch 104 Verification Completed
-* **Last Completed Task**: Batch 104 Verification — ROM Bank 3 Roaming Enemy Handlers, Movement Physics, and Projectile Spawning (`OctorokEntityHandler`, `MoblinEntityHandler`, `AnimateRoamingEnemy`, `AnimateRoamingEnemy_with_sprites`, `RoamingEnemyState0Handler`, `SetEntityVariantForDirection_03`, `SpawnMoblinArrow`, `SpawnOctorokRock`).
-* **Last Update Timestamp**: 2026-10-08T16:05:00+00:00
+* **Current Overall Progress**: ~84.5%
+* **Number of Verified Functions**: 1136
+* **Number of Decompiled Functions**: 936
+* **Number Remaining**: ~76 functions
+* **Current Subsystem**: ROM Bank 3 (Universal Entity State Handlers)
+* **Current Task**: Batch 105 Verification Completed
+* **Last Completed Task**: Batch 105 Verification — ROM Bank 3 Universal Entity State Handlers, Thrown/Lifted Mechanics, and Fall Physics (`EntityInitEntity25`, `EntityInitEntity26`, `Entity25Handler`, `Entity26Handler`, `EntityBurningHandler`, `EntityFallHandler`, `EntityThrownHandler`, `EntityStunnedHandler`, `EntityGetLiftedUp`, `EntityLiftedHandler`, `func_003_5795`, `ConfigureNewEntity_attributes`).
+* **Last Update Timestamp**: 2026-10-08T16:45:00+00:00
 
 ---
 
@@ -1379,3 +1379,47 @@
   - `test_SpawnOctorokRock`: Tests rock entity spawning, positioning with offsets, directional speed assignment, direction setting, and slot exhaustion safety.
   - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1124 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Roaming enemy AI state machine, projectile spawning offsets and speeds, BowWow hideout gating, and walk animation cycling verified exact to assembly instruction sequence.
+-
+----
+-
+-## Batch 105 Verification — ROM Bank 3 Universal Entity State Handlers, Thrown/Lifted Mechanics, and Fall Physics
+-
+-- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:486B`-`03:4892`, `03:4C37`-`03:4DEF`, `03:4E07`-`03:4E9D`, `03:5721`-`03:57E6`, `03:7267`-`03:7278`). Implemented in `src/bank3/entities_handlers.c` and `src/bank3/entities_init_core.c` with declarations in `include/bank3/entities_handlers.h` and `include/bank3/entities_init_core.h`.
+-- **Functions Decompiled & Verified:**
+-  - `EntityInitEntity25` (`03:4C44`): Stub entity 25 initializer; falls through to `EntityBurningHandler`.
+-  - `EntityInitEntity26` (`03:4C44`): Stub entity 26 initializer; falls through to `EntityBurningHandler`.
+-  - `Entity25Handler` (`03:4C44`): Stub entity 25 handler; falls through to `EntityBurningHandler`.
+-  - `Entity26Handler` (`03:4C44`): Stub entity 26 handler; falls through to `EntityBurningHandler`.
+-  - `EntityBurningHandler` (`03:4C4C`): Animates burning entity with `FireSpriteVariants` (flickering between variant 0 and 1 via `(hFrameCounter >> 3) & 1`). Restores sprite variant, runs active entity handler via trampoline, checks interactive status, applies recoil and bouncing entity physics, then clears entity speed. When transition countdown reaches 0: if `hActiveEntityType == ENTITY_GIBDO`, transforms to `ENTITY_STALFOS_EVASIVE`, sets status `ENTITY_STATUS_ACTIVE`, and configures attributes via `ConfigureNewEntity_attributes`; otherwise sets private countdown 3 to `0x1F`, marks status `ENTITY_STATUS_DYING`, sets physics flags to 4, and plays `NOISE_SFX_ENEMY_DESTROYED`.
+-  - `ConfigureNewEntity_attributes` (`03:486B`): Configures entity physics flags from `PhysicsFlagsForEntity`, hitbox flags from `HitboxFlagsForEntity`, health via `ConfigureEntityHealth`, options 1 from `Options1ForEntity`, and hitbox bounds via `ConfigureEntityHitbox`. Extracted to cleanly support Gibdo-to-Stalfos transformation and shared by `ConfigureNewEntity`.
+-  - `EntityFallHandler` (`03:4CB6`): Manages entities falling into holes. If in Color Dungeon (`hMapId == MAP_COLOR_DUNGEON`) and entity is a Color Shell (`ENTITY_COLOR_SHELL_RED`, `_GREEN`, `_BLUE`), sets status `ACTIVE`, state `0x06`, and returns early. When transition countdown reaches 0: checks `ENTITY_OPT1_EXCLUDED_FROM_KILL_ALL` before setting `wD460 = 1`; if `ENTITY_WRECKING_BALL`, resets respawn coordinates (`wWreckingBallRoom = 0x16`, `wWreckingBallPosX = 0x50`, `wWreckingBallPosY = 0x27`); and unloads entity via `UnloadEntityAndReturn`. When countdown >= `0x40`: updates directional variants for Octorok and Moblin entities (`SetEntityVariantForDirection_03` 3x), executes active entity handler, and returns if non-interactive. When countdown < `0x40`: updates shrinking sprite variants from `(countdown >> 4) & 3`, offsets visual Y from `Data_003_4CA4`, renders sprite pair with `Unknown020SpriteVariants` (at variant 3) or single sprite with `Data_003_4CAC` (variants 0-2); plays `JINGLE_ITEM_FALLING` on countdown `0x3F`; applies vector towards falling target hole (`wEntitiesFallingTargetX/YTable`) with length from `Data_003_4CA8`, preserving Link's coordinates; and updates position with speed via `UpdateEntityPosWithSpeed_03`.
+-  - `EntityThrownHandler` (`03:4D94`): Handles thrown entities (pots, rocks, enemies, Genie). Executes active handler, filters non-interactive entities, sets ignore hits countdown to 2, runs bouncing physics, clears ignore hits countdown, checks wall bounce via `BombBounceOffWalls`, and tests throw-at triggers via `EntityCheckThrowAtTriggers`. For `ENTITY_GENIE`: checks wall collisions; on hit sets flash countdown to `0x20`, plays `WAVE_SFX_BOSS_HURT`, increments `wEntitiesPrivateState4Table`, and on 3rd hit jumps to genie state 2. Sets attack damage type `DAMAGE_TYPE_THROW_AT` and calls entity collision check `func_003_75A2`. If speed is zero, stuns entity via `EntityBecomeStunned`. For Genie, also transitions to active state 1 with transition countdown `0x80`.
+-  - `EntityStunnedHandler` (`03:4E07`): Handles stunned entities. Executes active handler, filters non-interactive entities, applies recoil and bouncing physics, clears speed, and calls item collision check `func_003_6E2B`. Checks for Power Bracelet in B or A slot with corresponding button press to initiate lift via `EntityGetLiftedUp`. Otherwise executes stun countdown: when `wEntitiesPrivateCountdown2Table` reaches 0, wakes up entity (`ENTITY_STATUS_ACTIVE`) and clears Z speed; when countdown < `0x38`, shakes horizontally using alternating speeds from `Data_003_4E05` (`{0x10, 0xF0}`), adds speed to position, and clears speed.
+-  - `EntityGetLiftedUp` (`03:4E35`): Attempts to lift an entity. Returns early to stun countdown if already carrying an object (`wC3CF != 0`) or if Link collision check fails (`CheckLinkCollisionWithEnemy`). On success: sets `wC3CF = 1`, entity status `ENTITY_STATUS_LIFTED`, plays `WAVE_SFX_LIFT_UP`, resets lifted table to 0, sets transition countdown to 2, stores Link's direction in `wC15D`, and delegates to `EntityLiftedHandler`.
+-  - `EntityLiftedHandler` (`03:5732`): Manages lifted entity state machine. Sets `wLiftedEntityType` to active entity type. For bombs, clears flash countdown and renders bomb sprite via `RenderBomb`; for others executes active handler. Checks lifted table phase: if phase < 4, locks Link direction to `wC15D`, and when transition countdown reaches 0, advances phase (`wEntitiesLiftedTable++`) and sets new countdown from `Data_003_56EE` (fast: bomb, L2 bracelet, red tunic, piece of power) or `Data_003_56EA` (normal). Updates overhead coordinates and carrying status via `func_003_5795` and dispatches to bank 14 via `label_397B`.
+-  - `func_003_5795` (`03:5795`): Computes lifted entity position above Link. Computes table index `(hLinkDirection << 2) + e`. Sets `wIsCarryingLiftedObject` from `Data_003_56F1`. Offsets entity X from Link X via `Data_003_5701`. Offsets entity Y from Link Y via `Data_003_5711` plus `wC13B`. In side-scrolling mode (`hIsSideScrolling != 0`), subtracts Z offset from `Data_003_5721` from entity Y; in top-down mode, sets entity Z to Link Z plus offset from `Data_003_5721`.
+-- **Data Tables Verified:**
+-  - `FireSpriteVariants` (`03:4C44`: 2 flame animation variants * 4 bytes = 8 bytes)
+-  - `Data_003_4CA4` (`03:4CA4`: `{0x00, 0x00, 0x04, 0x00}` visual Y offsets during pit fall)
+-  - `Data_003_4CA8` (`03:4CA8`: `{0x00, 0x01, 0x03, 0x06}` speed values towards hole center)
+-  - `Data_003_4CAC` (`03:4CAC`: `{0x24, 0x01, 0x24, 0x01, 0x3E, 0x01}` pit shrinking sprite attributes)
+-  - `Unknown020SpriteVariants` (`03:4CB2`: `{0x1E, 0x01, 0x1E, 0x61}` final pit splash sprite pair)
+-  - `Data_003_4E05` (`03:4E05`: `{0x10, 0xF0}` alternating horizontal shake speeds for stunned enemies)
+-  - `Data_003_56EA` (`03:56EA`: `{0x01, 0x08, 0x08, 0x10}` normal lifting phase transition delays)
+-  - `Data_003_56EE` (`03:56EE`: `{0x01, 0x04, 0x04}` fast lifting phase transition delays)
+-  - `Data_003_56F1` (`03:56F1`: 17 bytes of `wIsCarryingLiftedObject` states per direction and phase)
+-  - `Data_003_5701` (`03:5701`: 17 bytes of X offsets for overhead entity positioning)
+-  - `Data_003_5711` (`03:5711`: 17 bytes of Y offsets for overhead entity positioning)
+-  - `Data_003_5721` (`03:5721`: 17 bytes of Z offsets/sidescroll Y subtractions for overhead entity positioning)
+-- **Tests:** Dedicated test functions in `tests/bank3/test_entities_handlers.c`:
+-  - `test_DataTables_EntitiesHandlers`: Validates sizes and exact bytes of all 12 data tables.
+-  - `test_Entity25_26_Stubs`: Validates entity 25 and 26 init and tick stubs routing to burning handler and dying.
+-  - `test_EntityBurningHandler`: Tests burning flicker animation with frame counter bit 3, sprite variant restoration, speed clearing, Gibdo-to-Stalfos morph with attribute reconfiguration, and non-Gibdo dying sequence with destroyed SFX.
+-  - `test_EntityFallHandler`: Tests Color Dungeon shells bypass, zero countdown kill-all exclusion flag and wrecking ball coordinate persistence, high countdown direction cycling for Octorok/Moblin, shrinking pit animation, falling jingle trigger at countdown 0x3F, and trajectory pull towards target hole coordinates.
+-  - `test_EntityThrownHandler`: Tests thrown moving vs stopped entity stun transition, Genie boss triple-hit wall collision mechanics with damage flash/SFX, and state 1 transition.
+-  - `test_EntityStunnedHandler`: Tests stun expiration wake-up, high countdown shake suppression, low countdown horizontal shaking with speed clearing, and Power Bracelet A/B button lift triggers.
+-  - `test_EntityGetLiftedUp`: Tests already-carrying rejection, out-of-range collision rejection, and successful lift state initialization with sound effect, timer, and directional lock.
+-  - `test_EntityLiftedHandler_and_func_003_5795`: Tests bomb vs non-bomb lift rendering, normal vs fast phase delays (Piece of Power/L2 bracelet/Red tunic), and overhead positioning calculations across 4 cardinal directions and side-scrolling mode.
+-  - `test_EntityBecomeStunned`: Tests stun status assignment, private countdown 2 timer initialization to 0xFF, and Z velocity clearing.
+-  - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1136 verified functions passing.
+-- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Lift phases, overhead positioning offsets, wall bounce response, Gibdo transformation, and fall physics verified exact to assembly instruction sequence.

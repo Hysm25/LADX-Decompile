@@ -138,6 +138,7 @@ add_executable(ladx_tests
     tests/bank3/test_entities_bomb.c
     tests/bank3/test_entities_arrow.c
     tests/bank3/test_entities_moblin.c
+    tests/bank3/test_entities_handlers.c
     tests/test_bank3.c
 )
 
