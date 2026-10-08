@@ -480,6 +480,10 @@
 #define wRoomTransitionTargetScrollY    0xC12D
 #define wBGOriginHigh                   0xC12E
 #define wBGOriginLow                    0xC12F
+#define wHasTailKey                     0xDB11
+#define wHasAnglerKey                   0xDB12
+#define wHasFaceKey                     0xDB13
+#define wHasBirdKey                     0xDB14
 #define wGoldenLeavesCount              0xDB15
 #define wWreckingBallRoom                       0xDB6F
 #define wWreckingBallPosX                       0xDB70

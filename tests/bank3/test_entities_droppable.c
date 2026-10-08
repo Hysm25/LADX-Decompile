@@ -12,6 +12,8 @@
 #include "constants/audio.h"
 #include "constants/dialog.h"
 #include "constants/vfx.h"
+#include "constants/link.h"
+#include "constants/directions.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -518,6 +520,369 @@ static void test_MarkRoomCompleted_and_GetRoomStatusAddressInHL(void) {
     printf("[PASS] MarkRoomCompleted_and_GetRoomStatusAddressInHL\n");
 }
 
+/* Test 17: HoldEntityAboveLink and func_003_5A2E */
+static void test_HoldEntityAboveLink_and_func_003_5A2E(void) {
+    printf("[RUN ] HoldEntityAboveLink_and_func_003_5A2E\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write_hram(&gb, hLinkPositionX, 0x40);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    gb_write_hram(&gb, hLinkPositionZ, 0x05);
+    gb_write(&gb, wSwordAnimationState, 1);
+    gb_write(&gb, wC16A, 2);
+    gb_write(&gb, wSwordCharge, 3);
+    gb_write(&gb, wIsUsingSpinAttack, 4);
+    gb_write(&gb, (uint16_t)(wEntitiesGroundStatusTable + 1), 5);
+
+    HoldEntityAboveLink(&gb, 1);
+
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x40);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + 1)) == 0x44); /* 0x50 - 0x0C */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosZTable + 1)) == 0x05);
+    assert(gb_read_hram(&gb, hLinkAnimationState) == LINK_ANIMATION_STATE_GOT_ITEM);
+    assert(gb_read_hram(&gb, hLinkDirection) == DIRECTION_DOWN);
+    assert(gb_read(&gb, wSwordAnimationState) == 0);
+    assert(gb_read(&gb, wC16A) == 0);
+    assert(gb_read(&gb, wSwordCharge) == 0);
+    assert(gb_read(&gb, wIsUsingSpinAttack) == 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesGroundStatusTable + 1)) == 0);
+    assert(gb_read_hram(&gb, hLinkInteractiveMotionBlocked) == 0x02);
+
+    printf("[PASS] HoldEntityAboveLink_and_func_003_5A2E\n");
+}
+
+/* Test 18: HeartContainerEntityHandler */
+static void test_HeartContainerEntityHandler(void) {
+    printf("[RUN ] HeartContainerEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Case A: Countdown == 1, Boss defeated pickup completion */
+    gb_write(&gb, wActiveEntityIndex, 2);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 2), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 2), 1);
+    gb_write(&gb, wMaxHearts, 3);
+    gb_write(&gb, wIsIndoor, 1);
+    gb_write_hram(&gb, hMapRoom, 0x10);
+    gb_write_hram(&gb, hMapId, MAP_EAGLES_TOWER);
+    gb_write(&gb, (uint16_t)(wIndoorBRoomStatus + 0x2E), 0x00);
+
+    HeartContainerEntityHandler(&gb, 2);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_AFTER_BOSS);
+    assert(gb_read(&gb, wMaxHearts) == 4);
+    assert(gb_read(&gb, wAddHealthBuffer) == 0xFF);
+    assert(gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_2);
+    assert(gb_read(&gb, (uint16_t)(wIndoorBRoomStatus + 0x2E)) == 0x20); /* Eagles Tower staircase flag */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 2)) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Angler's Tunnel boss staircase flag */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 0), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 0), 1);
+    gb_write(&gb, wIsIndoor, 1);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write_hram(&gb, hMapId, MAP_ANGLERS_TUNNEL);
+    gb_write(&gb, (uint16_t)(wIndoorARoomStatus + 0x66), 0x00);
+
+    HeartContainerEntityHandler(&gb, 0);
+    assert(gb_read(&gb, (uint16_t)(wIndoorARoomStatus + 0x66)) == 0x20);
+
+    /* Case C: Countdown > 1 holds above Link */
+    gb_init(&gb);
+    gb_write_hram(&gb, hLinkPositionX, 0x20);
+    gb_write_hram(&gb, hLinkPositionY, 0x30);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 5);
+    HeartContainerEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x20);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + 1)) == 0x24);
+
+    printf("[PASS] HeartContainerEntityHandler\n");
+}
+
+static void setup_interactive_entity(GBState *gb, uint16_t entity_index) {
+    gb_write_hram(gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write(gb, (uint16_t)(wEntitiesStatusTable + entity_index), ENTITY_STATUS_ACTIVE);
+    gb_write(gb, wActiveEntityIndex, entity_index);
+    gb_write(gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(gb, wTransitionSequenceCounter, 0x04);
+    gb_write(gb, wDialogState, 0x00);
+    gb_write(gb, wC1A8, 0x00);
+    gb_write(gb, wInventoryAppearing, 0x00);
+    gb_write(gb, wRoomTransitionState, 0x00);
+}
+
+/* Test 19: GuardianAcorn, PieceOfPower, IronMasksMask */
+static void test_GuardianAcorn_PieceOfPower_IronMasksMask(void) {
+    printf("[RUN ] GuardianAcorn_PieceOfPower_IronMasksMask\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Guardian acorn with countdown 0 delegates to PickableHandler */
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 0), 0);
+    GuardianAcornEntityHandler(&gb, 0);
+
+    /* Piece of power updates sprite variant from frame counter */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 0x08); /* 8 >> 3 = 1 */
+    PieceOfPowerEntityHandler(&gb, 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 0)) == 1);
+
+    gb_write_hram(&gb, hFrameCounter, 0x10); /* 16 >> 3 = 2 & 1 = 0 */
+    PieceOfPowerEntityHandler(&gb, 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 0)) == 0);
+
+    /* IronMasksMask: non-interactive returns */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_DISABLED);
+    IronMasksMaskEntityHandler(&gb, 1);
+
+    /* Interactive: calls PickableHandleGrabbedByItemIfNeeded */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState5Table + 1), 0x05);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 4), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTypeTable + 4), ENTITY_BOOMERANG);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 4), 0x55);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 4), 0x66);
+    IronMasksMaskEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x55);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + 1)) == 0x66);
+
+    printf("[PASS] GuardianAcorn_PieceOfPower_IronMasksMask\n");
+}
+
+/* Test 20: HookshotDropEntityHandler */
+static void test_HookshotDropEntityHandler(void) {
+    printf("[RUN ] HookshotDropEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Already collected in room -> unloads */
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    HookshotDropEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* Countdown == 0x10 -> triggers dialog 0x93, decrements to 0x0F, holds above Link */
+    gb_init(&gb);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 2), 0x10);
+    HookshotDropEntityHandler(&gb, 2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 2)) == 0x0F);
+    assert(gb_read_hram(&gb, hLinkAnimationState) == LINK_ANIMATION_STATE_GOT_ITEM);
+
+    /* Countdown == 1 -> gives Hookshot, marks room completed, unloads */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 2), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 2), 1);
+    HookshotDropEntityHandler(&gb, 2);
+    assert(gb_read(&gb, wInventoryBButtonSlot) == INVENTORY_HOOKSHOT);
+    assert(gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 2)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] HookshotDropEntityHandler\n");
+}
+
+/* Test 21: KeyDropPointEntityHandler */
+static void test_KeyDropPointEntityHandler(void) {
+    printf("[RUN ] KeyDropPointEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Case A: In Catfish's Maw Master Stalfos room (0x80) -> behaves as Hookshot drop */
+    gb_write_hram(&gb, hMapRoom, ROOM_INDOOR_A_CATFISHS_MAW_MSTALFOS_4);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 0), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 0), 1);
+    KeyDropPointEntityHandler(&gb, 0);
+    assert(gb_read(&gb, wInventoryBButtonSlot) == INVENTORY_HOOKSHOT);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 0)) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Quicksand hole drop -> sets Yarna Lanmola flag and Quicksand Cave flag */
+    gb_init(&gb);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hMapRoom, ROOM_OW_YARNA_LANMOLA);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x48);
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 0), 0);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 0), 5);
+    KeyDropPointEntityHandler(&gb, 0);
+    assert(gb_read(&gb, (uint16_t)(wOverworldRoomStatus + ROOM_OW_YARNA_LANMOLA)) & (1 << OW_ROOM_STATUS_FLAG_CHANGED));
+    assert(gb_read(&gb, (uint16_t)(wIndoorARoomStatus + ROOM_INDOOR_A_QUICKSAND_CAVE)) & 0x20);
+
+    /* Case C: Normal key drop pickup at countdown 0x10 */
+    gb_init(&gb);
+    gb_write_hram(&gb, hMapRoom, 0x05);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0x10);
+    gb_write(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1), 2); /* Variant 2 = Face Key (index 1) */
+    KeyDropPointEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0x0F);
+    assert(gb_read(&gb, (uint16_t)(wHasTailKey + 1)) == 1); /* wHasAnglerKey */
+    assert(gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1);
+
+    /* Countdown == 1 -> unloads */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 1);
+    KeyDropPointEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] KeyDropPointEntityHandler\n");
+}
+
+/* Test 22: DroppableHeart, Bombs, Seashell */
+static void test_DroppableHeart_Bombs_Seashell(void) {
+    printf("[RUN ] DroppableHeart_Bombs_Seashell\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Droppable heart and bombs delegate to PickableHandler */
+    DroppableHeartEntityHandler(&gb, 0);
+    DroppableBombsEntityHandler(&gb, 0);
+
+    /* Seashell unloads if sword level >= 2 */
+    gb_init(&gb);
+    gb_write(&gb, wSwordLevel, 2);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    DroppableSeashellEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* Seashell unloads if room status bit 4 is set */
+    gb_init(&gb);
+    gb_write(&gb, wSwordLevel, 1);
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    DroppableSeashellEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* Seashell in room E3 unloads if ROOM_STATUS_EVENT_3 is 0 */
+    gb_init(&gb);
+    gb_write(&gb, wSwordLevel, 1);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_E3);
+    gb_write_hram(&gb, hRoomStatus, 0);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    DroppableSeashellEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] DroppableHeart_Bombs_Seashell\n");
+}
+
+/* Test 23: SleepyToadstoolEntityHandler */
+static void test_SleepyToadstoolEntityHandler(void) {
+    printf("[RUN ] SleepyToadstoolEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* If Link already has toadstool or powder, entity unloads */
+    gb_write(&gb, wHasToadstool, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 0), ENTITY_STATUS_ACTIVE);
+    SleepyToadstoolEntityHandler(&gb, 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 0)) == ENTITY_STATUS_DISABLED);
+
+    /* Countdown == 0x10 -> opens Dialog00F and holds above Link */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 0), 0x10);
+    SleepyToadstoolEntityHandler(&gb, 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 0)) == 0x0F);
+    assert(gb_read_hram(&gb, hLinkAnimationState) == LINK_ANIMATION_STATE_GOT_ITEM);
+
+    /* Countdown == 1 -> gives powder, sets wHasToadstool, sets replace tiles, unloads */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 0), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 0), 1);
+    SleepyToadstoolEntityHandler(&gb, 0);
+    assert(gb_read_hram(&gb, hReplaceTiles) == REPLACE_TILES_TOADSTOOL);
+    assert(gb_read(&gb, wInventoryBButtonSlot) == INVENTORY_MAGIC_POWDER);
+    assert(gb_read(&gb, wHasToadstool) == 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 0)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] SleepyToadstoolEntityHandler\n");
+}
+
+/* Test 24: HidingSlimeKeyEntityHandler */
+static void test_HidingSlimeKeyEntityHandler(void) {
+    printf("[RUN ] HidingSlimeKeyEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Already collected in room -> unloads */
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    HidingSlimeKeyEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* In Pothole Field outdoor room -> sets leaves to 5, increments to 6 (SLIME_KEY), holds above Link */
+    gb_init(&gb);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hMapRoom, ROOM_OW_POTHOLE_FIELD_SLIME_KEY);
+    gb_write_hram(&gb, hRoomStatus, 0);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0x10);
+
+    HidingSlimeKeyEntityHandler(&gb, 1);
+
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0x0F);
+    assert(gb_read(&gb, wGoldenLeavesCount) == SLIME_KEY);
+    assert(gb_read(&gb, (uint16_t)(wOverworldRoomStatus + ROOM_OW_POTHOLE_FIELD_SLIME_KEY)) & ROOM_STATUS_EVENT_1);
+    assert((gb_read_hram(&gb, hRoomStatus) & (1 << OW_ROOM_STATUS_FLAG_CHANGED)) == 0);
+
+    /* Countdown == 1 -> unloads */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 1);
+    HidingSlimeKeyEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] HidingSlimeKeyEntityHandler\n");
+}
+
+/* Test 25: DroppableFairyEntityHandler */
+static void test_DroppableFairyEntityHandler(void) {
+    printf("[RUN ] DroppableFairyEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* When Link is far (dist >= 0x20 in X and Y), fairy moves towards Link */
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x10);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x10);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+
+    DroppableFairyEntityHandler(&gb, 1);
+
+    /* Speed X & Y should be set towards Link */
+    int8_t spd_x = (int8_t)gb_read(&gb, (uint16_t)(wEntitiesSpeedXTable + 1));
+    int8_t spd_y = (int8_t)gb_read(&gb, (uint16_t)(wEntitiesSpeedYTable + 1));
+    assert(spd_x > 0);
+    assert(spd_y > 0);
+
+    /* When Link is close and countdown == 0, sets countdown = 0x30 and picks random speed */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x50);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x50);
+    gb_write_hram(&gb, hLinkPositionX, 0x55);
+    gb_write_hram(&gb, hLinkPositionY, 0x55);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
+
+    DroppableFairyEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0x30);
+
+    printf("[PASS] DroppableFairyEntityHandler\n");
+}
+
 void test_bank3_entities_droppable(void) {
     test_PickableCanBeCollectedBySwordTable();
     test_PickableHandleGrabbedByItemIfNeeded();
@@ -535,4 +900,13 @@ void test_bank3_entities_droppable(void) {
     test_PickDroppableHeart_Rupee_Fairy();
     test_SpawnNewEntity();
     test_MarkRoomCompleted_and_GetRoomStatusAddressInHL();
+    test_HoldEntityAboveLink_and_func_003_5A2E();
+    test_HeartContainerEntityHandler();
+    test_GuardianAcorn_PieceOfPower_IronMasksMask();
+    test_HookshotDropEntityHandler();
+    test_KeyDropPointEntityHandler();
+    test_DroppableHeart_Bombs_Seashell();
+    test_SleepyToadstoolEntityHandler();
+    test_HidingSlimeKeyEntityHandler();
+    test_DroppableFairyEntityHandler();
 }

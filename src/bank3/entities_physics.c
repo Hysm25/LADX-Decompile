@@ -1282,6 +1282,13 @@ void ApplyVectorTowardsLink(GBState *gb, uint16_t bc) {
     gb_write(gb, wEntitiesSpeedXTable + bc, gb_read_hram(gb, hMultiPurpose1));
 }
 
+void ApplyVectorTowardsLink_with_length(GBState *gb, uint16_t bc, uint8_t length) {
+    if (!gb) return;
+    GetVectorTowardsLink_with_length(gb, length, NULL, NULL);
+    gb_write(gb, wEntitiesSpeedYTable + bc, gb_read_hram(gb, hMultiPurpose0));
+    gb_write(gb, wEntitiesSpeedXTable + bc, gb_read_hram(gb, hMultiPurpose1));
+}
+
 /* ===== AddEntitySpeedToPos_03 (03:7F32) ===== */
 void AddEntitySpeedToPos_03(GBState *gb, uint16_t bc) {
     if (!gb) return;

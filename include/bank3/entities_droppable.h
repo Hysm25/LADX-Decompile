@@ -3,13 +3,27 @@
 
 #include "gb.h"
 
-/* Droppable Item Handlers (03:6057-03:60B0) */
+/* Droppable Item Handlers (03:59DC-03:61BF) */
+void HeartContainerEntityHandler(GBState *gb, uint16_t bc);
+void GuardianAcornEntityHandler(GBState *gb, uint16_t bc);
+void PieceOfPowerEntityHandler(GBState *gb, uint16_t bc);
+void IronMasksMaskEntityHandler(GBState *gb, uint16_t bc);
+void KeyDropPointEntityHandler(GBState *gb, uint16_t bc);
+void HookshotDropEntityHandler(GBState *gb, uint16_t bc);
+void DroppableHeartEntityHandler(GBState *gb, uint16_t bc);
+void SleepyToadstoolEntityHandler(GBState *gb, uint16_t bc);
+void DroppableBombsEntityHandler(GBState *gb, uint16_t bc);
+void DroppableSeashellEntityHandler(GBState *gb, uint16_t bc);
+void HidingSlimeKeyEntityHandler(GBState *gb, uint16_t bc);
+void DroppableFairyEntityHandler(GBState *gb, uint16_t bc);
 void DroppableMagicPowderEntityHandler(GBState *gb, uint16_t bc);
 void DroppableArrowsEntityHandler(GBState *gb, uint16_t bc);
 void DroppableRupeeEntityHandler(GBState *gb, uint16_t bc);
 void PickableHandler(GBState *gb, uint16_t bc);
 
-/* Droppable Helper Functions (03:608C-03:629D) */
+/* Droppable Helper Functions (03:5A17-03:629D) */
+void HoldEntityAboveLink(GBState *gb, uint16_t bc);
+void func_003_5A2E(GBState *gb, uint16_t bc);
 void DroppableDisappearIfNeeded(GBState *gb, uint16_t bc);
 void func_003_61C0(GBState *gb, uint16_t bc);
 void DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t bc);

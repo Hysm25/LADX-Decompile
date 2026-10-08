@@ -63,6 +63,7 @@ void GetVectorTowardsLink_with_length(GBState *gb, uint8_t length, uint8_t *val0
 
 /* ApplyVectorTowardsLink (03:7EC7) */
 void ApplyVectorTowardsLink(GBState *gb, uint16_t bc);
+void ApplyVectorTowardsLink_with_length(GBState *gb, uint16_t bc, uint8_t length);
 
 /* GetEntityDirectionToLink_03 (03:8691) - Returns direction to Link */
 uint8_t GetEntityDirectionToLink_03(GBState *gb);

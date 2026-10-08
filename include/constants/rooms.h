@@ -153,6 +153,9 @@
 #define UNKNOWN_ROOM_E2                     0xE2
 #define ROOM_INDOOR_B_CHRISTINE_HOUSE       0xD9
 #define ROOM_OW_YARNA_LANMOLA               0xCE
+#define ROOM_OW_POTHOLE_FIELD_SLIME_KEY     0xC6
+#define UNKNOWN_ROOM_E3                     0xE3
 #define OW_ROOM_STATUS_OPENED               0x04
+#define OW_ROOM_STATUS_FLAG_CHANGED         4
 
 #endif /* LADX_CONSTANTS_ROOMS_H */

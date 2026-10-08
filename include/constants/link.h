@@ -109,6 +109,6 @@
 #define LINK_ANIMATION_STATE_UNKNOWN_69                    0x69
 #define LINK_ANIMATION_STATE_UNKNOWN_6B                    0x6B
 #define LINK_ANIMATION_STATE_UNKNOWN_75                    0x75
-#define LINK_ANIMATION_STATE_UNKNOWN_75                    0x75
+#define LINK_ANIMATION_STATE_GOT_ITEM                      0x6C
 
 #endif /* LADX_CONSTANTS_LINK_H */

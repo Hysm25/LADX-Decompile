@@ -58,6 +58,7 @@
 #define LINK_MOTION_TELEPORT            0x09
 #define LINK_MOTION_UNKNOWN_0A          0x0A
 
+#define GOLDEN_LEAVES_5                 0x05
 #define SLIME_KEY                       0x06
 #define TRADING_ITEM_BANANAS            0x04
 #define TRADING_ITEM_MAGNIFYING_LENS    0x0E

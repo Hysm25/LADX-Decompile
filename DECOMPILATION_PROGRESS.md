@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~80.3%
-* **Number of Verified Functions**: 1051
-* **Number of Decompiled Functions**: 851
-* **Number Remaining**: ~161 functions
-* **Current Subsystem**: ROM Bank 3 (Bomb Handlers, Visuals, Destruction & Physics)
-* **Current Task**: Batch 97 Verification Completed
-* **Last Completed Task**: Batch 97 Verification — ROM Bank 3 Bomb Handlers, Visuals, Destruction & Quicksand Hole Physics (`RenderBombExplosion`, `BombExplosionVisuals`, `BombExplosionHandler`, `BombBounceOffWalls`, `RenderBomb`, `BombEntityHandler`, `CheckForBombDestroyableObjectPuzzle`, `CheckForBombDestroyableObjectBasic`, `CheckForEntityFallingDownQuicksandHole`).
-* **Last Update Timestamp**: 2026-10-07T23:55:00+00:00
+* **Current Overall Progress**: ~81.4%
+* **Number of Verified Functions**: 1065
+* **Number of Decompiled Functions**: 865
+* **Number Remaining**: ~147 functions
+* **Current Subsystem**: ROM Bank 3 (Droppable and Pickable Entity Handlers & Helpers)
+* **Current Task**: Batch 98 Verification Completed
+* **Last Completed Task**: Batch 98 Verification — ROM Bank 3 Droppable and Pickable Entity Handlers (`HeartContainerEntityHandler`, `HoldEntityAboveLink`, `func_003_5A2E`, `GuardianAcornEntityHandler`, `PieceOfPowerEntityHandler`, `IronMasksMaskEntityHandler`, `HookshotDropEntityHandler`, `KeyDropPointEntityHandler`, `DroppableHeartEntityHandler`, `SleepyToadstoolEntityHandler`, `DroppableBombsEntityHandler`, `DroppableSeashellEntityHandler`, `HidingSlimeKeyEntityHandler`, `DroppableFairyEntityHandler`, `ApplyVectorTowardsLink_with_length`).
+* **Last Update Timestamp**: 2026-10-08T00:45:00+00:00
 
 ---
 
@@ -1131,3 +1131,51 @@
   - `test_CheckForEntityFallingDownQuicksandHole`: Tests indoor rejection, room ID validation, airborne bypass, inactive entity bypass, and successful falling transition setup.
   - Full Debug build/CMake test suite PASS (100% tests passed in ~2.7s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1051 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Giant skull 2x2 tile alignment and indoor adjacent room offset calculations verified exact to assembly instruction sequence.
+
+---
+
+## Batch 98 Verification — ROM Bank 3 Droppable and Pickable Entity Handlers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:59D8`-`03:6056`), `LADX-Disassembly/src/code/entities/03_droppable_fairy.asm` (`03:6157`-`03:61BF`), and `bank3.asm` (`03:7EC7`). Implemented in `src/bank3/entities_droppable.c` and `src/bank3/entities_physics.c` with declarations in `include/bank3/entities_droppable.h` and `include/bank3/entities_physics.h`. Room enums, dialog IDs, memory constants, and link animations updated in `include/constants/rooms.h`, `include/constants/dialog.h`, `include/constants/memory.h`, and `include/constants/link.h`.
+- **Functions Decompiled & Verified:**
+  - `HeartContainerEntityHandler` (`03:59DC`): Renders `HeartContainerSpriteVariants` (`{0xAA, 0x14, 0xAA, 0x34}`) via `RenderActiveEntitySpritesPair`. Countdown == 0 dispatches to `PickableHandler`. Countdown != 1 dispatches to `HoldEntityAboveLink`. Countdown == 1: triggers `wMusicTrackToPlay = MUSIC_AFTER_BOSS`, increments `wMaxHearts`, sets health refill `wAddHealthBuffer = 0xFF`, updates room status address with `ROOM_STATUS_EVENT_2` and writes `hRoomStatus`, handles dungeon boss staircase room status flags (sets bit 5 on `wIndoorBRoomStatus[0x2E]` for Eagle's Tower, and bit 5 on `wIndoorARoomStatus[0x66]` for Angler's Tunnel), and calls `UnloadEntityAndReturn`.
+  - `HoldEntityAboveLink` (`03:5A17`): Positions entity at `hLinkPositionX`, `hLinkPositionY - 0x0C`, and `hLinkPositionZ`, then jumps to `func_003_5A2E`.
+  - `func_003_5A2E` (`03:5A2E`): Sets `hLinkAnimationState = LINK_ANIMATION_STATE_GOT_ITEM` (`0x6C`), `hLinkDirection = DIRECTION_DOWN` (`3`), resets sword animation state (`wSwordAnimationState = 0`, `wC16A = 0`, `wSwordCharge = 0`, `wIsUsingSpinAttack = 0`), clears entity ground status (`wEntitiesGroundStatusTable[bc] = 0`), and sets `hLinkInteractiveMotionBlocked = 2`.
+  - `GuardianAcornEntityHandler` (`03:5B5D`): Renders `Data_003_5B5B` (`{0xAE, 0x14}`) via `RenderActiveEntitySprite` and dispatches to `PickableHandler`.
+  - `PieceOfPowerEntityHandler` (`03:5B6D`): Renders `PieceOfPowerSpriteVariants` via `RenderActiveEntitySpritesPair`, sets variant `(hFrameCounter >> 3) & 1` via `SetEntitySpriteVariant`, and dispatches to `PickableHandler`.
+  - `IronMasksMaskEntityHandler` (`03:5B88`): Renders `IronMasksMaskSpriteVariants` (`{0x74, 0x00, 0x76, 0x00, 0x76, 0x20, 0x74, 0x20}`) via `RenderActiveEntitySpritesPair`, checks interactive state (`ReturnIfNonInteractive_03`), and calls `PickableHandleGrabbedByItemIfNeeded`.
+  - `HookshotDropEntityHandler` (`03:5C49`): Unloads if already collected (`hRoomStatus & ROOM_STATUS_EVENT_1`). Renders `HookshotSpriteData` (`{0x8A, 0x14}`). Countdown == 0 dispatches to `PickableHandler`. Countdown == 0x10 decrements countdown to 0x0F, opens `Dialog093` via Table 0, and holds above Link. Countdown == 1 gives `INVENTORY_HOOKSHOT`, marks room completed (`MarkRoomCompleted`), and unloads. Countdown > 1 holds above Link.
+  - `KeyDropPointEntityHandler` (`03:5C89`): Quicksand fall check (`CheckForEntityFallingDownQuicksandHole`): sets bit 4 in `wOverworldRoomStatus[ROOM_OW_YARNA_LANMOLA]` and bit 5 in `wIndoorARoomStatus[ROOM_INDOOR_A_QUICKSAND_CAVE]`. If in Catfish's Maw Master Stalfos room (`0x80`), jumps to `HookshotDropEntityHandler`. Renders `KeyDropSpriteTable`. Countdown == 0: checks interactive, calls `PickableHandleGrabbedByItemIfNeeded`, collects if PosZ == 0, and runs `BouncingEntityPhysics`. Countdown == 0x10: decrements countdown to 0x0F, opens dialog from `KeyCollectDialogs[variant - 1]`, sets `wHasTailKey + (variant - 1) = 1`, marks room completed, and holds above Link. Countdown == 1 unloads.
+  - `DroppableHeartEntityHandler` (`03:5D38`): Calls `DroppableRevealOrReturnIfNeeded` and `DroppableDisappearIfNeeded`, renders `DroppableHeartSprite` (`{0xA8, 0x14}`), and jumps to `PickableHandler`.
+  - `SleepyToadstoolEntityHandler` (`03:5D4B`): Unloads if Link has powder or toadstool (`wMagicPowderCount | wHasToadstool != 0`). Renders `SleepyToadstoolSprite` (`{0x5E, 0x02, 0x5E, 0x22}`) via `RenderActiveEntitySpritesPair`. Countdown == 0 dispatches to `PickableHandler`. Countdown == 0x10 decrements to 0x0F, opens `Dialog00F`, and holds above Link. Countdown == 1 sets `hReplaceTiles = REPLACE_TILES_TOADSTOOL`, gives `INVENTORY_MAGIC_POWDER`, sets `wHasToadstool = 1`, and unloads.
+  - `DroppableBombsEntityHandler` (`03:5FC2`): Calls `DroppableRevealOrReturnIfNeeded` and `DroppableDisappearIfNeeded`, renders `DroppableBombsSprite` (`{0x80, 0x15}`), and jumps to `PickableHandler`.
+  - `DroppableSeashellEntityHandler` (`03:5FD3`): Unloads if `wSwordLevel >= 2`, or if room completed (`hRoomStatus & ROOM_STATUS_EVENT_1`), or if in `UNKNOWN_ROOM_E3` with `ROOM_STATUS_EVENT_3 == 0`. Otherwise calls `DroppableRevealOrReturnIfNeeded`, renders `DroppableSeashellSprite` (`{0x9E, 0x14}`), and jumps to `PickableHandler`.
+  - `HidingSlimeKeyEntityHandler` (`03:5FFD`): Unloads if already collected (`hRoomStatus & ROOM_STATUS_EVENT_1`). Calls `DroppableRevealOrReturnIfNeeded`, renders `HidingSlimeKeySprite` (`{0xCA, 0x14}`). Countdown == 0 dispatches to `PickableHandler`. Countdown == 0x10 decrements to 0x0F, sets `wGoldenLeavesCount = 5` if outdoors in `ROOM_OW_POTHOLE_FIELD_SLIME_KEY`, increments `wGoldenLeavesCount` via `IncreaseValueAtHLClampAt99_addr`, marks room completed, resets bit 4 on `hRoomStatus`, opens `Dialog0A2` (if leaves == 6) or `Dialog0E9` (if leaves == 5) or `Dialog0E8`, and holds above Link. Countdown == 1 unloads.
+  - `DroppableFairyEntityHandler` (`03:615B`): Calls reveal and disappear, renders `data_003_6157` (`{0x20, 0x21, 0x20, 0x01}`), checks interactive, handles item grab and collect. Sets sprite variant from speed X sign bit, updates position with speed, calls `func_003_61C0`, interacts with background. If distance to Link >= 0x20 in both X and Y, applies vector towards Link (`ApplyVectorTowardsLink_with_length(gb, bc, 0x09)`). When close and countdown == 0, sets countdown to 0x30 and random speed X/Y in range [-8, +7].
+  - `ApplyVectorTowardsLink_with_length` (`03:7EC7`): Calls `GetVectorTowardsLink_with_length` with specified length and writes resulting Y/X velocity to `wEntitiesSpeedYTable` and `wEntitiesSpeedXTable`.
+- **Data Tables Verified:**
+  - `HeartContainerSpriteVariants` (`03:59D8`)
+  - `Data_003_5B5B` (`03:5B5B`)
+  - `PieceOfPowerSpriteVariants` (`03:5B65`)
+  - `IronMasksMaskSpriteVariants` (`03:5B80`)
+  - `HookshotSpriteData` (`03:5C47`)
+  - `KeyDropSpriteTable` (`03:5C78`)
+  - `KeyCollectDialogs` (`03:5C84`)
+  - `DroppableHeartSprite` (`03:5D36`)
+  - `SleepyToadstoolSprite` (`03:5D47`)
+  - `DroppableBombsSprite` (`03:5FC0`)
+  - `DroppableSeashellSprite` (`03:5FD1`)
+  - `HidingSlimeKeySprite` (`03:5FFB`)
+  - `data_003_6157` (`03:6157`)
+- **Tests:** Integrated 9 comprehensive test suites into `tests/bank3/test_entities_droppable.c`:
+  - `test_HoldEntityAboveLink_and_func_003_5A2E`: Tests relative coordinate placement above Link, animation state `0x6C`, direction down, sword and spin attack reset, ground status clear, and motion blocking.
+  - `test_HeartContainerEntityHandler`: Tests countdown 1 heart container collection, max heart increment, full health buffer, music track assignment, room status event 2 assignment, Eagle's Tower room 0x2E and Angler's Tunnel room 0x66 staircase flag propagation, and entity deactivation.
+  - `test_GuardianAcorn_PieceOfPower_IronMasksMask`: Tests pickable delegation, frame-counter variant selection, non-interactive bypass, and boomerang grabbing interaction.
+  - `test_HookshotDropEntityHandler`: Tests room event 1 collection bypass, countdown 0x10 dialog 0x93 and countdown decrement, and countdown 1 hookshot inventory award, room completion, and deactivation.
+  - `test_KeyDropPointEntityHandler`: Tests Catfish's Maw Master Stalfos 4 hookshot redirect, quicksand hole falling flag assignment in Yarna Lanmola and Quicksand Cave rooms, normal dungeon key pickup dialog and `wHasTailKey` array assignment, and countdown 1 deactivation.
+  - `test_DroppableHeart_Bombs_Seashell`: Tests droppable heart/bomb delegation, and secret seashell pruning for sword level >= 2, completed room event 1, and room 0xE3 missing event 3.
+  - `test_SleepyToadstoolEntityHandler`: Tests duplicate inventory pruning, countdown 0x10 dialog 0x0F, and countdown 1 tile replacement `REPLACE_TILES_TOADSTOOL`, magic powder award, `wHasToadstool` flag, and deactivation.
+  - `test_HidingSlimeKeyEntityHandler`: Tests room event 1 bypass, Pothole Field outdoor golden leaves bump to 6 (`SLIME_KEY`), dialog 0xA2, room completion in RAM, bit 4 reset on `hRoomStatus`, and countdown 1 deactivation.
+  - `test_DroppableFairyEntityHandler`: Tests distant fairy vector acceleration towards Link (speed 9), and close proximity countdown 0x30 timer with randomized velocity.
+  - Full CMake test suite PASS (100% tests passed in ~2.45s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1065 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Slime key golden leaves count clamping and dungeon boss staircase room bit manipulation verified exact to assembly instruction sequence.
