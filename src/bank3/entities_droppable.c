@@ -129,6 +129,257 @@ void func_003_5A2E(GBState *gb, uint16_t bc) {
     gb_write_hram(gb, hLinkInteractiveMotionBlocked, 0x02);
 }
 
+/* ===== HeartPieceEntitySprite (03:5A44) ===== */
+static const uint8_t HeartPieceEntitySprite[4] = {
+    0xAC, OAM_GBC_PAL_2,
+    0xAC, OAM_GBC_PAL_2 | OAMF_XFLIP
+};
+
+/* ===== HeartPieceSpriteVariants (03:5AF1) ===== */
+static const uint8_t HeartPieceSpriteVariants[20] = {
+    0x9A, OAM_GBC_PAL_2,
+    0x9A, OAM_GBC_PAL_2 | OAMF_XFLIP,
+    0x9C, OAM_GBC_PAL_2,
+    0x9A, OAM_GBC_PAL_2 | OAMF_XFLIP,
+    0x9E, OAM_GBC_PAL_2,
+    0x9A, OAM_GBC_PAL_2 | OAMF_XFLIP,
+    0x9E, OAM_GBC_PAL_2,
+    0x9C, OAM_GBC_PAL_2 | OAMF_XFLIP,
+    0x9E, OAM_GBC_PAL_2,
+    0x9E, OAM_GBC_PAL_2 | OAMF_XFLIP
+};
+
+/* ===== DrawHeartPiecesInDialog (03:5B0E) ===== */
+void DrawHeartPiecesInDialog(GBState *gb, uint16_t bc) {
+    (void)bc;
+    if (!gb) return;
+
+    /* ld a, [wDialogState]; and a; ret z */
+    uint8_t dialog_state = gb_read(gb, wDialogState);
+    if (dialog_state == 0) {
+        return;
+    }
+
+    /* ld a, [wDialogCharacterIndex]; cp $21; ret nc */
+    uint8_t char_idx = gb_read(gb, wDialogCharacterIndex);
+    if (char_idx >= 0x21) {
+        return;
+    }
+
+    /* ld a, [wDialogState]; and DIALOG_BOX_BOTTOM_FLAG; ld a, $23; jr z, .positionSprite; ld a, $6B */
+    uint8_t visual_pos_y = (dialog_state & DIALOG_BOX_BOTTOM_FLAG) ? 0x6B : 0x23;
+
+    /* .positionSprite:
+       ldh [hActiveEntityVisualPosY], a
+       ld a, [wHeartPiecesCount]; ldh [hActiveEntitySpriteVariant], a
+       ld a, $8E; ldh [hActiveEntityPosX], a
+       ld de, HeartPieceSpriteVariants; jp RenderActiveEntitySpritesPair */
+    gb_write_hram(gb, hActiveEntityVisualPosY, visual_pos_y);
+    gb_write_hram(gb, hActiveEntitySpriteVariant, gb_read(gb, wHeartPiecesCount));
+    gb_write_hram(gb, hActiveEntityPosX, 0x8E);
+    RenderActiveEntitySpritesPair(gb, HeartPieceSpriteVariants, NULL);
+}
+
+/* ===== HeartPieceState0Handler (03:5B35) ===== */
+void HeartPieceState0Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld de, HeartPieceEntitySprite; call RenderActiveEntitySpritesPair; jp PickableHandler */
+    RenderActiveEntitySpritesPair(gb, HeartPieceEntitySprite, NULL);
+    PickableHandler(gb, bc);
+}
+
+/* ===== HeartPieceState1Handler (03:5A63) ===== */
+void HeartPieceState1Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+
+    /* call GetEntityTransitionCountdown; ret nz */
+    if (GetEntityTransitionCountdown(gb, bc) != 0) {
+        return;
+    }
+
+    /* ld a, $01; ld [wC167], a; jp IncrementEntityState */
+    gb_write(gb, wC167, 0x01);
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== HeartPieceState2Handler (03:5A72) ===== */
+void HeartPieceState2Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld a, TILESET_LOAD_PIECE_OF_HEART_1; ldh [hNeedsUpdatingBGTiles], a; jp IncrementEntityState */
+    gb_write_hram(gb, hNeedsUpdatingBGTiles, TILESET_LOAD_PIECE_OF_HEART_1);
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== HeartPieceState3Handler (03:5A77) ===== */
+void HeartPieceState3Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld a, TILESET_LOAD_PIECE_OF_HEART_2; ldh [hNeedsUpdatingBGTiles], a; jp IncrementEntityState */
+    gb_write_hram(gb, hNeedsUpdatingBGTiles, TILESET_LOAD_PIECE_OF_HEART_2);
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== HeartPieceState4Handler (03:5A7C) ===== */
+void HeartPieceState4Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call_open_dialog Dialog04F */
+    OpenDialogInTable0(gb, Dialog04F);
+
+    /* call IncrementEntityState */
+    IncrementEntityState(gb, bc);
+
+    /* ld a, $01; ld [wDialogInteractionLocked], a; ret */
+    gb_write(gb, wDialogInteractionLocked, 0x01);
+}
+
+/* ===== HeartPieceState5Handler (03:5A89) ===== */
+void HeartPieceState5Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+
+    /* ld de, HeartPieceEntitySprite; call RenderActiveEntitySpritesPair */
+    RenderActiveEntitySpritesPair(gb, HeartPieceEntitySprite, NULL);
+
+    /* call DrawHeartPiecesInDialog */
+    DrawHeartPiecesInDialog(gb, bc);
+
+    /* ld hl, wEntitiesInertiaTable; add hl, bc; inc [hl]; ld a, [hl] */
+    uint16_t inertia_addr = wEntitiesInertiaTable + bc;
+    uint8_t inertia = (uint8_t)(gb_read(gb, inertia_addr) + 1);
+    gb_write(gb, inertia_addr, inertia);
+
+    /* cp $A8; jp z, IncrementEntityState */
+    if (inertia == 0xA8) {
+        IncrementEntityState(gb, bc);
+        return;
+    }
+
+    /* cp $38; jr nz, .ret_5ABA */
+    if (inertia == 0x38) {
+        /* ld a, [wHeartPiecesCount]; inc a; ld [wHeartPiecesCount], a */
+        uint8_t count = gb_read(gb, wHeartPiecesCount);
+        gb_write(gb, wHeartPiecesCount, (uint8_t)(count + 1));
+    }
+}
+
+/* ===== HeartPieceState6Handler (03:5AAD) ===== */
+void HeartPieceState6Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+
+    /* ld de, HeartPieceEntitySprite; call RenderActiveEntitySpritesPair */
+    RenderActiveEntitySpritesPair(gb, HeartPieceEntitySprite, NULL);
+
+    /* xor a; ld [wDialogInteractionLocked], a */
+    gb_write(gb, wDialogInteractionLocked, 0x00);
+
+    /* call DrawHeartPiecesInDialog */
+    DrawHeartPiecesInDialog(gb, bc);
+
+    /* ld a, [wDialogState]; and a; ret nz */
+    if (gb_read(gb, wDialogState) != 0) {
+        return;
+    }
+
+    /* ld a, [wHeartPiecesCount]; cp $04; jr nz, .jr_5AED */
+    if (gb_read(gb, wHeartPiecesCount) == 4) {
+        /* ld a, JINGLE_NEW_HEART; ldh [hJingle], a */
+        gb_write_hram(gb, hJingle, JINGLE_NEW_HEART);
+
+        /* xor a; ld [wHeartPiecesCount], a */
+        gb_write(gb, wHeartPiecesCount, 0x00);
+
+        /* ld hl, wAddHealthBuffer; ld [hl], $40 */
+        gb_write(gb, wAddHealthBuffer, 0x40);
+
+        /* ld hl, wMaxHearts; inc [hl] */
+        uint8_t max_hearts = gb_read(gb, wMaxHearts);
+        gb_write(gb, wMaxHearts, (uint8_t)(max_hearts + 1));
+
+        /* call_open_dialog Dialog050 */
+        OpenDialogInTable0(gb, Dialog050);
+    }
+
+    /* .jr_5AED: jp IncrementEntityState */
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== HeartPieceState7Handler (03:5ACE) ===== */
+void HeartPieceState7Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+
+    /* ld de, HeartPieceEntitySprite; call RenderActiveEntitySpritesPair */
+    RenderActiveEntitySpritesPair(gb, HeartPieceEntitySprite, NULL);
+
+    /* ld a, [wDialogState]; and a; ret nz */
+    if (gb_read(gb, wDialogState) != 0) {
+        return;
+    }
+
+    /* ld a, TILESET_CLEAR_PIECE_OF_HEART_1; ldh [hNeedsUpdatingBGTiles], a; jp IncrementEntityState */
+    gb_write_hram(gb, hNeedsUpdatingBGTiles, TILESET_CLEAR_PIECE_OF_HEART_1);
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== HeartPieceState8Handler (03:5AE0) ===== */
+void HeartPieceState8Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld a, TILESET_CLEAR_PIECE_OF_HEART_2; ldh [hNeedsUpdatingBGTiles], a */
+    gb_write_hram(gb, hNeedsUpdatingBGTiles, TILESET_CLEAR_PIECE_OF_HEART_2);
+
+    /* call UnloadEntity */
+    UnloadEntity(gb, bc);
+
+    /* ld a, REPLACE_TILES_TRADING_ITEM; ldh [hReplaceTiles], a */
+    gb_write_hram(gb, hReplaceTiles, REPLACE_TILES_TRADING_ITEM);
+
+    /* xor a; ld [wC167], a */
+    gb_write(gb, wC167, 0x00);
+
+    /* jp MarkRoomCompleted */
+    MarkRoomCompleted(gb);
+}
+
+/* ===== HeartPieceEntityHandler (03:5A48) ===== */
+void HeartPieceEntityHandler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ldh a, [hRoomStatus]; and ROOM_STATUS_EVENT_1; jp nz, UnloadEntityAndReturn */
+    if (gb_read_hram(gb, hRoomStatus) & ROOM_STATUS_EVENT_1) {
+        UnloadEntityAndReturn(gb, bc);
+        return;
+    }
+
+    /* ldh a, [hActiveEntityState]; JP_TABLE */
+    uint8_t state = gb_read_hram(gb, hActiveEntityState);
+    switch (state) {
+        case 0: HeartPieceState0Handler(gb, bc); break;
+        case 1: HeartPieceState1Handler(gb, bc); break;
+        case 2: HeartPieceState2Handler(gb, bc); break;
+        case 3: HeartPieceState3Handler(gb, bc); break;
+        case 4: HeartPieceState4Handler(gb, bc); break;
+        case 5: HeartPieceState5Handler(gb, bc); break;
+        case 6: HeartPieceState6Handler(gb, bc); break;
+        case 7: HeartPieceState7Handler(gb, bc); break;
+        case 8: HeartPieceState8Handler(gb, bc); break;
+        default: break;
+    }
+}
+
 /* ===== Data_003_5B5B (03:5B5B) ===== */
 static const uint8_t Data_003_5B5B[2] = {
     0xAE, 0x14
@@ -184,6 +435,186 @@ void IronMasksMaskEntityHandler(GBState *gb, uint16_t bc) {
 
     /* call PickableHandleGrabbedByItemIfNeeded; ret */
     PickableHandleGrabbedByItemIfNeeded(gb, bc);
+}
+
+/* ===== Data_003_5B95 (03:5B95) ===== */
+static const uint8_t Data_003_5B95[2] = {
+    0x86, 0x17
+};
+
+/* ===== Data_003_5B97 (03:5B97) ===== */
+static const uint8_t Data_003_5B97[2] = {
+    0x84, 0x17
+};
+
+/* ===== SwordShieldPickableState0Handler (03:5BAE) ===== */
+void SwordShieldPickableState0Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call GetEntityTransitionCountdown; jp z, PickableHandler */
+    uint16_t countdown_addr = wEntitiesTransitionCountdownTable + bc;
+    uint8_t countdown = gb_read(gb, countdown_addr);
+    if (countdown == 0) {
+        PickableHandler(gb, bc);
+        return;
+    }
+
+    /* cp $10; jr nz, .playSwordFanfare */
+    if (countdown == 0x10) {
+        /* dec [hl] */
+        gb_write(gb, countdown_addr, 0x0F);
+
+        /* call_open_dialog Dialog09B */
+        OpenDialogInTable0(gb, Dialog09B);
+
+        /* xor a; fallthrough to .playSwordFanfare: dec a (a becomes $FF, nz) */
+        HoldEntityAboveLink(gb, bc);
+        return;
+    }
+
+    /* .playSwordFanfare: dec a; jr nz, .holdItemAboveLink */
+    if (countdown == 1) {
+        /* ld a, MUSIC_OVERWORLD_INTRO; ld [wMusicTrackToPlay], a */
+        gb_write(gb, wMusicTrackToPlay, MUSIC_OVERWORLD_INTRO);
+
+        /* ld a, MUSIC_OVERWORLD; ldh [hDefaultMusicTrack], a; ldh [hNextDefaultMusicTrack], a */
+        gb_write_hram(gb, hDefaultMusicTrack, MUSIC_OVERWORLD);
+        gb_write_hram(gb, hNextDefaultMusicTrack, MUSIC_OVERWORLD);
+
+        /* call GetEntitySlowTransitionCountdown; ld [hl], $52 */
+        gb_write(gb, wEntitiesSlowTransitionCountdownTable + bc, 0x52);
+
+        /* call IncrementEntityState */
+        IncrementEntityState(gb, bc);
+    }
+
+    /* .holdItemAboveLink: jp HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+}
+
+/* ===== SwordShieldPickableState1Handler (03:5BCD) ===== */
+void SwordShieldPickableState1Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+
+    /* call GetEntitySlowTransitionCountdown; ret nz */
+    if (GetEntitySlowTransitionCountdown(gb, bc) != 0) {
+        return;
+    }
+
+    /* ld a, $FF; call SetEntitySpriteVariant */
+    SetEntitySpriteVariant(gb, bc, 0xFF);
+
+    /* call GetEntityTransitionCountdown; ld [hl], $20 */
+    gb_write(gb, wEntitiesTransitionCountdownTable + bc, 0x20);
+
+    /* ld a, USING_SPIN_ATTACK_MAX; ld [wIsUsingSpinAttack], a */
+    gb_write(gb, wIsUsingSpinAttack, USING_SPIN_ATTACK_MAX);
+
+    /* ld a, NOISE_SFX_SPIN_ATTACK; ldh [hNoiseSfx], a */
+    gb_write_hram(gb, hNoiseSfx, NOISE_SFX_SPIN_ATTACK);
+
+    /* jp IncrementEntityState */
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== SwordShieldPickableState2Handler (03:5BE7) ===== */
+void SwordShieldPickableState2Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call GetEntityTransitionCountdown; ret nz */
+    if (GetEntityTransitionCountdown(gb, bc) != 0) {
+        return;
+    }
+
+    /* ld [hl], 32 */
+    gb_write(gb, wEntitiesTransitionCountdownTable + bc, 32);
+
+    /* ld a, $00; call SetEntitySpriteVariant */
+    SetEntitySpriteVariant(gb, bc, 0x00);
+
+    /* jp IncrementEntityState */
+    IncrementEntityState(gb, bc);
+}
+
+/* ===== SwordShieldPickableState3Handler (03:5BF7) ===== */
+void SwordShieldPickableState3Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+
+    /* ld a, LINK_ANIMATION_STATE_UNKNOWN_6B; ldh [hLinkAnimationState], a */
+    gb_write_hram(gb, hLinkAnimationState, LINK_ANIMATION_STATE_UNKNOWN_6B);
+
+    /* ldh a, [hLinkPositionX]; sub $04; ld hl, wEntitiesPosXTable; add hl, bc; ld [hl], a */
+    uint8_t link_x = gb_read_hram(gb, hLinkPositionX);
+    gb_write(gb, wEntitiesPosXTable + bc, (uint8_t)(link_x - 0x04));
+
+    /* call GetEntityTransitionCountdown; jr nz, .continueToRaiseSword */
+    uint8_t countdown = GetEntityTransitionCountdown(gb, bc);
+    if (countdown == 0) {
+        /* ld [wC167], a */
+        gb_write(gb, wC167, 0x00);
+
+        /* ld d, INVENTORY_SWORD; call GiveInventoryItem */
+        GiveInventoryItem(gb, INVENTORY_SWORD);
+
+        /* ld a, $01; ld [wSwordLevel], a */
+        gb_write(gb, wSwordLevel, 0x01);
+
+        /* call MarkRoomCompleted */
+        MarkRoomCompleted(gb);
+
+        /* jp UnloadEntityAndReturn */
+        UnloadEntityAndReturn(gb, bc);
+        return;
+    }
+
+    /* .continueToRaiseSword: cp 26; jr nz, .return */
+    if (countdown == 26) {
+        /* ldh a, [hActiveEntityPosY]; sub $0C; call CheckLinkCollisionWithProjectile.showSwordPokeVfx */
+        uint8_t vfx_y = (uint8_t)(gb_read_hram(gb, hActiveEntityPosY) - 0x0C);
+        gb_write_hram(gb, hMultiPurpose1, vfx_y);
+        gb_write_hram(gb, hMultiPurpose0, gb_read_hram(gb, hActiveEntityPosX));
+        AddTranscientVfx(gb, TRANSCIENT_VFX_SWORD_POKE);
+
+        /* ld a, JINGLE_SWORD_POKING; ldh [hJingle], a */
+        gb_write_hram(gb, hJingle, JINGLE_SWORD_POKING);
+    }
+}
+
+/* ===== SwordShieldPickableEntityHandler (03:5B99) ===== */
+void SwordShieldPickableEntityHandler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld de, Data_003_5B95
+       ld a, [wSwordLevel]; and a; jr nz, .jr_5BAC
+       ldh a, [hRoomStatus]; and ROOM_STATUS_EVENT_1; jp nz, UnloadEntityAndReturn
+       ld de, Data_003_5B97 */
+    const uint8_t *sprite = Data_003_5B95;
+    if (gb_read(gb, wSwordLevel) == 0) {
+        if (gb_read_hram(gb, hRoomStatus) & ROOM_STATUS_EVENT_1) {
+            UnloadEntityAndReturn(gb, bc);
+            return;
+        }
+        sprite = Data_003_5B97;
+    }
+
+    /* .jr_5BAC: call RenderActiveEntitySprite */
+    RenderActiveEntitySprite(gb, sprite, NULL);
+
+    /* ldh a, [hActiveEntityState]; JP_TABLE */
+    uint8_t state = gb_read_hram(gb, hActiveEntityState);
+    switch (state) {
+        case 0: SwordShieldPickableState0Handler(gb, bc); break;
+        case 1: SwordShieldPickableState1Handler(gb, bc); break;
+        case 2: SwordShieldPickableState2Handler(gb, bc); break;
+        case 3: SwordShieldPickableState3Handler(gb, bc); break;
+        default: break;
+    }
 }
 
 /* ===== HookshotSpriteData (03:5C47) ===== */

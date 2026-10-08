@@ -565,6 +565,7 @@
 #define hMultiPurpose4                        0xFFDB
 #define wHealth                               0xDB5A
 #define wMaxHearts                            0xDB5B
+#define wHeartPiecesCount                     0xDB5C
 #define wPhotos1                              0xDC0C
 #define wPhotos2                              0xDC0D
 #define wDrawCommandsSize                     0xD600

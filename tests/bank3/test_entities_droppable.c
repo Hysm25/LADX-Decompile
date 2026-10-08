@@ -12,6 +12,7 @@
 #include "constants/audio.h"
 #include "constants/dialog.h"
 #include "constants/vfx.h"
+#include "constants/gfx.h"
 #include "constants/link.h"
 #include "constants/directions.h"
 
@@ -883,6 +884,274 @@ static void test_DroppableFairyEntityHandler(void) {
     printf("[PASS] DroppableFairyEntityHandler\n");
 }
 
+/* Test: HeartPieceEntityHandler and states 0-8 */
+static void test_HeartPieceEntityHandler(void) {
+    printf("[RUN ] HeartPieceEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* 1. Pruning when room status event 1 is set */
+    setup_interactive_entity(&gb, 2);
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    HeartPieceEntityHandler(&gb, 2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 2)) == ENTITY_STATUS_DISABLED);
+
+    /* 2. State 0: dispatches to PickableHandler */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write_hram(&gb, hActiveEntityState, 0);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_HEART_PIECE);
+    /* Link is far away -> no collision, entity stays active */
+    gb_write_hram(&gb, hLinkPositionX, 0x10);
+    gb_write_hram(&gb, hLinkPositionY, 0x10);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x50);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x50);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    /* 3. State 1: holds above Link; returns if transition countdown != 0 */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write_hram(&gb, hActiveEntityState, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesStateTable + 1), 1);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 5);
+    gb_write_hram(&gb, hLinkPositionX, 0x40);
+    gb_write_hram(&gb, hLinkPositionY, 0x60);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x40);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + 1)) == 0x54); /* 0x60 - 0x0C */
+    assert(gb_read_hram(&gb, hActiveEntityState) == 1);
+    assert(gb_read(&gb, wC167) == 0);
+
+    /* State 1 with countdown == 0 -> sets wC167 = 1 and increments state to 2 */
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wC167) == 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 2);
+
+    /* 4. State 2 -> sets hNeedsUpdatingBGTiles to TILESET_LOAD_PIECE_OF_HEART_1 and increments state to 3 */
+    gb_write_hram(&gb, hActiveEntityState, 2);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hNeedsUpdatingBGTiles) == TILESET_LOAD_PIECE_OF_HEART_1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 3);
+
+    /* 5. State 3 -> sets hNeedsUpdatingBGTiles to TILESET_LOAD_PIECE_OF_HEART_2 and increments state to 4 */
+    gb_write_hram(&gb, hActiveEntityState, 3);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hNeedsUpdatingBGTiles) == TILESET_LOAD_PIECE_OF_HEART_2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 4);
+
+    /* 6. State 4 -> opens Dialog04F, locks interaction, increments state to 5 */
+    gb_write_hram(&gb, hActiveEntityState, 4);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wDialogInteractionLocked) == 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 5);
+
+    /* 7. State 5: increments inertia; at 0x38 increments heart pieces count */
+    gb_write_hram(&gb, hActiveEntityState, 5);
+    gb_write(&gb, (uint16_t)(wEntitiesInertiaTable + 1), 0x37);
+    gb_write(&gb, wHeartPiecesCount, 1);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesInertiaTable + 1)) == 0x38);
+    assert(gb_read(&gb, wHeartPiecesCount) == 2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 5);
+
+    /* At inertia 0xA8, state increments to 6 */
+    gb_write(&gb, (uint16_t)(wEntitiesInertiaTable + 1), 0xA7);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesInertiaTable + 1)) == 0xA8);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 6);
+
+    /* 8. State 6: unlocks dialog; waits for wDialogState == 0 */
+    gb_write_hram(&gb, hActiveEntityState, 6);
+    gb_write(&gb, wDialogInteractionLocked, 1);
+    gb_write(&gb, wDialogState, 1);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wDialogInteractionLocked) == 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 6); /* still in state 6 */
+
+    /* When dialog closes (wDialogState == 0) with < 4 heart pieces */
+    gb_write(&gb, wDialogState, 0);
+    gb_write(&gb, wHeartPiecesCount, 2);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 7);
+    assert(gb_read_hram(&gb, hJingle) == 0);
+
+    /* Test 4-heart pieces completion branch in State 6 */
+    gb_write(&gb, (uint16_t)(wEntitiesStateTable + 1), 6);
+    gb_write_hram(&gb, hActiveEntityState, 6);
+    gb_write(&gb, wDialogState, 0);
+    gb_write(&gb, wHeartPiecesCount, 4);
+    gb_write(&gb, wMaxHearts, 3);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_NEW_HEART);
+    assert(gb_read(&gb, wHeartPiecesCount) == 0);
+    assert(gb_read(&gb, wAddHealthBuffer) == 0x40);
+    assert(gb_read(&gb, wMaxHearts) == 4);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 7);
+
+    /* 9. State 7: waits for dialog close, then requests TILESET_CLEAR_PIECE_OF_HEART_1 and state 8 */
+    gb_write_hram(&gb, hActiveEntityState, 7);
+    gb_write(&gb, wDialogState, 1);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 7);
+
+    gb_write(&gb, wDialogState, 0);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hNeedsUpdatingBGTiles) == TILESET_CLEAR_PIECE_OF_HEART_1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 8);
+
+    /* 10. State 8: requests TILESET_CLEAR_PIECE_OF_HEART_2, unloads, replaces tiles, marks room completed */
+    gb_write_hram(&gb, hActiveEntityState, 8);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hMapRoom, 0x50);
+    HeartPieceEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hNeedsUpdatingBGTiles) == TILESET_CLEAR_PIECE_OF_HEART_2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+    assert(gb_read_hram(&gb, hReplaceTiles) == REPLACE_TILES_TRADING_ITEM);
+    assert(gb_read(&gb, wC167) == 0);
+    assert((gb_read(&gb, (uint16_t)(wOverworldRoomStatus + 0x50)) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 11. DrawHeartPiecesInDialog checks */
+    gb_init(&gb);
+    /* Dialog inactive -> does nothing */
+    gb_write(&gb, wDialogState, 0);
+    DrawHeartPiecesInDialog(&gb, 0);
+    assert(gb_read_hram(&gb, hActiveEntityVisualPosY) == 0);
+
+    /* Dialog character index >= 0x21 -> does nothing */
+    gb_write(&gb, wDialogState, 1);
+    gb_write(&gb, wDialogCharacterIndex, 0x22);
+    DrawHeartPiecesInDialog(&gb, 0);
+    assert(gb_read_hram(&gb, hActiveEntityVisualPosY) == 0);
+
+    /* Top dialog box (bit 7 clear) -> Y = 0x23, X = 0x8E, variant = wHeartPiecesCount */
+    gb_write(&gb, wDialogCharacterIndex, 0x10);
+    gb_write(&gb, wHeartPiecesCount, 3);
+    DrawHeartPiecesInDialog(&gb, 0);
+    assert(gb_read_hram(&gb, hActiveEntityVisualPosY) == 0x23);
+    assert(gb_read_hram(&gb, hActiveEntityPosX) == 0x8E);
+    assert(gb_read_hram(&gb, hActiveEntitySpriteVariant) == 3);
+
+    /* Bottom dialog box (bit 7 set) -> Y = 0x6B */
+    gb_write(&gb, wDialogState, DIALOG_BOX_BOTTOM_FLAG | 1);
+    DrawHeartPiecesInDialog(&gb, 0);
+    assert(gb_read_hram(&gb, hActiveEntityVisualPosY) == 0x6B);
+
+    printf("[PASS] HeartPieceEntityHandler\n");
+}
+
+/* Test: SwordShieldPickableEntityHandler and states 0-3 */
+static void test_SwordShieldPickableEntityHandler(void) {
+    printf("[RUN ] SwordShieldPickableEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* 1. Beach sword pruning when room event 1 is set and wSwordLevel == 0 */
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, wSwordLevel, 0);
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* 2. Like-like dropped shield (wSwordLevel > 0) does not prune even with room event 1 */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write_hram(&gb, hLinkPositionX, 0x10);
+    gb_write_hram(&gb, hLinkPositionY, 0x10);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x60);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x60);
+    gb_write_hram(&gb, hFrameCounter, 0x01);
+    gb_write(&gb, wSwordLevel, 1);
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    gb_write_hram(&gb, hActiveEntityState, 0);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    /* 3. State 0:
+          Countdown 0x10 -> decrements countdown to 0x0F, opens Dialog09B, holds above Link */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write_hram(&gb, hActiveEntityState, 0);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0x10);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0x0F);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x30);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + 1)) == 0x34); /* 0x40 - 0x0C */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 0); /* still state 0 */
+
+    /* Countdown 1 -> plays MUSIC_OVERWORLD_INTRO, configures tracks, countdown = 0x52, state = 1 */
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 1);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_OVERWORLD_INTRO);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_OVERWORLD);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_OVERWORLD);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1)) == 0x52);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 1);
+
+    /* 4. State 1:
+          Holds above Link; returns if slow transition countdown != 0 */
+    gb_write_hram(&gb, hActiveEntityState, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 5);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 1);
+
+    /* When slow countdown == 0: sets sprite variant 0xFF, countdown 0x20, spin attack, SFX, state = 2 */
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1)) == 0xFF);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0x20);
+    assert(gb_read(&gb, wIsUsingSpinAttack) == USING_SPIN_ATTACK_MAX);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_SPIN_ATTACK);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 2);
+
+    /* 5. State 2:
+          Waits for countdown == 0, then sets countdown = 32, variant = 0, state = 3 */
+    gb_write_hram(&gb, hActiveEntityState, 2);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 10);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 2);
+
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 32);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1)) == 0x00);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 3);
+
+    /* 6. State 3:
+          Holds above Link, sets Link animation state 0x6B, sets PosX = LinkX - 4 */
+    gb_write_hram(&gb, hActiveEntityState, 3);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 26);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x48);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hLinkAnimationState) == LINK_ANIMATION_STATE_UNKNOWN_6B);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x4C); /* 0x50 - 4 */
+    /* At countdown 26: triggers sword poke VFX and JINGLE_SWORD_POKING */
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_SWORD_POKING);
+    assert(gb_read_hram(&gb, hMultiPurpose1) == 0x24); /* 0x30 - 0x0C */
+    assert(gb_read_hram(&gb, hMultiPurpose0) == 0x48);
+
+    /* At countdown 0: completes sequence, awards INVENTORY_SWORD, sword level = 1, room completed, unloads */
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hMapRoom, 0xF2);
+    SwordShieldPickableEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wC167) == 0);
+    assert(gb_read(&gb, wSwordLevel) == 1);
+    assert(gb_read(&gb, wInventoryBButtonSlot) == INVENTORY_SWORD);
+    assert((gb_read(&gb, (uint16_t)(wOverworldRoomStatus + 0xF2)) & ROOM_STATUS_EVENT_1) != 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] SwordShieldPickableEntityHandler\n");
+}
+
 void test_bank3_entities_droppable(void) {
     test_PickableCanBeCollectedBySwordTable();
     test_PickableHandleGrabbedByItemIfNeeded();
@@ -902,7 +1171,9 @@ void test_bank3_entities_droppable(void) {
     test_MarkRoomCompleted_and_GetRoomStatusAddressInHL();
     test_HoldEntityAboveLink_and_func_003_5A2E();
     test_HeartContainerEntityHandler();
+    test_HeartPieceEntityHandler();
     test_GuardianAcorn_PieceOfPower_IronMasksMask();
+    test_SwordShieldPickableEntityHandler();
     test_HookshotDropEntityHandler();
     test_KeyDropPointEntityHandler();
     test_DroppableHeart_Bombs_Seashell();

@@ -28,6 +28,7 @@
 #define MUSIC_AFTER_BOSS                0x18
 #define MUSIC_BOSS                      0x19
 #define MUSIC_OVERWORLD_SWORDLESS       0x1D
+#define MUSIC_OVERWORLD_INTRO           0x31
 #define MUSIC_SOUTHERN_SHRINE           0x1F
 #define MUSIC_2D_UNDERGROUND            0x21
 #define MUSIC_OWL                       0x22

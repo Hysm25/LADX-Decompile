@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~81.4%
-* **Number of Verified Functions**: 1065
-* **Number of Decompiled Functions**: 865
-* **Number Remaining**: ~147 functions
+* **Current Overall Progress**: ~82.6%
+* **Number of Verified Functions**: 1080
+* **Number of Decompiled Functions**: 880
+* **Number Remaining**: ~132 functions
 * **Current Subsystem**: ROM Bank 3 (Droppable and Pickable Entity Handlers & Helpers)
-* **Current Task**: Batch 98 Verification Completed
-* **Last Completed Task**: Batch 98 Verification — ROM Bank 3 Droppable and Pickable Entity Handlers (`HeartContainerEntityHandler`, `HoldEntityAboveLink`, `func_003_5A2E`, `GuardianAcornEntityHandler`, `PieceOfPowerEntityHandler`, `IronMasksMaskEntityHandler`, `HookshotDropEntityHandler`, `KeyDropPointEntityHandler`, `DroppableHeartEntityHandler`, `SleepyToadstoolEntityHandler`, `DroppableBombsEntityHandler`, `DroppableSeashellEntityHandler`, `HidingSlimeKeyEntityHandler`, `DroppableFairyEntityHandler`, `ApplyVectorTowardsLink_with_length`).
-* **Last Update Timestamp**: 2026-10-08T00:45:00+00:00
+* **Current Task**: Batch 99 Verification Completed
+* **Last Completed Task**: Batch 99 Verification — ROM Bank 3 Heart Piece and Sword/Shield Pickable Entity Handlers (`HeartPieceEntityHandler`, `HeartPieceState0Handler`-`HeartPieceState8Handler`, `DrawHeartPiecesInDialog`, `SwordShieldPickableEntityHandler`, `SwordShieldPickableState0Handler`-`SwordShieldPickableState3Handler`).
+* **Last Update Timestamp**: 2026-10-08T02:40:00+00:00
 
 ---
 
@@ -1179,3 +1179,36 @@
   - `test_DroppableFairyEntityHandler`: Tests distant fairy vector acceleration towards Link (speed 9), and close proximity countdown 0x30 timer with randomized velocity.
   - Full CMake test suite PASS (100% tests passed in ~2.45s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1065 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Slime key golden leaves count clamping and dungeon boss staircase room bit manipulation verified exact to assembly instruction sequence.
+
+---
+
+## Batch 99 Verification — ROM Bank 3 Heart Piece and Sword/Shield Pickable Entity Handlers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:5A44`-`03:5B5A` and `03:5B95`-`03:5C46`). Implemented in `src/bank3/entities_droppable.c` with declarations in `include/bank3/entities_droppable.h`. Audio track, dialog ID, gfx tileset, jingle, and memory constants updated in `include/constants/audio.h`, `include/constants/dialog.h`, `include/constants/gfx.h`, `include/constants/sfx.h`, and `include/constants/memory.h`.
+- **Functions Decompiled & Verified:**
+  - `HeartPieceEntityHandler` (`03:5A48`): Prunes if room event 1 is set (`hRoomStatus & ROOM_STATUS_EVENT_1`). Renders `HeartPieceEntitySprite` (`03:5A44`: `{0x84, 0x14, 0x84, 0x34}`) via `RenderActiveEntitySpritesPair`, and dispatches to 9 state handlers via jump table indexed by `hActiveEntityState`.
+  - `HeartPieceState0Handler` (`03:5B35`): State 0: Dispatches to `PickableHandler`.
+  - `HeartPieceState1Handler` (`03:5A63`): State 1: Holds item above Link (`HoldEntityAboveLink`). Returns while transition countdown != 0. When countdown reaches 0: clears `wC167 = 0` and increments entity state.
+  - `HeartPieceState2Handler` (`03:5A72`): State 2: Calls `DrawHeartPiecesInDialog`. Decrements countdown; when 0: clears `wDialogState = 0` and increments entity state.
+  - `HeartPieceState3Handler` (`03:5A77`): State 3: Calls `DrawHeartPiecesInDialog`. When countdown == 0: sets `wTilesetToLoad = TILESET_LOAD_PIECE_OF_HEART_1` (3), transition countdown = 8, and increments entity state.
+  - `HeartPieceState4Handler` (`03:5A7C`): State 4: Calls `DrawHeartPiecesInDialog`. When countdown == 0: sets `wTilesetToLoad = TILESET_LOAD_PIECE_OF_HEART_2` (4), transition countdown = 8, and increments entity state.
+  - `HeartPieceState5Handler` (`03:5A89`): State 5: Calls `DrawHeartPiecesInDialog`. When countdown == 0: increments `wHeartPiecesCount`. If count reaches 4: plays `JINGLE_NEW_HEART` (0x19), increments `wMaxHearts`, refills health `wAddHealthBuffer = 0xFF`, resets `wHeartPiecesCount = 0`, sets `hRoomStatus |= ROOM_STATUS_EVENT_2`, sets `wDialogCharacterIndex = 0x22`, sets countdown = 0x1C. If count < 4: sets countdown = 0x14. Increments entity state.
+  - `HeartPieceState6Handler` (`03:5AAD`): State 6: Calls `DrawHeartPiecesInDialog`. When countdown == 0: sets `wTilesetToLoad = TILESET_CLEAR_PIECE_OF_HEART_2` (6), transition countdown = 8, and increments entity state.
+  - `HeartPieceState7Handler` (`03:5ACE`): State 7: Calls `DrawHeartPiecesInDialog`. When countdown == 0: sets `wTilesetToLoad = TILESET_CLEAR_PIECE_OF_HEART_1` (5), transition countdown = 8, and increments entity state.
+  - `HeartPieceState8Handler` (`03:5AE0`): State 8: When countdown == 0: if dialog active (`wDialogState != 0`), sets `wDialogCharacterIndex = 0x22` and returns. Otherwise marks room completed (`MarkRoomCompleted`), clears `wHeartPiecesCount = 0` (if count == 4), and calls `UnloadEntityAndReturn`.
+  - `DrawHeartPiecesInDialog` (`03:5B0E`): Renders heart piece sprites in dialog box. Returns if `wDialogState == 0` or `wDialogCharacterIndex >= 0x21`. Computes visual Y based on `wDialogState & DIALOG_BOX_BOTTOM_FLAG` (`0x6B` if bottom box, else `0x23`). Sets sprite variant to `wHeartPiecesCount`, visual X to `0x8E`, and renders sprites pair using `HeartPieceSpriteVariants` (`03:5AF1`).
+  - `SwordShieldPickableEntityHandler` (`03:5B99`): Checks `wSwordLevel`: if 0 (beach sword), unloads if `hRoomStatus & ROOM_STATUS_EVENT_1`, uses sprite `Data_003_5B97` (`{0x84, 0x17}`); if > 0 (dropped shield from Like-Like), uses sprite `Data_003_5B95` (`{0x86, 0x17}`). Renders active entity sprite, and dispatches to states 0 through 3 via jump table.
+  - `SwordShieldPickableState0Handler` (`03:5BAE`): State 0: Countdown == 0 dispatches to `PickableHandler`. Countdown == 0x10 decrements to 0x0F, opens `Dialog09B`, and holds item above Link. Countdown == 1 plays `MUSIC_OVERWORLD_INTRO`, sets default music to `MUSIC_OVERWORLD`, sets slow transition countdown to `0x52`, increments state, and holds above Link. Countdown > 1 holds item above Link.
+  - `SwordShieldPickableState1Handler` (`03:5BCD`): State 1: Holds item above Link. Returns if slow transition countdown != 0. When 0, sets sprite variant `0xFF`, countdown `0x20`, `wIsUsingSpinAttack = USING_SPIN_ATTACK_MAX`, plays `NOISE_SFX_SPIN_ATTACK`, and increments state.
+  - `SwordShieldPickableState2Handler` (`03:5BE7`): State 2: Waits for transition countdown == 0. Sets countdown = 32, variant = 0, and increments state.
+  - `SwordShieldPickableState3Handler` (`03:5BF7`): State 3: Sets `hLinkAnimationState = 0x6B`, holds item above Link, offsets X position to `hLinkPositionX - 4`. When countdown is 26 (`0x1A`), spawns `TRANSCIENT_VFX_SWORD_POKE` at entity X and visual Y - 12, and plays `JINGLE_SWORD_POKING`. When countdown reaches 0: clears `wC167 = 0`, sets `wSwordLevel = 1`, assigns `INVENTORY_SWORD` to B-button slot (`wInventoryBButtonSlot`), marks room completed (`MarkRoomCompleted`), and unloads (`UnloadEntityAndReturn`).
+- **Data Tables Verified:**
+  - `HeartPieceEntitySprite` (`03:5A44`)
+  - `HeartPieceSpriteVariants` (`03:5AF1`)
+  - `Data_003_5B95` (`03:5B95`)
+  - `Data_003_5B97` (`03:5B97`)
+- **Tests:** Dedicated test functions added to `tests/bank3/test_entities_droppable.c`:
+  - `test_HeartPieceEntityHandler`: Tests room completion pruning, state 0 pickable handler delegation, state 1 above-Link positioning and `wC167` clearing, state 2 dialog clearing, state 3-4 tileset loading requests (`0x03` and `0x04`), state 5 heart piece count increment with <4 (countdown 0x14) and ==4 branches (heart refill, max heart increment, room status event 2, `JINGLE_NEW_HEART`, countdown 0x1C), state 6-7 tileset clearing requests (`0x06` and `0x05`), state 8 active dialog hold and completion unload, and `DrawHeartPiecesInDialog` top/bottom dialog position calculations.
+  - `test_SwordShieldPickableEntityHandler`: Tests beach sword room event 1 pruning vs Like-like shield retention, state 0 countdown 0x10 dialog 0x9B and countdown 1 fanfare/track assignment/state increment, state 1 slow transition wait and spin attack/noise SFX trigger, state 2 countdown wait and variant reset, and state 3 sword poke VFX at countdown 26 and sword award/B-button slot/room completion/unload at countdown 0.
+  - Full CMake test suite PASS (100% tests passed in ~3.3s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1080 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Heart piece 4-count full heart bonus and beach sword sequence timing verified exact to assembly instruction sequence.

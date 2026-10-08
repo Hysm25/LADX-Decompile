@@ -5,9 +5,25 @@
 
 /* Droppable Item Handlers (03:59DC-03:61BF) */
 void HeartContainerEntityHandler(GBState *gb, uint16_t bc);
+void HeartPieceEntityHandler(GBState *gb, uint16_t bc);
+void HeartPieceState0Handler(GBState *gb, uint16_t bc);
+void HeartPieceState1Handler(GBState *gb, uint16_t bc);
+void HeartPieceState2Handler(GBState *gb, uint16_t bc);
+void HeartPieceState3Handler(GBState *gb, uint16_t bc);
+void HeartPieceState4Handler(GBState *gb, uint16_t bc);
+void HeartPieceState5Handler(GBState *gb, uint16_t bc);
+void HeartPieceState6Handler(GBState *gb, uint16_t bc);
+void HeartPieceState7Handler(GBState *gb, uint16_t bc);
+void HeartPieceState8Handler(GBState *gb, uint16_t bc);
+void DrawHeartPiecesInDialog(GBState *gb, uint16_t bc);
 void GuardianAcornEntityHandler(GBState *gb, uint16_t bc);
 void PieceOfPowerEntityHandler(GBState *gb, uint16_t bc);
 void IronMasksMaskEntityHandler(GBState *gb, uint16_t bc);
+void SwordShieldPickableEntityHandler(GBState *gb, uint16_t bc);
+void SwordShieldPickableState0Handler(GBState *gb, uint16_t bc);
+void SwordShieldPickableState1Handler(GBState *gb, uint16_t bc);
+void SwordShieldPickableState2Handler(GBState *gb, uint16_t bc);
+void SwordShieldPickableState3Handler(GBState *gb, uint16_t bc);
 void KeyDropPointEntityHandler(GBState *gb, uint16_t bc);
 void HookshotDropEntityHandler(GBState *gb, uint16_t bc);
 void DroppableHeartEntityHandler(GBState *gb, uint16_t bc);

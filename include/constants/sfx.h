@@ -80,6 +80,7 @@
 #define JINGLE_SWIM                             0x0F
 #define JINGLE_OPEN_INVENTORY                   0x11
 #define JINGLE_CLOSE_INVENTORY                  0x12
+#define JINGLE_NEW_HEART                        0x19
 #define JINGLE_SEAGULL                          0x21
 #define JINGLE_DUNGEON_OPENED                   0x23
 #define JINGLE_MANBO_WARP                       0x2C

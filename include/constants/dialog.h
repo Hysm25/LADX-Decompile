@@ -54,7 +54,9 @@
 #define Dialog0FC                       0xFC
 #define Dialog0FD                       0xFD
 #define Dialog04F                       0x4F
+#define Dialog050                       0x50
 #define Dialog199                       0xC7
+#define Dialog09B                       0x9B
 #define Dialog0B7                       0xB7
 #define Dialog0B9                       0xB9
 #define Dialog0BD                       0xBD

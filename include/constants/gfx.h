@@ -283,6 +283,15 @@
 #define EvilEagleRiderHiddenTiles               0x59FE
 #define ColorDungeonNpcTiles                    0x4000
 
+/* Values for hNeedsUpdatingBGTiles */
+#define TILESET_LOAD_NONE                     0x00
+#define TILESET_LOAD_WORLD                    0x01
+#define TILESET_LOAD_DUNGEON_MINIMAP          0x02
+#define TILESET_LOAD_PIECE_OF_HEART_1         0x03
+#define TILESET_LOAD_PIECE_OF_HEART_2         0x04
+#define TILESET_CLEAR_PIECE_OF_HEART_1        0x05
+#define TILESET_CLEAR_PIECE_OF_HEART_2        0x06
+
 /* Cutscene & Special Tilesets */
 #define TILESET_INDOOR                        0x06
 #define TILESET_BASE_OVERWORLD                0x05
