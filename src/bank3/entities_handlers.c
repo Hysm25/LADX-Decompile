@@ -1,6 +1,7 @@
 #include "bank3/entities_handlers.h"
 #include "bank3/entities_init_core.h"
 #include "bank3/entities_bomb.h"
+#include "bank3/entities_droppable.h"
 #include "bank3/entities_physics.h"
 #include "bank3/entities_collision.h"
 #include "bank3/entities_moblin.h"
@@ -46,6 +47,97 @@ const uint8_t Unknown020SpriteVariants[4] = {
 
 /* Data_003_4E05 (03:4E05) */
 const uint8_t Data_003_4E05[2] = { 0x10, 0xF0 };
+
+/* Data_003_5488 (03:5488): Normal enemy death explosion display list (4 frames * 16 bytes) */
+const uint8_t Data_003_5488[64] = {
+    0x00, 0x00, 0x3C, 0x01, 0x00, 0x08, 0x3C, 0x21, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0x00, 0x00, 0x3A, 0x01, 0x00, 0x08, 0x3A, 0x21, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFA, 0xFA, 0x3A, 0x01, 0xFA, 0x02, 0x3A, 0x21, 0x06, 0x06, 0x3A, 0x01, 0x06, 0x0E, 0x3A, 0x21,
+    0x04, 0xFC, 0x30, 0x01, 0x04, 0x04, 0x30, 0x21, 0xFC, 0x04, 0x30, 0x01, 0xFC, 0x0C, 0x30, 0x21
+};
+
+/* Data_003_54C8 (03:54C8): Power recoil enemy death explosion display list (5 frames * 16 bytes) */
+const uint8_t Data_003_54C8[80] = {
+    0x00, 0x00, 0x3A, 0x01, 0x00, 0x08, 0x3A, 0x21, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xF8, 0xF8, 0x3A, 0x01, 0xF8, 0x00, 0x3A, 0x21, 0x08, 0x08, 0x3A, 0x01, 0x08, 0x10, 0x3A, 0x21,
+    0x08, 0xF8, 0x3A, 0x01, 0x08, 0x00, 0x3A, 0x21, 0xF8, 0x08, 0x3A, 0x01, 0xF8, 0x10, 0x3A, 0x21,
+    0xF8, 0xF8, 0x10, 0x02, 0xF8, 0x00, 0x12, 0x02, 0xF8, 0x08, 0x12, 0x22, 0xF8, 0x10, 0x10, 0x22,
+    0x08, 0xF8, 0x10, 0x42, 0x08, 0x00, 0x12, 0x42, 0x08, 0x08, 0x12, 0x62, 0x08, 0x10, 0x10, 0x62
+};
+
+/* DropTableByIndex (03:559D): Item dropped per health group offset */
+const uint8_t DropTableByIndex[14] = {
+    ENTITY_DROPPABLE_RUPEE,
+    ENTITY_DROPPABLE_RUPEE,
+    ENTITY_DROPPABLE_HEART,
+    ENTITY_DROPPABLE_HEART,
+    ENTITY_DROPPABLE_ARROWS,
+    ENTITY_DROPPABLE_HEART,
+    ENTITY_NONE,
+    ENTITY_NONE,
+    ENTITY_DROPPABLE_FAIRY,
+    ENTITY_DROPPABLE_ARROWS,
+    ENTITY_DROPPABLE_BOMBS,
+    ENTITY_DROPPABLE_RUPEE,
+    ENTITY_DROPPABLE_FAIRY,
+    ENTITY_DROPPABLE_FAIRY
+};
+
+/* RandomDropChanceTable (03:55AB): Drop chance mask per health group offset */
+const uint8_t RandomDropChanceTable[14] = {
+    DROP_CHANCE_25_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_25_PERCENT,
+    DROP_CHANCE_25_PERCENT,
+    DROP_CHANCE_25_PERCENT,
+    DROP_CHANCE_25_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_25_PERCENT,
+    DROP_CHANCE_0_PERCENT
+};
+
+/* RandomDropChanceTableLowHealth (03:55B9): Drop chance mask per health group offset when on low health */
+const uint8_t RandomDropChanceTableLowHealth[14] = {
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_0_PERCENT,
+    DROP_CHANCE_50_PERCENT,
+    DROP_CHANCE_0_PERCENT
+};
+
+/* DropTableRandom (03:55C7): Fallback random drop table (8 entries) */
+const uint8_t DropTableRandom[8] = {
+    ENTITY_DROPPABLE_RUPEE,
+    ENTITY_DROPPABLE_HEART,
+    ENTITY_DROPPABLE_BOMBS,
+    ENTITY_DROPPABLE_FAIRY,
+    ENTITY_DROPPABLE_RUPEE,
+    ENTITY_DROPPABLE_HEART,
+    ENTITY_DROPPABLE_BOMBS,
+    ENTITY_DROPPABLE_ARROWS
+};
+
+/* DestroyedEntityHealthGroupOffsetTable (03:4826): Health group to drop table index mapping (53 entries) */
+const uint8_t DestroyedEntityHealthGroupOffsetTable[53] = {
+    0x02, 0x06, 0x01, 0x03, 0x03, 0x03, 0x0D, 0x08, 0x0A, 0x02, 0x07, 0x0B, 0x00, 0x04, 0x00, 0x08,
+    0x04, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x00, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
+    0x03, 0x02, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x06, 0x06, 0x0D, 0x0E, 0x00, 0x09, 0x03,
+    0x06, 0x00, 0x02, 0x0E, 0x0E
+};
 
 /* Data_003_56EA (03:56EA): Normal lift animation countdown delays */
 const uint8_t Data_003_56EA[4] = { 0x01, 0x08, 0x08, 0x10 };
@@ -626,4 +718,259 @@ void EntityBecomeStunned(GBState *gb, uint16_t bc) {
 
     /* ld hl, wEntitiesSpeedZTable; add hl, bc; ld [hl], b */
     gb_write(gb, wEntitiesSpeedZTable + bc, 0);
+}
+
+/* ===== EntityDeathHandler (03:5518) ===== */
+void EntityDeathHandler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld hl, wEntitiesOptions1Table; add hl, bc; ld a, [hl]; and ENTITY_OPT1_IS_BOSS */
+    /* jr z, .dying; jp ExecuteActiveEntityHandler */
+    uint8_t options1 = gb_read(gb, (uint16_t)(wEntitiesOptions1Table + bc));
+    if ((options1 & ENTITY_OPT1_IS_BOSS) != 0) {
+        ExecuteActiveEntityHandler(gb, NULL);
+        return;
+    }
+
+    /* .dying: ld hl, wEntitiesPrivateCountdown3Table; add hl, bc; ld a, [hl]; and a */
+    /* jp z, DidKillEnemy */
+    uint8_t countdown3 = gb_read(gb, (uint16_t)(wEntitiesPrivateCountdown3Table + bc));
+    if (countdown3 == 0) {
+        DidKillEnemy(gb, bc, SpawnEnemyDrop);
+        return;
+    }
+
+    /* hl = (wEntitiesPowerRecoilingTable[bc] != 0 ? Data_003_54C8 : Data_003_5488) */
+    uint8_t power_recoiling = gb_read(gb, (uint16_t)(wEntitiesPowerRecoilingTable + bc));
+    const uint8_t *data_table = (power_recoiling != 0) ? Data_003_54C8 : Data_003_5488;
+
+    /* cp $20; jr nc, jr_003_556F */
+    if (countdown3 < 0x20) {
+        /* rla; and $30; ld e, a */
+        uint8_t e = (uint8_t)((countdown3 << 1) & 0x30);
+        const uint8_t *sprite_data = data_table + e;
+
+        /* cp $30; jr nz, .jr_003_5555 */
+        if (e == 0x30 && power_recoiling != 0) {
+            /* .powerRecoil: ld c, $08; call RenderActiveEntitySpritesRect; ld a, $04; call func_015_7964_trampoline */
+            RenderActiveEntitySpritesRect(gb, sprite_data, 8, NULL);
+            func_015_7964_trampoline(gb, NULL);
+        } else {
+            /* .jr_003_5555: ld c, $04; call RenderActiveEntitySpritesRect */
+            RenderActiveEntitySpritesRect(gb, sprite_data, 4, NULL);
+        }
+
+        /* .renderEnd: call ReturnIfNonInteractive_03; call ApplyRecoilIfNeeded_03; ret */
+        if (ReturnIfNonInteractive_03(gb, false)) {
+            return;
+        }
+        ApplyRecoilIfNeeded_03(gb, bc);
+        return;
+    }
+
+    /* jr_003_556F: */
+    /* call ExecuteActiveEntityHandler_trampoline */
+    ExecuteActiveEntityHandler_trampoline(gb, NULL);
+
+    /* call ReturnIfNonInteractive_03.allowInactiveEntity */
+    if (ReturnIfNonInteractive_03(gb, true)) {
+        return;
+    }
+
+    /* ld hl, wEntitiesIgnoreHitsCountdownTable; add hl, bc; ld a, [hl]; and a; jr nz, jr_003_5599 */
+    if (gb_read(gb, (uint16_t)(wEntitiesIgnoreHitsCountdownTable + bc)) == 0) {
+        /* ld hl, wEntitiesPrivateCountdown3Table; add hl, bc; ld [hl], $1F */
+        gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown3Table + bc), 0x1F);
+
+        /* ld a, [wTunicType]; and a; jr nz, .jr_5594 */
+        /* ld a, [wActivePowerUp]; cp ACTIVE_POWER_UP_PIECE_OF_POWER; jr nz, .jr_5594 */
+        /* ld a, WAVE_SFX_UNKNOWN_12; ldh [hWaveSfx], a */
+        if (gb_read(gb, wTunicType) == 0 && gb_read(gb, wActivePowerUp) == ACTIVE_POWER_UP_PIECE_OF_POWER) {
+            gb_write_hram(gb, hWaveSfx, WAVE_SFX_UNKNOWN_12);
+        }
+
+        /* .jr_5594: ld hl, hNoiseSfx; ld [hl], NOISE_SFX_ENEMY_DESTROYED */
+        gb_write_hram(gb, hNoiseSfx, NOISE_SFX_ENEMY_DESTROYED);
+    }
+
+    /* jr_003_5599: call ApplyRecoilIfNeeded_03; ret */
+    ApplyRecoilIfNeeded_03(gb, bc);
+}
+
+/* ===== SpawnEnemyDrop (03:55CF) ===== */
+void SpawnEnemyDrop(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    uint8_t drop_entity = 0;
+
+    /* ldh a, [hActiveEntityType]; cp ENTITY_LIKE_LIKE; jr nz, .likeLikeEnd */
+    if (gb_read_hram(gb, hActiveEntityType) == ENTITY_LIKE_LIKE) {
+        /* ld hl, wEntitiesPrivateState1Table; add hl, bc; ld a, [hl]; and a; jr z, .likeLikeEnd */
+        if (gb_read(gb, (uint16_t)(wEntitiesPrivateState1Table + bc)) != 0) {
+            /* ld a, ENTITY_SWORD_SHIELD_PICKUP; jp .dropEntity */
+            drop_entity = ENTITY_SWORD_SHIELD_PICKUP;
+            goto dropEntity;
+        }
+    }
+
+    /* .likeLikeEnd: */
+    /* ld hl, wEntitiesDroppedItemTable; add hl, bc; ld a, [hl]; cp ENTITY_NONE; ret z */
+    uint8_t dropped_item = gb_read(gb, (uint16_t)(wEntitiesDroppedItemTable + bc));
+    if (dropped_item == ENTITY_NONE) {
+        return;
+    }
+    /* and a; jp nz, .dropEntity */
+    if (dropped_item != DROP_RANDOM) {
+        drop_entity = dropped_item;
+        goto dropEntity;
+    }
+
+    /* check if wGuardianAcornCounter reached limit */
+    /* ld a, [wGuardianAcornCounter]; inc a; ld [wGuardianAcornCounter], a */
+    uint8_t acorn_counter = (uint8_t)(gb_read(gb, wGuardianAcornCounter) + 1);
+    gb_write(gb, wGuardianAcornCounter, acorn_counter);
+    /* cp GUARDIAN_ACORN_COUNTER_MAX; jr c, .noGuardianAcornDrop */
+    if (acorn_counter >= GUARDIAN_ACORN_COUNTER_MAX) {
+        /* xor a; ld [wGuardianAcornCounter], a */
+        gb_write(gb, wGuardianAcornCounter, 0);
+
+        /* ld a, [wInBossBattle]; ld hl, wActivePowerUp; or [hl]; ld hl, hIsSideScrolling; or [hl]; jr nz, .noGuardianAcornDrop */
+        uint8_t blocked = (uint8_t)(gb_read(gb, wInBossBattle) |
+                                    gb_read(gb, wActivePowerUp) |
+                                    gb_read_hram(gb, hIsSideScrolling));
+        if (blocked == 0) {
+            /* ld a, ENTITY_GUARDIAN_ACORN; jp .dropEntity */
+            drop_entity = ENTITY_GUARDIAN_ACORN;
+            goto dropEntity;
+        }
+    }
+
+    /* .noGuardianAcornDrop: */
+    /* ld hl, wEntitiesHealthGroup; add hl, bc; ld e, [hl]; ld d, b */
+    /* ld hl, DestroyedEntityHealthGroupOffsetTable; add hl, de; ld a, [hl]; and a; ret z */
+    uint8_t health_group = gb_read(gb, (uint16_t)(wEntitiesHealthGroup + bc));
+    if (health_group >= sizeof(DestroyedEntityHealthGroupOffsetTable)) {
+        return;
+    }
+    uint8_t group_offset = DestroyedEntityHealthGroupOffsetTable[health_group];
+    if (group_offset == 0) {
+        return;
+    }
+
+    /* ld e, a */
+    /* How many enemies to kill before a Piece of Power drops? */
+    uint8_t pop_threshold = PIECE_OF_POWER_COUNTER_MAX_LOW_MAX_HEALTH;
+    uint8_t max_hearts = gb_read(gb, wMaxHearts);
+    if (max_hearts >= LOW_MAX_HEALTH) {
+        if (max_hearts < MEDIUM_MAX_HEALTH) {
+            pop_threshold = PIECE_OF_POWER_COUNTER_MAX_MEDIUM_MAX_HEALTH;
+        } else {
+            pop_threshold = PIECE_OF_POWER_COUNTER_MAX_HIGH_MAX_HEALTH;
+        }
+    }
+
+    /* .pieceOfPowerDrop: */
+    /* ld hl, wPieceOfPowerKillCount; inc [hl]; ld a, [hl]; cp d; jr c, .noPieceOfPowerDrop */
+    uint8_t pop_count = (uint8_t)(gb_read(gb, wPieceOfPowerKillCount) + 1);
+    gb_write(gb, wPieceOfPowerKillCount, pop_count);
+    if (pop_count >= pop_threshold) {
+        /* ld [hl], b */
+        gb_write(gb, wPieceOfPowerKillCount, 0);
+
+        /* ld a, [wInBossBattle]; ld hl, hIsSideScrolling; or [hl]; ld hl, wActivePowerUp; or [hl]; jr nz, .noPieceOfPowerDrop */
+        uint8_t blocked = (uint8_t)(gb_read(gb, wInBossBattle) |
+                                    gb_read_hram(gb, hIsSideScrolling) |
+                                    gb_read(gb, wActivePowerUp));
+        if (blocked == 0) {
+            /* ld a, ENTITY_PIECE_OF_POWER; jr .dropEntity */
+            drop_entity = ENTITY_PIECE_OF_POWER;
+            goto dropEntity;
+        }
+    }
+
+    /* .noPieceOfPowerDrop: */
+    /* ld hl, (RandomDropChanceTable - 1); ld a, [wIsOnLowHeath]; and a; jr z, .dropRandomEntity */
+    /* ld hl, (RandomDropChanceTableLowHealth - 1) */
+    const uint8_t *chance_table = (gb_read(gb, wIsOnLowHeath) != 0) ?
+                                  RandomDropChanceTableLowHealth :
+                                  RandomDropChanceTable;
+
+    /* .dropRandomEntity: add hl, de */
+    /* call GetRandomByte; and [hl]; ret nz */
+    uint8_t chance_mask = chance_table[group_offset - 1];
+    if ((GetRandomByte(gb) & chance_mask) != 0) {
+        return;
+    }
+
+    /* ld hl, (DropTableByIndex - 1); add hl, de; ld a, [hl] */
+    drop_entity = DropTableByIndex[group_offset - 1];
+    /* cp ENTITY_NONE; jr nz, .dropEntity */
+    if (drop_entity == ENTITY_NONE) {
+        /* call GetRandomByte; and %00000111; ld e, a; ld hl, DropTableRandom; add hl, de; ld a, [hl] */
+        uint8_t rand_idx = (uint8_t)(GetRandomByte(gb) & 0x07);
+        drop_entity = DropTableRandom[rand_idx];
+    }
+
+dropEntity:
+    /* .dropEntity: call SpawnNewEntity; ret c */
+    {
+        uint16_t de = SpawnNewEntity_slot(gb, drop_entity);
+        if (de == 0xFFFF) {
+            return;
+        }
+
+        /* ld hl, wEntitiesPrivateState1Table; add hl, bc; ld a, [hl] */
+        /* ld hl, wEntitiesPrivateState1Table; add hl, de; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesPrivateState1Table + de),
+                 gb_read(gb, (uint16_t)(wEntitiesPrivateState1Table + bc)));
+
+        /* ldh a, [hMultiPurpose0]; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesPosXTable + de), gb_read_hram(gb, hMultiPurpose0));
+
+        /* ldh a, [hMultiPurpose1]; ld hl, wEntitiesPosYTable; add hl, de; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesPosYTable + de), gb_read_hram(gb, hMultiPurpose1));
+
+        /* ld hl, wEntitiesSlowTransitionCountdownTable; add hl, de; ld [hl], DROP_DESPAWN_TIME */
+        gb_write(gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + de), DROP_DESPAWN_TIME);
+
+        /* ld hl, wEntitiesPrivateCountdown1Table; add hl, de; ld [hl], DROP_COUNTDOWN_TIME */
+        gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown1Table + de), DROP_COUNTDOWN_TIME);
+
+        /* ld hl, wEntitiesPrivateCountdown3Table; add hl, de; ld [hl], $03 */
+        gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown3Table + de), 0x03);
+
+        /* ldh a, [hIsSideScrolling]; and a; jr nz, .isSideScrolling */
+        if (gb_read_hram(gb, hIsSideScrolling) != 0) {
+            /* .isSideScrolling: ld hl, wEntitiesSpeedYTable; add hl, de; ld [hl], $EC */
+            gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + de), 0xEC);
+        } else {
+            /* ld hl, wEntitiesTypeTable; add hl, de; ld a, [hl] */
+            uint8_t spawned_type = gb_read(gb, (uint16_t)(wEntitiesTypeTable + de));
+            if (spawned_type == ENTITY_KEY_DROP_POINT) {
+                /* ldh a, [hActiveEntityType]; cp ENTITY_ARMOS_KNIGHT; jr nz, .noSpriteUpdate */
+                if (gb_read_hram(gb, hActiveEntityType) == ENTITY_ARMOS_KNIGHT) {
+                    /* ld hl, wEntitiesSpriteVariantTable; add hl, de; ld [hl], $03 */
+                    gb_write(gb, (uint16_t)(wEntitiesSpriteVariantTable + de), 0x03);
+                }
+            } else if (spawned_type == ENTITY_HIDING_SLIME_KEY) {
+                /* .noSpriteUpdate: cp ENTITY_HIDING_SLIME_KEY; jr nz, .slimeKeyEnd */
+                /* ldh a, [hMapRoom]; cp ROOM_OW_KANALET_CASTLE_CROW; jr z, .moveKeyTowardsLink */
+                /* cp ROOM_OW_KANALET_CASTLE_FIVE_PITS; jr nz, .slimeKeyEnd */
+                uint8_t map_room = gb_read_hram(gb, hMapRoom);
+                if (map_room == ROOM_OW_KANALET_CASTLE_CROW || map_room == ROOM_OW_KANALET_CASTLE_FIVE_PITS) {
+                    /* .moveKeyTowardsLink: push bc; push de; ld c, e; ld b, d; ld a, $10; call ApplyVectorTowardsLink; pop de; pop bc */
+                    ApplyVectorTowardsLink_with_length(gb, de, 0x10);
+                }
+            }
+
+            /* .slimeKeyEnd: ld hl, wEntitiesSpeedZTable; add hl, de; ld [hl], $18 */
+            gb_write(gb, (uint16_t)(wEntitiesSpeedZTable + de), 0x18);
+        }
+
+        /* .applyDefaultPosZ: */
+        /* ld hl, wEntitiesPosZTable; add hl, bc; ld a, [hl] */
+        /* ld hl, wEntitiesPosZTable; add hl, de; ld [hl], a */
+        gb_write(gb, (uint16_t)(wEntitiesPosZTable + de),
+                 gb_read(gb, (uint16_t)(wEntitiesPosZTable + bc)));
+    }
 }

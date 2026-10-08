@@ -790,6 +790,14 @@ void EntityInitNoop(GBState *gb) {
 
 }
 
+/* ===== EntityInitEntity13 (03:59D7) ===== */
+void EntityInitEntity13(GBState *gb) {
+    if (!gb) return;
+
+    /* ret */
+    (void)gb;
+}
+
 /* ===== EntityShiftPosition (03:4F83) ===== */
 void EntityShiftPosition(GBState *gb, uint16_t bc) {
     if (!gb) return;

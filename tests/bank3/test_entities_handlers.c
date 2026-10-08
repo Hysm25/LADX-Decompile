@@ -5,9 +5,13 @@
 #include "gb.h"
 #include "bank3/entities_handlers.h"
 #include "bank3/entities_init_core.h"
+#include "bank3/entities_liftable_rock.h"
+#include "bank3/entities_init_basic.h"
+#include "bank3/entities_droppable.h"
 #include "bank3/entities_physics.h"
 #include "bank3/entities_collision.h"
 #include "bank3/entities_moblin.h"
+#include "home/entities.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
 #include "constants/directions.h"
@@ -91,6 +95,43 @@ static void test_DataTables_EntitiesHandlers(void) {
     assert(sizeof(Data_003_4E05) == 2);
     assert(Data_003_4E05[0] == 0x10);
     assert(Data_003_4E05[1] == 0xF0);
+
+    /* Data_003_5488 (64 bytes: 4 frames * 16 bytes) */
+    assert(sizeof(Data_003_5488) == 64);
+    assert(Data_003_5488[0] == 0x00 && Data_003_5488[1] == 0x00 && Data_003_5488[2] == 0x3C && Data_003_5488[3] == 0x01);
+
+    /* Data_003_54C8 (80 bytes: 5 frames * 16 bytes) */
+    assert(sizeof(Data_003_54C8) == 80);
+    assert(Data_003_54C8[0] == 0x00 && Data_003_54C8[1] == 0x00 && Data_003_54C8[2] == 0x3A && Data_003_54C8[3] == 0x01);
+
+    /* DropTableByIndex (14 bytes) */
+    assert(sizeof(DropTableByIndex) == 14);
+    assert(DropTableByIndex[0] == ENTITY_DROPPABLE_RUPEE);
+    assert(DropTableByIndex[6] == ENTITY_NONE);
+    assert(DropTableByIndex[13] == ENTITY_DROPPABLE_FAIRY);
+
+    /* RandomDropChanceTable (14 bytes) */
+    assert(sizeof(RandomDropChanceTable) == 14);
+    assert(RandomDropChanceTable[0] == DROP_CHANCE_25_PERCENT);
+    assert(RandomDropChanceTable[1] == DROP_CHANCE_50_PERCENT);
+    assert(RandomDropChanceTable[3] == DROP_CHANCE_0_PERCENT);
+
+    /* RandomDropChanceTableLowHealth (14 bytes) */
+    assert(sizeof(RandomDropChanceTableLowHealth) == 14);
+    assert(RandomDropChanceTableLowHealth[0] == DROP_CHANCE_50_PERCENT);
+    assert(RandomDropChanceTableLowHealth[3] == DROP_CHANCE_0_PERCENT);
+
+    /* DropTableRandom (8 bytes) */
+    assert(sizeof(DropTableRandom) == 8);
+    assert(DropTableRandom[0] == ENTITY_DROPPABLE_RUPEE);
+    assert(DropTableRandom[1] == ENTITY_DROPPABLE_HEART);
+    assert(DropTableRandom[7] == ENTITY_DROPPABLE_ARROWS);
+
+    /* DestroyedEntityHealthGroupOffsetTable (53 entries) */
+    assert(sizeof(DestroyedEntityHealthGroupOffsetTable) == 53);
+    assert(DestroyedEntityHealthGroupOffsetTable[0] == 0x02);
+    assert(DestroyedEntityHealthGroupOffsetTable[1] == 0x06);
+    assert(DestroyedEntityHealthGroupOffsetTable[52] == 0x0E);
 
     /* Data_003_56EA (4 bytes) */
     assert(sizeof(Data_003_56EA) == 4);
@@ -709,6 +750,325 @@ static void test_EntityBecomeStunned(void) {
     printf("[PASS] EntityBecomeStunned\n");
 }
 
+/* ===== 10. SmashRock ===== */
+static void test_SmashRock(void) {
+    printf("[RUN ] SmashRock\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Setup entity 1 as active rock */
+    uint16_t bc = 0x01;
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+
+    /* Multipurpose registers used by SmashRock */
+    gb_write_hram(&gb, hMultiPurpose0, 0x44);
+    gb_write_hram(&gb, hMultiPurpose1, 0x55);
+    gb_write_hram(&gb, hMultiPurpose3, 0x05);
+
+    SmashRock(&gb, bc);
+
+    /* Original entity should be unloaded */
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    /* New entity (ENTITY_LIFTABLE_ROCK) spawned */
+    bool found = false;
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (i == bc) continue;
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_LIFTABLE_ROCK &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            found = true;
+            assert(gb_read(&gb, wEntitiesPosXTable + i) == 0x44);
+            assert(gb_read(&gb, wEntitiesPosYTable + i) == 0x50); /* 0x55 - 0x05 */
+            assert(gb_read(&gb, wEntitiesSpriteVariantTable + i) == 0x00);
+            assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + i) == 0x0F);
+            assert(gb_read(&gb, wEntitiesPhysicsFlagsTable + i) ==
+                   (4 | ENTITY_PHYSICS_HARMLESS | ENTITY_PHYSICS_PROJECTILE_NOCLIP));
+            break;
+        }
+    }
+    assert(found);
+    (void)found;
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_POT_SMASHED);
+
+    /* NULL state safety */
+    SmashRock(NULL, bc);
+
+    printf("[PASS] SmashRock\n");
+}
+
+/* ===== 11. EntityInitEntity13 ===== */
+static void test_EntityInitEntity13(void) {
+    printf("[RUN ] EntityInitEntity13\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Pure ret routine */
+    EntityInitEntity13(&gb);
+    EntityInitEntity13(NULL);
+
+    printf("[PASS] EntityInitEntity13\n");
+}
+
+/* ===== 12. EntityDeathHandler ===== */
+static void test_EntityDeathHandler(void) {
+    printf("[RUN ] EntityDeathHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+    setup_interactive(&gb);
+
+    uint16_t bc = 0x02;
+    gb_write(&gb, wActiveEntityIndex, bc);
+
+    /* Case 1: Boss entity option bit -> executes active entity handler instead */
+    gb_write(&gb, wEntitiesOptions1Table + bc, ENTITY_OPT1_IS_BOSS);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x10);
+    EntityDeathHandler(&gb, bc);
+    /* Should NOT decrement or trigger DidKillEnemy */
+    assert(gb_read(&gb, wEnemyWasKilled) == 0);
+
+    /* Case 2: Countdown 3 is 0 -> DidKillEnemy called */
+    gb_write(&gb, wEntitiesOptions1Table + bc, 0);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0);
+    gb_write(&gb, wEntitiesLoadOrderTable + bc, 0xFF); /* Unloads entity */
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, ENTITY_NONE);
+    EntityDeathHandler(&gb, bc);
+    assert(gb_read(&gb, wEnemyWasKilled) == 0x03);
+
+    /* Case 3: Countdown 3 >= 0x20 and ignore hits countdown == 0 */
+    gb_init(&gb);
+    setup_interactive(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesOptions1Table + bc, 0);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x25);
+    gb_write(&gb, wEntitiesIgnoreHitsCountdownTable + bc, 0x00);
+    gb_write(&gb, wTunicType, 0x00);
+    gb_write(&gb, wActivePowerUp, ACTIVE_POWER_UP_PIECE_OF_POWER);
+
+    EntityDeathHandler(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPrivateCountdown3Table + bc) == 0x1F);
+    assert(gb_read_hram(&gb, hWaveSfx) == WAVE_SFX_UNKNOWN_12);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_ENEMY_DESTROYED);
+
+    /* Case 4: Countdown 3 >= 0x20 and ignore hits countdown != 0 */
+    gb_init(&gb);
+    setup_interactive(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x25);
+    gb_write(&gb, wEntitiesIgnoreHitsCountdownTable + bc, 0x05);
+    gb_write_hram(&gb, hWaveSfx, 0);
+    gb_write_hram(&gb, hNoiseSfx, 0);
+
+    EntityDeathHandler(&gb, bc);
+    /* Should NOT set countdown to 0x1F or trigger sound */
+    assert(gb_read(&gb, wEntitiesPrivateCountdown3Table + bc) == 0x25);
+    assert(gb_read_hram(&gb, hWaveSfx) == 0);
+    assert(gb_read_hram(&gb, hNoiseSfx) == 0);
+
+    /* Case 5: Countdown 3 < 0x20: normal dying animation frames */
+    gb_init(&gb);
+    setup_interactive(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesPowerRecoilingTable + bc, 0x00);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x18); /* frame 3 (e = 0x30) */
+
+    EntityDeathHandler(&gb, bc);
+
+    /* Case 6: Countdown 3 < 0x20 with power recoil at frame 0x30 */
+    gb_init(&gb);
+    setup_interactive(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesPowerRecoilingTable + bc, 0x01);
+    gb_write(&gb, wEntitiesPrivateCountdown3Table + bc, 0x18); /* e = 0x30 */
+
+    EntityDeathHandler(&gb, bc);
+
+    /* NULL state safety */
+    EntityDeathHandler(NULL, bc);
+
+    printf("[PASS] EntityDeathHandler\n");
+}
+
+/* ===== 13. SpawnEnemyDrop ===== */
+static void test_SpawnEnemyDrop(void) {
+    printf("[RUN ] SpawnEnemyDrop\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    uint16_t bc = 0x01;
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesPrivateState1Table + bc, 0x07);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x08);
+    gb_write_hram(&gb, hMultiPurpose0, 0x30);
+    gb_write_hram(&gb, hMultiPurpose1, 0x40);
+
+    /* Case 1: Like-Like swallowed shield */
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_LIKE_LIKE);
+    gb_write(&gb, wEntitiesPrivateState1Table + bc, 0x01);
+    SpawnEnemyDrop(&gb, bc);
+
+    /* Verify ENTITY_SWORD_SHIELD_PICKUP spawned */
+    bool found_shield = false;
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (i == bc) continue;
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_SWORD_SHIELD_PICKUP &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            found_shield = true;
+            assert(gb_read(&gb, wEntitiesPosXTable + i) == 0x30);
+            assert(gb_read(&gb, wEntitiesPosYTable + i) == 0x40);
+            assert(gb_read(&gb, wEntitiesPosZTable + i) == 0x08);
+            assert(gb_read(&gb, wEntitiesPrivateState1Table + i) == 0x01);
+            assert(gb_read(&gb, wEntitiesSlowTransitionCountdownTable + i) == DROP_DESPAWN_TIME);
+            assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + i) == DROP_COUNTDOWN_TIME);
+            assert(gb_read(&gb, wEntitiesPrivateCountdown3Table + i) == 0x03);
+            assert(gb_read(&gb, wEntitiesSpeedZTable + i) == 0x18);
+            break;
+        }
+    }
+    assert(found_shield);
+    (void)found_shield;
+
+    /* Case 2: ENTITY_NONE drop -> nothing spawned */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, ENTITY_NONE);
+    SpawnEnemyDrop(&gb, bc);
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        assert(gb_read(&gb, wEntitiesStatusTable + i) == ENTITY_STATUS_DISABLED);
+    }
+
+    /* Case 3: Fixed item drop (e.g. ENTITY_DROPPABLE_HEART) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, ENTITY_DROPPABLE_HEART);
+    gb_write_hram(&gb, hMultiPurpose0, 0x50);
+    gb_write_hram(&gb, hMultiPurpose1, 0x60);
+    SpawnEnemyDrop(&gb, bc);
+
+    bool found_heart = false;
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (i == bc) continue;
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_DROPPABLE_HEART &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            found_heart = true;
+            break;
+        }
+    }
+    assert(found_heart);
+    (void)found_heart;
+
+    /* Case 4: Guardian Acorn counter threshold (12) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, DROP_RANDOM);
+    gb_write(&gb, wGuardianAcornCounter, 11);
+    gb_write(&gb, wInBossBattle, 0);
+    gb_write(&gb, wActivePowerUp, 0);
+    gb_write_hram(&gb, hIsSideScrolling, 0);
+
+    SpawnEnemyDrop(&gb, bc);
+    assert(gb_read(&gb, wGuardianAcornCounter) == 0);
+
+    bool found_acorn = false;
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_GUARDIAN_ACORN &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            found_acorn = true;
+            break;
+        }
+    }
+    assert(found_acorn);
+    (void)found_acorn;
+
+    /* Case 5: Piece of power thresholds */
+    /* Max hearts < 7: threshold = 30 */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, DROP_RANDOM);
+    gb_write(&gb, wGuardianAcornCounter, 0);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0); /* Group offset table[0] = 0x02 */
+    gb_write(&gb, wMaxHearts, 0x06);
+    gb_write(&gb, wPieceOfPowerKillCount, 29);
+
+    SpawnEnemyDrop(&gb, bc);
+    assert(gb_read(&gb, wPieceOfPowerKillCount) == 0);
+    bool found_pop = false;
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_PIECE_OF_POWER &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            found_pop = true;
+            break;
+        }
+    }
+    assert(found_pop);
+    (void)found_pop;
+
+    /* Case 6: Armos Knight dropping key gets sprite variant 3 */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_ARMOS_KNIGHT);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, ENTITY_KEY_DROP_POINT);
+    SpawnEnemyDrop(&gb, bc);
+
+    bool found_key = false;
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_KEY_DROP_POINT &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            found_key = true;
+            assert(gb_read(&gb, wEntitiesSpriteVariantTable + i) == 0x03);
+            break;
+        }
+    }
+    assert(found_key);
+    (void)found_key;
+
+    /* Case 7: Side-scrolling speed Y */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write_hram(&gb, hIsSideScrolling, 0x01);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, ENTITY_DROPPABLE_HEART);
+    SpawnEnemyDrop(&gb, bc);
+
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_DROPPABLE_HEART &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            assert(gb_read(&gb, wEntitiesSpeedYTable + i) == 0xEC);
+            break;
+        }
+    }
+
+    /* Case 8: Kanalet Castle crow room moving key towards Link */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK);
+    gb_write_hram(&gb, hMapRoom, ROOM_OW_KANALET_CASTLE_CROW);
+    gb_write(&gb, wEntitiesDroppedItemTable + bc, ENTITY_HIDING_SLIME_KEY);
+    gb_write_hram(&gb, hLinkPositionX, 0x60);
+    gb_write_hram(&gb, hLinkPositionY, 0x60);
+    gb_write_hram(&gb, hMultiPurpose0, 0x20);
+    gb_write_hram(&gb, hMultiPurpose1, 0x20);
+    SpawnEnemyDrop(&gb, bc);
+
+    for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+        if (gb_read(&gb, wEntitiesTypeTable + i) == ENTITY_HIDING_SLIME_KEY &&
+            gb_read(&gb, wEntitiesStatusTable + i) != ENTITY_STATUS_DISABLED) {
+            /* Velocity should be directed towards Link */
+            assert(gb_read(&gb, wEntitiesSpeedXTable + i) != 0 ||
+                   gb_read(&gb, wEntitiesSpeedYTable + i) != 0);
+            break;
+        }
+    }
+
+    /* NULL state safety */
+    SpawnEnemyDrop(NULL, bc);
+
+    printf("[PASS] SpawnEnemyDrop\n");
+}
+
 /* Suite runner */
 void test_bank3_entities_handlers(void) {
     printf("[SUITE] Bank 3 Universal Entity State Handlers\n");
@@ -722,6 +1082,10 @@ void test_bank3_entities_handlers(void) {
     test_EntityGetLiftedUp();
     test_EntityLiftedHandler_and_func_003_5795();
     test_EntityBecomeStunned();
+    test_SmashRock();
+    test_EntityInitEntity13();
+    test_EntityDeathHandler();
+    test_SpawnEnemyDrop();
 
     printf("[SUITE PASS] Bank 3 Universal Entity State Handlers\n\n");
 }

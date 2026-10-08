@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~94.1%
-* **Number of Verified Functions**: 1140
-* **Number of Decompiled Functions**: 1140
-* **Number Remaining**: ~72 functions
-* **Current Subsystem**: ROM Bank 3 (Universal Entity State Handlers, Chest Dispensers, Pushable Blocks)
-* **Current Task**: Batch 106 Verification Completed
-* **Last Completed Task**: Batch 106 Verification — ROM Bank 3 Roaming Enemy AI, Chest Item Dispensers, and Pushable Block Initialization (`IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, `EntityInitPushedBlock`).
-* **Last Update Timestamp**: 2026-10-08T23:05:00+00:00
+* **Current Overall Progress**: ~94.4%
+* **Number of Verified Functions**: 1144
+* **Number of Decompiled Functions**: 1144
+* **Number Remaining**: ~68 functions
+* **Current Subsystem**: ROM Bank 3 (Enemy Destruction, Item Drops, Rock Smashing, Universal Entity State Handlers)
+* **Current Task**: Batch 107 Verification Completed
+* **Last Completed Task**: Batch 107 Verification — ROM Bank 3 Enemy Destruction, Item Drops, Rock Smashing, and Init Stub (`SmashRock`, `EntityDeathHandler`, `SpawnEnemyDrop`, `EntityInitEntity13`).
+* **Last Update Timestamp**: 2026-10-08T23:57:00+00:00
 
 ---
 
@@ -1467,6 +1467,36 @@
 
 ---
 
+## Batch 107 Verification — ROM Bank 3 Enemy Destruction, Item Drops, Rock Smashing, and Init Stub
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:5407`, `03:5518`, `03:55CF`, `03:59D7`). Implemented across `src/bank3/entities_liftable_rock.c`, `src/bank3/entities_handlers.c`, and `src/bank3/entities_init_basic.c` with declarations in `include/bank3/entities_liftable_rock.h`, `include/bank3/entities_handlers.h`, and `include/bank3/entities_init_basic.h`.
+- **Functions Decompiled & Verified:**
+  - `SmashRock` (`03:5407`, `bank3.asm:2069`): Spawns smashed rock visual entity (`ENTITY_LIFTABLE_ROCK`) in an available slot; configures X pos from `hMultiPurpose0`, Y pos from `hMultiPurpose1 - hMultiPurpose3`, variant 0, private countdown 1 = `0x0F`, physics flags = `4 | ENTITY_PHYSICS_HARMLESS | ENTITY_PHYSICS_PROJECTILE_NOCLIP`, plays `NOISE_SFX_POT_SMASHED`, and unloads source entity via `UnloadEntityAndReturn`. Returns early if entity allocation fails.
+  - `EntityDeathHandler` (`03:5518`, `bank3.asm:2176`): Universal enemy death animation and drop sequence dispatcher. If entity has `ENTITY_OPT1_IS_BOSS`, delegates immediately to `ExecuteActiveEntityHandler`. When dying: if private countdown 3 is 0, calls `DidKillEnemy(gb, bc, SpawnEnemyDrop)`. If countdown 3 < `0x20`, selects explosion frame offset `(countdown3 << 1) & 0x30` from `Data_003_5488` (or `Data_003_54C8` if power recoiling). When offset is `0x30` and power recoiling, renders 8 sprites and calls `func_015_7964_trampoline`; otherwise renders 4 sprites via `RenderActiveEntitySpritesRect`. Applies non-interactive exit and recoil. When countdown 3 >= `0x20`, runs `ExecuteActiveEntityHandler_trampoline`, validates interactivity, checks `wEntitiesIgnoreHitsCountdownTable`, resets countdown 3 to `0x1F`, plays `WAVE_SFX_UNKNOWN_12` if green tunic and piece of power active, triggers `NOISE_SFX_ENEMY_DESTROYED`, and applies recoil.
+  - `SpawnEnemyDrop` (`03:55CF`, `bank3.asm:2356`): Universal enemy drop spawner. If active entity is Like-Like that swallowed a shield (`wEntitiesPrivateState1Table != 0`), drops `ENTITY_SWORD_SHIELD_PICKUP`. Inspects `wEntitiesDroppedItemTable`: returns immediately on `ENTITY_NONE`, drops fixed item if non-zero. Otherwise evaluates random power-up drop: increments `wGuardianAcornCounter` (drops `ENTITY_GUARDIAN_ACORN` at counter >= 12 if not boss battle, side-scrolling, or power-up active; resets counter). Inspects health group offset via `DestroyedEntityHealthGroupOffsetTable`; returns if 0. Increments `wPieceOfPowerKillCount` against heart-scaled threshold (30 for < 7 hearts, 35 for 7-10 hearts, 40 for >= 11 hearts); on threshold reset, drops `ENTITY_PIECE_OF_POWER` if not blocked. Otherwise evaluates random drop probability using `RandomDropChanceTable` (or `RandomDropChanceTableLowHealth` on low health) with `GetRandomByte`. Drops item from `DropTableByIndex`, falling back to `DropTableRandom` on `ENTITY_NONE`. Spawns drop entity via `SpawnNewEntity_slot`, copying private state 1, setting X/Y positions, slow transition countdown `DROP_DESPAWN_TIME` (`0x80`), countdown 1 `DROP_COUNTDOWN_TIME` (`0x18`), countdown 3 (`0x03`). Applies side-scrolling Y speed `0xEC` or top-down Z speed `0x18`; sets variant 3 for Armos Knight key; applies vector towards Link with length `0x10` for Kanalet Castle crow/5 pits key rooms; copies Z position from destroyed entity.
+  - `EntityInitEntity13` (`03:59D7`, `bank3.asm:2741`): Entity 13 initialization stub (`ret`).
+- **Data Tables Defined & Verified:**
+  - `Data_003_5488` (`03:5488`): Normal enemy death explosion display list (4 frames * 16 bytes = 64 bytes).
+  - `Data_003_54C8` (`03:54C8`): Power recoil enemy death explosion display list (5 frames * 16 bytes = 80 bytes).
+  - `DestroyedEntityHealthGroupOffsetTable` (`03:4826`): Health group to drop table index mapping (53 entries).
+  - `DropTableByIndex` (`03:559D`): Item dropped per health group offset (14 entries).
+  - `RandomDropChanceTable` (`03:55AB`): Drop chance bitmask per group offset (14 entries).
+  - `RandomDropChanceTableLowHealth` (`03:55B9`): Elevated drop chance bitmask on low health (14 entries).
+  - `DropTableRandom` (`03:55C7`): Fallback random drop table (8 entries).
+- **Constants Defined:**
+  - `include/constants/rooms.h`: `ROOM_OW_KANALET_CASTLE_CROW` (`0x58`), `ROOM_OW_KANALET_CASTLE_FIVE_PITS` (`0x5A`).
+  - `include/constants/gameplay.h`: `LOW_MAX_HEALTH` (`0x07`), `MEDIUM_MAX_HEALTH` (`0x0B`), `GUARDIAN_ACORN_COUNTER_MAX` (`0x0C`), `PIECE_OF_POWER_COUNTER_MAX_LOW_MAX_HEALTH` (`0x1E`), `PIECE_OF_POWER_COUNTER_MAX_MEDIUM_MAX_HEALTH` (`0x23`), `PIECE_OF_POWER_COUNTER_MAX_HIGH_MAX_HEALTH` (`0x28`), `DROP_RANDOM` (`0x00`), `DROP_POWER_UP` (`0x01`), `DROP_CHANCE_0_PERCENT` (`0x00`), `DROP_CHANCE_50_PERCENT` (`0x01`), `DROP_CHANCE_25_PERCENT` (`0x03`), `DROP_DESPAWN_TIME` (`0x80`), `DROP_COUNTDOWN_TIME` (`0x18`).
+  - `include/constants/sfx.h`: `WAVE_SFX_UNKNOWN_12` (`0x12`).
+- **Tests Added & Verified:**
+  - `test_SmashRock` in `tests/bank3/test_entities_handlers.c`: validates rock entity spawning, coordinates calculation (`Y = H1 - H3`), physics flags, pot smash noise SFX, original entity unload, and NULL safety.
+  - `test_EntityInitEntity13` in `tests/bank3/test_entities_handlers.c`: validates no-op initialization and NULL safety.
+  - `test_EntityDeathHandler` in `tests/bank3/test_entities_handlers.c`: validates boss bypass branch, dying countdown 0 transition to `DidKillEnemy`, countdown >= 0x20 transition to 0x1F with wave/noise SFX on piece-of-power/green-tunic, ignore-hits guard branch, countdown < 0x20 standard animation, and power-recoil 8-sprite branch.
+  - `test_SpawnEnemyDrop` in `tests/bank3/test_entities_handlers.c`: validates Like-Like shield recovery, fixed drop spawning, `ENTITY_NONE` early exit, acorn counter increment/threshold reset, piece-of-power heart scaling thresholds (< 7, 7-10, >= 11), Armos Knight key variant 3 assignment, side-scrolling speed Y, Kanalet Castle crow room vector towards Link, and NULL safety.
+  - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1,144 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Drop calculation tables, piece-of-power heart scaling, and death animation timing verified exact to assembly instruction sequence.
+
+---
+
 ## Completeness & Inventory Audit (Pre-Batch 106)
 
 An independent, evidence-based audit of LADX decompilation completeness was performed at commit `e599699` across ROM Banks 0, 1, 2, and 3.
@@ -1500,19 +1530,19 @@ The repository contains 1,066 active unique C function definitions in `src/` (ex
 
 ### 3. Recalculated Completeness Metrics
 - **Total In-Scope Baseline Routines:** 1,212
-- **Verified Routines:** 1,136 (100% test pass rate across 405 test suites)
-- **Decompiled Routines:** 1,136
-- **Remaining Routines:** ~76 (all remaining within ROM Bank 3)
+- **Verified Routines:** 1,144 (100% test pass rate across 405 test suites)
+- **Decompiled Routines:** 1,144
+- **Remaining Routines:** ~68 (all remaining within ROM Bank 3)
 - **Blocked Routines:** 0
-- **Overall Completion:** 93.73% (~93.7%)
+- **Overall Completion:** 94.39% (~94.4%)
 
 ### 4. Behavioral Verification Assessment & Confidence Level
 - **Test Integrity:** All verified routines are tested against `GBState` memory state, register effects, collision masks, physics velocities, and event flags. No mock-only stubbing is used for verified logic.
 - **Verification Confidence:** **98.5%** confidence across verified routines; 100% test suite pass rate.
 
-### 5. Detailed Census of the 76 Remaining Routines in Bank 3
+### 5. Detailed Census of the 68 Remaining Routines in Bank 3
 
-Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 76 in-scope routines reside exclusively in Bank 3 and are classified as follows:
+Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 68 in-scope routines reside exclusively in Bank 3 and are classified as follows:
 
 #### Group A: Implemented in C but Pending Formal Behavioral Test Verification (45 routines)
 These routines are implemented in `src/bank3/entities_init_basic.c`, `entities_liftable_rock.c`, and `entities_magic_rod.c`, but lack dedicated behavioral unit tests in `tests/`:
@@ -1562,20 +1592,16 @@ These routines are implemented in `src/bank3/entities_init_basic.c`, `entities_l
 44. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
 45. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
 
-#### Group B: Missing Functions Not Yet Implemented in C (10 routines)
-These routines have not yet been decompiled or implemented in `src/`:
-1. `SmashRock` (`03:5407`, `bank3.asm:2069`): Rock breaking physics and sprite disintegration.
-2. `EntityDeathHandler` (`03:5518`, `bank3.asm:2176`): Universal enemy death animation and drop spawning sequence.
-3. `SpawnEnemyDrop` (`03:55CF`, `bank3.asm:2356`): Random enemy drop item selection (hearts, rupees, bombs, fairies).
-4. `EntityInitEntity13` (`03:59D7`, `bank3.asm:2741`): Stub entity 13 initializer (`ret`).
-5. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`).
-6. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Internal loop entry point of entity collision system.
-7. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment.
-8. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
-9. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
-10. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper.
+#### Group B: Missing Collision & Iteration Routines Pending Decompilation (6 routines)
+These routines in the entity collision and loop subsystem remain to be decompiled:
+1. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`).
+2. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Internal loop entry point of entity collision system.
+3. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment.
+4. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
+5. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
+6. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper (ASM alias of `ApplyVectorTowardsLink`, implemented at `src/bank3/entities_physics.c:1280`).
 
-*(Note: `IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, and `EntityInitPushedBlock` were decompiled, tested, and VERIFIED in Batch 106).*
+*(Note: `SmashRock`, `EntityDeathHandler`, `SpawnEnemyDrop`, and `EntityInitEntity13` were decompiled, tested, and VERIFIED in Batch 107. `IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, and `EntityInitPushedBlock` were VERIFIED in Batch 106).*
 
 #### Group C: Shared Entry Points & Mid-Routine Labels (17 routines)
 These entry points are secondary entry labels or fall-through jump points in ASM that alias or branch into existing functions:

@@ -9,4 +9,7 @@ void LiftableRockEntityHandler(GBState *gb, uint16_t bc);
 void LiftableRockIntactHandler(GBState *gb, uint16_t bc);
 void LiftableRockStartSmashingAnimation(GBState *gb, uint16_t bc);
 
+/* Smash Rock (03:5407) */
+void SmashRock(GBState *gb, uint16_t bc);
+
 #endif /* LADX_BANK3_ENTITIES_LIFTABLE_ROCK_H */

@@ -1,4 +1,5 @@
 #include "bank3/entities_liftable_rock.h"
+#include "bank3/entities_droppable.h"
 #include "bank3/entities_physics.h"
 #include "constants/entities.h"
 #include "constants/memory.h"
@@ -200,4 +201,38 @@ void LiftableRockStartSmashingAnimation(GBState *gb, uint16_t bc) {
     gb_write(gb, wEntitiesPhysicsFlagsTable + bc, physics);
 
     return;
+}
+
+/* ===== SmashRock (03:5407) ===== */
+void SmashRock(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld a, ENTITY_LIFTABLE_ROCK; call SpawnNewEntity; ret c */
+    uint16_t de = SpawnNewEntity_slot(gb, ENTITY_LIFTABLE_ROCK);
+    if (de == 0xFFFF) {
+        return;
+    }
+
+    /* ldh a, [hMultiPurpose0]; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
+    gb_write(gb, (uint16_t)(wEntitiesPosXTable + de), gb_read_hram(gb, hMultiPurpose0));
+
+    /* ldh a, [hMultiPurpose1]; ld hl, hMultiPurpose3; sub [hl]; ld hl, wEntitiesPosYTable; add hl, de; ld [hl], a */
+    uint8_t y = (uint8_t)(gb_read_hram(gb, hMultiPurpose1) - gb_read_hram(gb, hMultiPurpose3));
+    gb_write(gb, (uint16_t)(wEntitiesPosYTable + de), y);
+
+    /* ld hl, wEntitiesSpriteVariantTable; add hl, de; ld [hl], $00 */
+    gb_write(gb, (uint16_t)(wEntitiesSpriteVariantTable + de), 0x00);
+
+    /* ld hl, wEntitiesPrivateCountdown1Table; add hl, de; ld [hl], $0F */
+    gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown1Table + de), 0x0F);
+
+    /* ld hl, wEntitiesPhysicsFlagsTable; add hl, de; ld [hl], 4 | ENTITY_PHYSICS_HARMLESS | ENTITY_PHYSICS_PROJECTILE_NOCLIP */
+    gb_write(gb, (uint16_t)(wEntitiesPhysicsFlagsTable + de),
+             (uint8_t)(4 | ENTITY_PHYSICS_HARMLESS | ENTITY_PHYSICS_PROJECTILE_NOCLIP));
+
+    /* ld a, NOISE_SFX_POT_SMASHED; ldh [hNoiseSfx], a */
+    gb_write_hram(gb, hNoiseSfx, NOISE_SFX_POT_SMASHED);
+
+    /* jp UnloadEntityAndReturn */
+    UnloadEntityAndReturn(gb, bc);
 }

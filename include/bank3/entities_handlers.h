@@ -11,6 +11,13 @@ extern const uint8_t Data_003_4CA4[4];
 extern const uint8_t Data_003_4CAC[6];
 extern const uint8_t Data_003_4CA8[4];
 extern const uint8_t Data_003_4E05[2];
+extern const uint8_t Data_003_5488[64];
+extern const uint8_t Data_003_54C8[80];
+extern const uint8_t DestroyedEntityHealthGroupOffsetTable[53];
+extern const uint8_t DropTableByIndex[14];
+extern const uint8_t RandomDropChanceTable[14];
+extern const uint8_t RandomDropChanceTableLowHealth[14];
+extern const uint8_t DropTableRandom[8];
 extern const uint8_t Data_003_56EA[4];
 extern const uint8_t Data_003_56EE[3];
 extern const uint8_t Data_003_56F1[17];
@@ -33,5 +40,7 @@ void EntityGetLiftedUp(GBState *gb, uint16_t bc);
 void EntityLiftedHandler(GBState *gb, uint16_t bc);
 void func_003_5795(GBState *gb, uint16_t bc, uint8_t e);
 void EntityBecomeStunned(GBState *gb, uint16_t bc);
+void EntityDeathHandler(GBState *gb, uint16_t bc);
+void SpawnEnemyDrop(GBState *gb, uint16_t bc);
 
 #endif /* LADX_BANK3_ENTITIES_HANDLERS_H */

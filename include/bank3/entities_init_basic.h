@@ -48,6 +48,7 @@ void EntityInitShopOwner_setDirectionLeft(GBState *gb, uint16_t bc);
 void EntityInitWithRandomDirection(GBState *gb);
 void SetEntityDirection(GBState *gb, uint16_t bc, uint8_t direction);
 void EntityInitNoop(GBState *gb);
+void EntityInitEntity13(GBState *gb);
 
 /* Helper Functions */
 void EntityShiftPosition(GBState *gb, uint16_t bc);

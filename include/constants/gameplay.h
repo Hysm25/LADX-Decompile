@@ -134,7 +134,22 @@
 #define PIT_MAX_SLIPPING                24
 #define TRANSITION_GFX_MANBO_IN         0x02
 
-#define GUARDIAN_ACORN_COUNTER_MAX      0x0C
+#define LOW_MAX_HEALTH                           0x07
+#define MEDIUM_MAX_HEALTH                        0x0B
+#define GUARDIAN_ACORN_COUNTER_MAX               0x0C
+#define PIECE_OF_POWER_COUNTER_MAX_LOW_MAX_HEALTH    0x1E
+#define PIECE_OF_POWER_COUNTER_MAX_MEDIUM_MAX_HEALTH 0x23
+#define PIECE_OF_POWER_COUNTER_MAX_HIGH_MAX_HEALTH   0x28
+
+#define DROP_RANDOM   0x00
+#define DROP_POWER_UP 0x01
+
+#define DROP_CHANCE_0_PERCENT  0x00
+#define DROP_CHANCE_50_PERCENT 0x01
+#define DROP_CHANCE_25_PERCENT 0x03
+
+#define DROP_DESPAWN_TIME   0x80
+#define DROP_COUNTDOWN_TIME 0x18
 
 /* Values for wRoomTransitionState */
 #define ROOM_TRANSITION_NONE             0x00
