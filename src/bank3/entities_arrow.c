@@ -331,21 +331,6 @@ spinningEnd:
     func_003_6B7B(gb, bc);
 }
 
-/* ===== OctorokEntityHandler (03:57E9) ===== */
-void OctorokEntityHandler(GBState *gb, uint16_t bc) {
-    if (!gb) return;
-
-    /* ld de, OctorokSpriteVariants */
-    /* ld a, [wGameplayType]; cp GAMEPLAY_CREDITS; jr z, .creditsEnd */
-    /* ld a, $30; ldh [hActiveEntityTilesOffset], a */
-    if (gb_read(gb, wGameplayType) != GAMEPLAY_CREDITS) {
-        gb_write_hram(gb, hActiveEntityTilesOffset, 0x30);
-    }
-
-    /* call AnimateRoamingEnemy; ret */
-    AnimateRoamingEnemy(gb, bc);
-}
-
 /* ===== OctorokRockEntityHandler (03:6A26) ===== */
 void OctorokRockEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;

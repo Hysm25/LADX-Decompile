@@ -4,13 +4,13 @@
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
 * **Current Overall Progress**: ~84.0%
-* **Number of Verified Functions**: 1116
-* **Number of Decompiled Functions**: 916
-* **Number Remaining**: ~96 functions
-* **Current Subsystem**: ROM Bank 3 (Arrow Entity Handlers, Bomb Arrow Mechanics, and Projectile Wall Physics)
-* **Current Task**: Batch 103 Verification Completed
-* **Last Completed Task**: Batch 103 Verification — ROM Bank 3 Arrow Entity Handlers, Bomb Arrow Mechanics, and Projectile Wall Physics (`ArrowEntityHandler`, `BombArrowHandler`, `MoblinArrowEntityHandler`, `ArrowRenderAndMove`, `ArrowRenderAndMove_skipRendering`, `EntityBounceOffWallX`, `EntityBounceOffWallY`, `ArrowRockAfterHittingWall`).
-* **Last Update Timestamp**: 2026-10-08T15:21:00+00:00
+* **Number of Verified Functions**: 1124
+* **Number of Decompiled Functions**: 924
+* **Number Remaining**: ~88 functions
+* **Current Subsystem**: ROM Bank 3 (Roaming Enemy Handlers & Projectile Spawning)
+* **Current Task**: Batch 104 Verification Completed
+* **Last Completed Task**: Batch 104 Verification — ROM Bank 3 Roaming Enemy Handlers, Movement Physics, and Projectile Spawning (`OctorokEntityHandler`, `MoblinEntityHandler`, `AnimateRoamingEnemy`, `AnimateRoamingEnemy_with_sprites`, `RoamingEnemyState0Handler`, `SetEntityVariantForDirection_03`, `SpawnMoblinArrow`, `SpawnOctorokRock`).
+* **Last Update Timestamp**: 2026-10-08T16:05:00+00:00
 
 ---
 
@@ -1335,3 +1335,47 @@
   - `test_ArrowRockAfterHittingWall`: Tests slow countdown decrement, spinning animation frame cycling, gravity application, and transition countdown expiration clink SFX and unload.
   - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1116 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Wall collision bounce physics, bomb arrow entity spawning/transfer, and statue eye trigger mechanics verified exact to assembly instruction sequence.
+
+---
+
+## Batch 104 Verification — ROM Bank 3 Roaming Enemy Handlers, Movement Physics, and Projectile Spawning
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/03_octorok.asm` (`03:57E9`-`03:581A`), `03_moblin.asm` (`03:581B`-`03:59D6`), and `bank3.asm`. Implemented in `src/bank3/entities_moblin.c` with declarations in `include/bank3/entities_moblin.h`.
+- **Functions Decompiled & Verified:**
+  - `OctorokEntityHandler` (`03:57E9`): In non-credits gameplay (`wGameplayType != GAMEPLAY_CREDITS`), sets `hActiveEntityTilesOffset = 0x30`. Calls `AnimateRoamingEnemy_with_sprites` with `OctorokSpriteVariants`.
+  - `MoblinEntityHandler` (`03:5827`): If in BowWow hideout (`hMapId == MAP_BOWWOW_HIDEOUT`) and BowWow is not rescued/following Link (`wIsBowWowFollowingLink != 0x80`), unloads entity via `UnloadEntityAndReturn`. Otherwise saves entity index `c` to `wD153` and falls into `AnimateRoamingEnemy_with_sprites` with `MoblinSpriteVariants`.
+  - `AnimateRoamingEnemy` (`03:583C`): Dispatches sprite variant table by entity type (`OctorokSpriteVariants` for `ENTITY_OCTOROK`, `MaskedIronMaskSpriteVariants` for `ENTITY_IRON_MASK`, `MoblinSpriteVariants` for other entities) and invokes `AnimateRoamingEnemy_with_sprites`.
+  - `AnimateRoamingEnemy_with_sprites` (`03:583C`): Renders sprite pair via `RenderActiveEntitySpritesPair`. Checks interactive status via `ReturnIfNonInteractive_03(gb, false)`. If `wEntitiesIgnoreHitsCountdownTable != 0`, triggers recoil state: sets `wEntitiesStateTable = 1`, `hActiveEntityState = 1`, and transition countdown to `0x40`. Applies recoil via `ApplyRecoilIfNeeded_03` and calls `DefaultEnemyDamageCollisionHandler`. If in state 0, dispatches to `RoamingEnemyState0Handler`. In non-zero state:
+    - If transition countdown reaches 0: resets countdown to `(rand & 0x1F) | 0x20`, resets state to 0, advances private state 1 (`+1 & 3`). If private state 1 wraps to 0, selects direction toward Link via `GetEntityDirectionToLink_03`; otherwise selects random direction. Updates direction table, X speed from `RoamingEnemySpeedXPerDirection`, and Y speed from `RoamingEnemySpeedYPerDirection`.
+    - If transition countdown is `0x0A` and private countdown 1 is 0 and facing Link: if Iron Mask, skips projectile; if Octorok, jumps to `SpawnOctorokRock` (in credits, returns early); otherwise calls `SpawnMoblinArrow`.
+    - Calls `ApplyEntityInteractionWithBackground`.
+  - `RoamingEnemyState0Handler` (`03:58D7`): Handles walking state. If wall collision occurs (`wEntitiesCollisionsTable & 0x0F != 0`), writes random value `(rand & 0x0F) | 0x10` to `wEntitiesCollisionsTable`, sets state to 1, and clears entity speed via `ClearEntitySpeed`. If no collision and transition countdown == 0, writes random to `wEntitiesTransitionCountdownTable`, sets state to 1, and clears speed. If countdown > 0, continues walking. Updates position via `UpdateEntityPosWithSpeed_03` and calls `ApplyEntityInteractionWithBackground`.
+  - `SetEntityVariantForDirection_03` (`03:58FC`): Maps entity direction (`DIRECTION_RIGHT` -> 6, `DIRECTION_LEFT` -> 4, `DIRECTION_UP` -> 2, `DIRECTION_DOWN` -> 0) from `EntityVariantForDirection_03`. Increments `wEntitiesInertiaTable` and toggles walk animation variant (+0 / +1) using bit 3 every 8 frames via `SetEntitySpriteVariant`.
+  - `SpawnMoblinArrow` (`03:5947`): Spawns projectile entity `ENTITY_MOBLIN_ARROW` in available slot via `SpawnNewEntityInRange_impl(gb, ENTITY_MOBLIN_ARROW, bc, MAX_ENTITIES - 1)`. Positions arrow using parent position and directional offsets (`MoblinArrowOffsetXPerDirection` / `Y`), applies speeds (`MoblinArrowSpeedXPerDirection` / `Y`), sets sprite variant and direction from `hMultiPurpose2`.
+  - `SpawnOctorokRock` (`03:5998`): Spawns projectile entity `ENTITY_OCTOROK_ROCK` in available slot via `SpawnNewEntityInRange_impl(gb, ENTITY_OCTOROK_ROCK, bc, MAX_ENTITIES - 1)`. Positions rock using parent position and directional offsets (`OctorokRockOffsetXPerDirection` / `Y`), applies speeds (`OctorokRockSpeedXPerDirection` / `Y`), sets direction from `hMultiPurpose2`.
+- **Data Tables Verified:**
+  - `OctorokSpriteVariants` (`03:57FB`: 8 directional variants * 4 bytes = 32 bytes)
+  - `RoamingEnemySpeedXPerDirection` (`03:581B`: `{8, -8, 0, 0}`)
+  - `RoamingEnemySpeedYPerDirection` (`03:581F`: `{0, 0, -8, 8}`)
+  - `EntityVariantForDirection_03` (`03:5823`: `{6, 4, 2, 0}`)
+  - `MoblinSpriteVariants` (`03:5917`: 8 directional variants * 4 bytes = 32 bytes)
+  - `MoblinArrowOffsetXPerDirection` (`03:5937`: `{8, -8, 4, -4}`)
+  - `MoblinArrowOffsetYPerDirection` (`03:593B`: `{-4, -4, -8, 0}`)
+  - `MoblinArrowSpeedXPerDirection` (`03:593F`: `{32, -32, 0, 0}`)
+  - `MoblinArrowSpeedYPerDirection` (`03:5943`: `{0, 0, -32, 32}`)
+  - `OctorokRockOffsetXPerDirection` (`03:598C`: `{8, -8, 0, 0}`)
+  - `OctorokRockOffsetYPerDirection` (`03:598E`: `{0, 0, -8, 8}`)
+  - `OctorokRockSpeedXPerDirection` (`03:5992`: `{32, -32, 0, 0}`)
+  - `OctorokRockSpeedYPerDirection` (`03:5994`: `{0, 0, -32, 32}`)
+  - `MaskedIronMaskSpriteVariants` (`03:5048`: 8 directional variants * 4 bytes = 32 bytes)
+- **Tests:** Dedicated test functions in `tests/bank3/test_entities_moblin.c`:
+  - `test_DataTables_Moblin`: Validates sizes and values of all 14 data tables.
+  - `test_OctorokEntityHandler`: Tests non-credits tiles offset setting to 0x30, credits bypass, and roaming enemy animation.
+  - `test_MoblinEntityHandler`: Tests BowWow hideout condition (unloads when BowWow not following, stays active and writes `wD153` when following), and non-hideout behavior.
+  - `test_AnimateRoamingEnemy`: Tests non-interactive early return, recoil state 1 trigger on hit countdown, state 1 direction/speed selection on timer expiry, Moblin arrow spawn when facing Link at countdown 10, Octorok rock spawn when facing Link at countdown 10, and Iron Mask projectile suppression.
+  - `test_RoamingEnemyState0Handler`: Tests wall collision state 1 transition, speed clearing, timer preservation, and collision clearing; non-collision walking continuation; and non-collision timer expiry state 1 transition.
+  - `test_SetEntityVariantForDirection_03`: Tests 4 cardinal directions and 8-frame inertia variant animation oscillation.
+  - `test_SpawnMoblinArrow`: Tests arrow entity spawning, positioning with offsets, directional speed assignment, variant/direction setting, and slot exhaustion safety.
+  - `test_SpawnOctorokRock`: Tests rock entity spawning, positioning with offsets, directional speed assignment, direction setting, and slot exhaustion safety.
+  - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1124 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Roaming enemy AI state machine, projectile spawning offsets and speeds, BowWow hideout gating, and walk animation cycling verified exact to assembly instruction sequence.

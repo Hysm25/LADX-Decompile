@@ -10,6 +10,7 @@ void run_bank3_tests(void) {
     test_bank3_entities_droppable();
     test_bank3_entities_bomb();
     test_bank3_entities_arrow();
+    test_bank3_entities_moblin();
 
     printf("[PASS] Bank 3 Subsystems\n\n");
 }
