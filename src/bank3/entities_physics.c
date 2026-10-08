@@ -43,14 +43,14 @@ void BouncingEntityPhysics(GBState *gb, uint16_t bc) {
 
     /* ld hl, wEntitiesPosYTable; add hl, bc; ld a, [hl]; and $F0; add $05; ld [hl], a */
     uint8_t pos_y = gb_read(gb, wEntitiesPosYTable + bc);
-    pos_y = (pos_y & 0xF0) + 0x05;
+    pos_y = (uint8_t)((pos_y & 0xF0) + 0x05);
     gb_write(gb, wEntitiesPosYTable + bc, pos_y);
 
     /* ld hl, wEntitiesSpeedYTable; add hl, bc; ld a, [hl]; cpl; sra a; cp $F8; jr c, .makeBouncingNoise */
-    int8_t speed_y = (int8_t)gb_read(gb, wEntitiesSpeedYTable + bc);
-    speed_y = (int8_t)(~speed_y);  /* cpl */
-    speed_y >>= 1;  /* sra */
-    if ((uint8_t)speed_y < 0xF8) {
+    uint8_t speed_y = gb_read(gb, wEntitiesSpeedYTable + bc);
+    uint8_t a = (uint8_t)(~speed_y);
+    a = (uint8_t)(((int8_t)a) >> 1);
+    if (a < 0xF8) {
         goto makeBouncingNoise;
     }
 
@@ -68,22 +68,22 @@ sidescrollingEnd:
     /* ld hl, wEntitiesGroundStatusTable; add hl, bc; ld a, [hl] */
     uint8_t ground_status = gb_read(gb, wEntitiesGroundStatusTable + bc);
 
-    /* ld hl, wEntitiesSpeedZTable; add hl, bc */
     /* cp ENTITY_GROUND_STATUS_SHALLOW_WATER; jr z, .shallowWaterEnd */
     if (ground_status == ENTITY_GROUND_STATUS_SHALLOW_WATER) {
         goto shallowWaterEnd;
     }
 
-    /* ld a, [hl]; sra a; cpl; cp $07; jr nc, .makeBouncingNoise */
-    int8_t speed_z = (int8_t)gb_read(gb, wEntitiesSpeedZTable + bc);
-    speed_z >>= 1;
-    speed_z = (int8_t)(~speed_z);
-    if (speed_z >= 7) {
+    /* ld hl, wEntitiesSpeedZTable; add hl, bc; ld a, [hl]; sra a; cpl; cp $07; jr nc, .makeBouncingNoise */
+    uint8_t speed_z = gb_read(gb, wEntitiesSpeedZTable + bc);
+    uint8_t sra_z = (uint8_t)(((int8_t)speed_z) >> 1);
+    a = (uint8_t)(~sra_z);
+    if (a >= 0x07) {
         goto makeBouncingNoise;
     }
 
 shallowWaterEnd:
     /* xor a; push hl; ld hl, wEntitiesSpeedXTable; add hl, bc; ld [hl], a; ld hl, wEntitiesSpeedYTable; add hl, bc; ld [hl], a; pop hl; jr .makeBouncingNoiseEnd */
+    a = 0;
     gb_write(gb, wEntitiesSpeedXTable + bc, 0x00);
     gb_write(gb, wEntitiesSpeedYTable + bc, 0x00);
     goto makeBouncingNoiseEnd;
@@ -100,11 +100,8 @@ makeBouncingNoise:
     /* cp ENTITY_BOMB; jr nz, .bombEnd */
     if (gb_read_hram(gb, hActiveEntityType) == ENTITY_BOMB) {
         /* ld hl, wEntitiesStatusTable; add hl, bc; ld a, [hl]; and a; jr z, .bombEnd */
-        if (gb_read(gb, wEntitiesStatusTable + bc) == 0x00) {
-            goto bombEnd;
-        }
-        /* cp ENTITY_STATUS_FALLING; jr z, .bombEnd */
-        if (gb_read(gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_FALLING) {
+        uint8_t status = gb_read(gb, wEntitiesStatusTable + bc);
+        if (status == 0x00 || status == ENTITY_STATUS_FALLING) {
             goto bombEnd;
         }
         /* ld a, JINGLE_BUMP; ldh [hJingle], a */
@@ -112,14 +109,20 @@ makeBouncingNoise:
     }
 
 bombEnd: ;
-    /* pop hl; pop af */
-    /* fallthrough to makeBouncingNoiseEnd */
 
-makeBouncingNoiseEnd: ;
-    /* ld [hl], a; ld hl, wEntitiesSpeedXTable; add hl, bc; ld a, [hl]; sra a; cp $FF; jr nz, .clearXSpeedEnd; xor a; .clearXSpeedEnd: ld [hl], a */
+makeBouncingNoiseEnd:
+    /* ld [hl], a */
+    if (gb_read_hram(gb, hIsSideScrolling) != 0) {
+        gb_write(gb, wEntitiesSpeedYTable + bc, a);
+    } else {
+        gb_write(gb, wEntitiesSpeedZTable + bc, a);
+    }
+
+    /* Halve x speed */
+    /* ld hl, wEntitiesSpeedXTable; add hl, bc; ld a, [hl]; sra a; cp $FF; jr nz, .clearXSpeedEnd; xor a; .clearXSpeedEnd: ld [hl], a */
     int8_t speed_x = (int8_t)gb_read(gb, wEntitiesSpeedXTable + bc);
     speed_x >>= 1;  /* sra */
-    if (speed_x == -1) {  /* $FF */
+    if ((uint8_t)speed_x == 0xFF) {
         speed_x = 0;
     }
     gb_write(gb, wEntitiesSpeedXTable + bc, (uint8_t)speed_x);
@@ -132,7 +135,7 @@ makeBouncingNoiseEnd: ;
     /* ld hl, wEntitiesSpeedYTable; add hl, bc; ld a, [hl]; sra a; cp $FF; jr nz, .clearYSpeedEnd; xor a; .clearYSpeedEnd: ld [hl], a; .return: ret */
     int8_t speed_y2 = (int8_t)gb_read(gb, wEntitiesSpeedYTable + bc);
     speed_y2 >>= 1;  /* sra */
-    if (speed_y2 == -1) {  /* $FF */
+    if ((uint8_t)speed_y2 == 0xFF) {
         speed_y2 = 0;
     }
     gb_write(gb, wEntitiesSpeedYTable + bc, (uint8_t)speed_y2);
@@ -222,13 +225,13 @@ bool func_003_6C6B(GBState *gb, uint16_t bc) {
     /* ldh a, [hFrameCounter]; xor c; rra; jp nc, jr_003_6CCB
        rra rotates bit 0 of (hFrameCounter ^ c) into CF.
        If CF == 0, jp nc jumps to jr_003_6CCB (and a; ret), returning false.
-       If CF == 1, jp nc is not taken, returning true. */
+       If CF == 1, jp nc is not taken, falling through to CheckLinkCollisionWithEnemy. */
     uint8_t frame = gb_read_hram(gb, hFrameCounter);
     uint8_t c = (uint8_t)(bc & 0xFF);
     if (((frame ^ c) & 0x01) == 0) {
         return false;
     }
-    return true;
+    return CheckLinkCollisionWithEnemy(gb, bc);
 }
 
 /* ===== func_003_6CC0 (03:6CC0) ===== */

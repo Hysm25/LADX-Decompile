@@ -933,10 +933,10 @@ void LoadRoomEntities(GBState *gb,
 
 void DroppableDisappearIfNeeded(GBState *gb, uint16_t entity_index);
 void func_003_61C0(GBState *gb, uint16_t entity_index);
-void DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t entity_index);
+bool DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t entity_index);
 void func_003_7E0E(GBState *gb, uint16_t entity_index);
-void PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t entity_index);
-void PickableCollectIfNeeded(GBState *gb, uint16_t entity_index);
+bool PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t entity_index);
+bool PickableCollectIfNeeded(GBState *gb, uint16_t entity_index);
 void PickDroppableMagicPowder(GBState *gb, uint16_t entity_index);
 void PickSecretSeashell(GBState *gb, uint16_t entity_index);
 void IncreaseValueAtHLClampAt99(GBState *gb);

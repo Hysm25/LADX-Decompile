@@ -376,12 +376,28 @@ static void test_func_003_6C6B(void) {
     gb_write_hram(&gb, hFrameCounter, 0x04);
     assert(func_003_6C6B(&gb, 0x02) == false); /* (4 ^ 2) = 6, bit 0 is 0 */
 
-    /* (frame ^ c) & 1 == 1 -> returns true */
-    gb_write_hram(&gb, hFrameCounter, 0x05);
-    assert(func_003_6C6B(&gb, 0x02) == true);  /* (5 ^ 2) = 7, bit 0 is 1 */
+    /* Setup colliding positions: Entity at (0x40, 0x40) with hitbox radius 4, Link at (0x38, 0x38) */
+    uint16_t bc = 0x02;
+    gb_write_hram(&gb, hActiveEntityPosX, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    uint16_t hb = (uint16_t)(wEntitiesHitboxPositionTable + (bc << 2));
+    gb_write(&gb, hb + 0, 0x00);
+    gb_write(&gb, hb + 1, 0x04);
+    gb_write(&gb, hb + 2, 0x00);
+    gb_write(&gb, hb + 3, 0x04);
+    gb_write_hram(&gb, hLinkPositionX, 0x38);
+    gb_write_hram(&gb, hLinkPositionY, 0x38);
+    gb_write_hram(&gb, hLinkPositionZ, 0x00);
 
-    gb_write_hram(&gb, hFrameCounter, 0x00);
-    assert(func_003_6C6B(&gb, 0x01) == true);  /* (0 ^ 1) = 1, bit 0 is 1 */
+    /* (frame ^ c) & 1 == 1 and colliding -> returns true */
+    gb_write_hram(&gb, hFrameCounter, 0x05);
+    assert(func_003_6C6B(&gb, 0x02) == true);  /* (5 ^ 2) = 7, bit 0 is 1, collides */
+
+    /* (frame ^ c) & 1 == 1 but not colliding (Link far away) -> returns false */
+    gb_write_hram(&gb, hLinkPositionX, 0x10);
+    assert(func_003_6C6B(&gb, 0x02) == false);
+
+    /* (frame ^ c) & 1 == 0 -> returns false */
     assert(func_003_6C6B(&gb, 0x00) == false); /* (0 ^ 0) = 0, bit 0 is 0 */
 
     printf("[PASS] func_003_6C6B\n");
@@ -1246,6 +1262,119 @@ static void test_ApplySwordIntersectionWithObjects(void) {
     printf("[PASS] ApplySwordIntersectionWithObjects & label_003_51F5\n");
 }
 
+/* Test BouncingEntityPhysics (03:60B3) */
+static void test_BouncingEntityPhysics(void) {
+    printf("[RUN ] BouncingEntityPhysics\n");
+
+    GBState gb;
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+
+    uint16_t bc = 0x01;
+
+    /* --- Side-scrolling mode --- */
+    gb_write_hram(&gb, hIsSideScrolling, 1);
+
+    /* 1. No floor collision: returns without bounce */
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x30);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x10);
+    BouncingEntityPhysics(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPosYTable + bc) == 0x31);
+
+    /* 2. Floor collision (bit 3 set): bounces, snaps PosY */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write_hram(&gb, hIsSideScrolling, 1);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x37);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x37);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x10);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x20);
+    gb_write(&gb, wRoomObjects + 0x33, 0x21);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_KEY_DROP_POINT);
+    BouncingEntityPhysics(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPosYTable + bc) == 0x35);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0xF7);
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x10);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_CLINK);
+
+    /* 3. Bomb entity bounce bump jingle */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write_hram(&gb, hIsSideScrolling, 1);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x40);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x10);
+    gb_write(&gb, wRoomObjects + 0x33, 0x21);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_BOMB);
+    BouncingEntityPhysics(&gb, bc);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_BUMP);
+
+    /* --- Top-down mode --- */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write_hram(&gb, hIsSideScrolling, 0);
+
+    /* 4. Above ground (pos_z >= 0, bit 7 not set): returns without bounce */
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x10);
+    gb_write(&gb, wEntitiesSpeedZTable + bc, (uint8_t)-4);
+    BouncingEntityPhysics(&gb, bc);
+    assert((gb_read(&gb, wEntitiesPosZTable + bc) & 0x80) == 0);
+
+    /* 5. Shallow water landing: stops speed X, Y, Z to 0 */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write_hram(&gb, hIsSideScrolling, 0);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x21);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x27);
+    gb_write(&gb, wRoomObjects + 0x22, 0x05); /* shallow water */
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x85);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x14);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x18);
+    gb_write(&gb, wEntitiesSpeedZTable + bc, 0xE0);
+    BouncingEntityPhysics(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPosZTable + bc) == 0x00);
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x00);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x00);
+    assert(gb_read(&gb, wEntitiesSpeedZTable + bc) == 0x00);
+
+    /* 6. Solid ground bounce with high falling speed: bounces up */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write_hram(&gb, hIsSideScrolling, 0);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x82);
+    gb_write(&gb, wEntitiesGroundStatusTable + bc, 0x00);
+    gb_write(&gb, wEntitiesSpeedZTable + bc, 0xE0);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x20);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x30);
+    BouncingEntityPhysics(&gb, bc);
+    assert(gb_read(&gb, wEntitiesPosZTable + bc) == 0x00);
+    assert(gb_read(&gb, wEntitiesSpeedZTable + bc) == 0x10);
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x10);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x18);
+
+    /* 7. Low impact speed (< 7): halts speed to 0 */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write_hram(&gb, hIsSideScrolling, 0);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x81);
+    gb_write(&gb, wEntitiesGroundStatusTable + bc, 0x00);
+    gb_write(&gb, wEntitiesSpeedZTable + bc, 0xFC);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x08);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x08);
+    BouncingEntityPhysics(&gb, bc);
+    assert(gb_read(&gb, wEntitiesSpeedZTable + bc) == 0x00);
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x00);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x00);
+
+    printf("[PASS] BouncingEntityPhysics\n");
+}
+
 void test_bank3_entities_physics(void) {
     test_GetEntityXDistanceToLink();
     test_GetEntityYDistanceToLink();
@@ -1272,4 +1401,5 @@ void test_bank3_entities_physics(void) {
     test_ApplyEntityCollisionWithObject();
     test_ApplyEntityInteractionWithBackground();
     test_ApplySwordIntersectionWithObjects();
+    test_BouncingEntityPhysics();
 }

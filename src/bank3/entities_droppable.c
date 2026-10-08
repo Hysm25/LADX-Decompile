@@ -725,10 +725,14 @@ void KeyDropPointEntityHandler(GBState *gb, uint16_t bc) {
             return;
         }
 
-        PickableHandleGrabbedByItemIfNeeded(gb, bc);
+        if (PickableHandleGrabbedByItemIfNeeded(gb, bc)) {
+            return;
+        }
 
         if (gb_read(gb, wEntitiesPosZTable + bc) == 0) {
-            PickableCollectIfNeeded(gb, bc);
+            if (PickableCollectIfNeeded(gb, bc)) {
+                return;
+            }
         }
 
         BouncingEntityPhysics(gb, bc);
@@ -783,7 +787,7 @@ void DroppableHeartEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
     DroppableDisappearIfNeeded(gb, bc);
 
     /* ld de, DroppableHeartSprite; call RenderActiveEntitySprite; jp PickableHandler */
@@ -1283,7 +1287,7 @@ void DroppableBombsEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
     DroppableDisappearIfNeeded(gb, bc);
 
     /* ld de, DroppableBombsSprite; call RenderActiveEntitySprite; jp PickableHandler */
@@ -1322,7 +1326,7 @@ void DroppableSeashellEntityHandler(GBState *gb, uint16_t bc) {
     }
 
     /* .jr_5FEF: call DroppableRevealOrReturnIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
 
     /* ld de, DroppableSeashellSprite; call RenderActiveEntitySprite; jp PickableHandler */
     RenderActiveEntitySprite(gb, DroppableSeashellSprite, NULL);
@@ -1345,7 +1349,7 @@ void HidingSlimeKeyEntityHandler(GBState *gb, uint16_t bc) {
     }
 
     /* call DroppableRevealOrReturnIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
 
     /* ld de, HidingSlimeKeySprite; call RenderActiveEntitySprite */
     RenderActiveEntitySprite(gb, HidingSlimeKeySprite, NULL);
@@ -1420,7 +1424,7 @@ void DroppableFairyEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
     DroppableDisappearIfNeeded(gb, bc);
 
     /* ld de, data_003_6157; call RenderActiveEntitySprite */
@@ -1432,10 +1436,14 @@ void DroppableFairyEntityHandler(GBState *gb, uint16_t bc) {
     }
 
     /* call PickableHandleGrabbedByItemIfNeeded */
-    PickableHandleGrabbedByItemIfNeeded(gb, bc);
+    if (PickableHandleGrabbedByItemIfNeeded(gb, bc)) {
+        return;
+    }
 
     /* call PickableCollectIfNeeded */
-    PickableCollectIfNeeded(gb, bc);
+    if (PickableCollectIfNeeded(gb, bc)) {
+        return;
+    }
 
     /* ld hl, wEntitiesSpeedXTable; add hl, bc; ld a, [hl]; rlca; and $01; call SetEntitySpriteVariant */
     uint8_t speed_x = gb_read(gb, wEntitiesSpeedXTable + bc);
@@ -1483,51 +1491,56 @@ void DroppableFairyEntityHandler(GBState *gb, uint16_t bc) {
     gb_write(gb, wEntitiesSpeedYTable + bc, rand_y);
 }
 
+/* ===== DroppableMagicPowderSprite (03:6055) ===== */
+static const uint8_t DroppableMagicPowderSprite[2] = {
+    0x8E, 0x16  /* tile $8E, OAM_GBC_PAL_6 | OAMF_PAL1 */
+};
+
 /* ===== DroppableMagicPowderEntityHandler (03:6057) ===== */
 void DroppableMagicPowderEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* ld a, [wIsIndoor]; and a; jr z, .jr_6063 */
-    if (gb_read(gb, wIsIndoor) == 0) {
-        goto jr_6063;
-    }
-
     /* ldh a, [hMapId]; cp MAP_COLOR_DUNGEON; jr z, jr_003_606A */
-    if (gb_read_hram(gb, hMapId) == MAP_COLOR_DUNGEON) {
-        goto jr_003_606A;
+    /* .jr_6063: ld a, [wHasToadstool]; and a; jp nz, UnloadEntityAndReturn */
+    if (gb_read(gb, wIsIndoor) != 0) {
+        if (gb_read_hram(gb, hMapId) != MAP_COLOR_DUNGEON) {
+            if (gb_read(gb, wHasToadstool) != 0) {
+                UnloadEntityAndReturn(gb, bc);
+                return;
+            }
+        }
+    } else {
+        if (gb_read(gb, wHasToadstool) != 0) {
+            UnloadEntityAndReturn(gb, bc);
+            return;
+        }
     }
 
-jr_6063:
-    /* ld a, [wHasToadstool]; and a; jp nz, UnloadEntityAndReturn */
-    if (gb_read(gb, wHasToadstool) != 0) {
-        UnloadEntityAndReturn(gb, bc);
-        return;
-    }
-
-jr_003_606A:
-    /* call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    /* jr_003_606A: call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
     DroppableDisappearIfNeeded(gb, bc);
 
     /* ld de, DroppableMagicPowderSprite; call RenderActiveEntitySprite; jp PickableHandler */
-    static const uint8_t DroppableMagicPowderSprite[2] = { 0x55, 0x01 };
     RenderActiveEntitySprite(gb, DroppableMagicPowderSprite, NULL);
     PickableHandler(gb, bc);
 }
+
+/* ===== DroppableArrowSprite (03:6079) ===== */
+static const uint8_t DroppableArrowSprite[4] = {
+    0x2A, 0x41,  /* tile $2A, OAM_GBC_PAL_1 | OAMF_PAL0 | OAMF_YFLIP */
+    0x2A, 0x61   /* tile $2A, OAM_GBC_PAL_1 | OAMF_PAL0 | OAMF_YFLIP | OAMF_XFLIP */
+};
 
 /* ===== DroppableArrowsEntityHandler (03:607D) ===== */
 void DroppableArrowsEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
     DroppableDisappearIfNeeded(gb, bc);
 
     /* ld de, DroppableArrowSprite; call RenderActiveEntitySpritesPair; jp PickableHandler */
-    static const uint8_t DroppableArrowSprite[4] = {
-        0x2A, 0x41,  /* tile $2A, palette 1 | OAMF_PAL0 | OAMF_YFLIP */
-        0x2A, 0x41 | OAMF_XFLIP
-    };
     RenderActiveEntitySpritesPair(gb, DroppableArrowSprite, NULL);
     PickableHandler(gb, bc);
 }
@@ -1549,20 +1562,24 @@ void DroppableDisappearIfNeeded(GBState *gb, uint16_t bc) {
     }
 
     /* and $01; dec a; jp SetEntitySpriteVariant */
-    uint8_t variant = (countdown & 0x01) - 1;
+    uint8_t variant = (uint8_t)((countdown & 0x01) - 1);
     SetEntitySpriteVariant(gb, bc, variant);
 }
+
+/* ===== DroppableRupeeSprite (03:609C) ===== */
+static const uint8_t DroppableRupeeSprite[2] = {
+    0xA6, 0x15  /* tile $A6, OAM_GBC_PAL_5 | OAMF_PAL1 */
+};
 
 /* ===== DroppableRupeeEntityHandler (03:609E) ===== */
 void DroppableRupeeEntityHandler(GBState *gb, uint16_t bc) {
     if (!gb) return;
 
     /* call DroppableRevealOrReturnIfNeeded; call DroppableDisappearIfNeeded */
-    DroppableRevealOrReturnIfNeeded(gb, bc);
+    if (DroppableRevealOrReturnIfNeeded(gb, bc)) return;
     DroppableDisappearIfNeeded(gb, bc);
 
     /* ld de, DroppableRupeeSprite; call RenderActiveEntitySprite; fallthrough to PickableHandler */
-    static const uint8_t DroppableRupeeSprite[2] = { 0xA6, 0xE1 };
     RenderActiveEntitySprite(gb, DroppableRupeeSprite, NULL);
     PickableHandler(gb, bc);
 }
@@ -1577,94 +1594,64 @@ void PickableHandler(GBState *gb, uint16_t bc) {
     }
 
     /* call PickableHandleGrabbedByItemIfNeeded */
-    uint8_t grabbed = gb_read(gb, wEntitiesPrivateState5Table + bc);
-    PickableHandleGrabbedByItemIfNeeded(gb, bc);
-    if (grabbed != 0) {
+    if (PickableHandleGrabbedByItemIfNeeded(gb, bc)) {
         return;
     }
 
     /* call PickableCollectIfNeeded */
-    PickableCollectIfNeeded(gb, bc);
+    if (PickableCollectIfNeeded(gb, bc)) {
+        return;
+    }
+
+    /* fallthrough to BouncingEntityPhysics */
+    BouncingEntityPhysics(gb, bc);
 }
 
 /* ===== DroppableRevealOrReturnIfNeeded (03:61DE) ===== */
-void DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t bc) {
-    if (!gb) return;
+bool DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t bc) {
+    if (!gb) return false;
 
     /* ld hl, wEntitiesPrivateState3Table; add hl, bc; ld a, [hl]; and a; jp z, .return */
-    if (gb_read(gb, wEntitiesPrivateState3Table + bc) == 0) {
-        return;
+    uint8_t private_state3 = gb_read(gb, wEntitiesPrivateState3Table + bc);
+    if (private_state3 == 0) {
+        return false;
     }
 
     /* ld a, [wRoomTransitionState]; and a; jp nz, .remainInvisible */
     if (gb_read(gb, wRoomTransitionState) != 0) {
-        goto remainInvisible;
+        return true;
     }
 
     /* ld a, [hl]; cp $02; jr nz, .checkPegasusBootsCollision */
-    uint8_t private_state3 = gb_read(gb, wEntitiesPrivateState3Table + bc);
     if (private_state3 != 0x02) {
         goto checkPegasusBootsCollision;
     }
 
     /* Items buried, hidden in bushes, or indoors: */
     /* ldh a, [hActiveEntityType]; cp ENTITY_DROPPABLE_SECRET_SEASHELL; jr z, .skipNotActiveIfIndoors */
-    if (gb_read_hram(gb, hActiveEntityType) == ENTITY_DROPPABLE_SECRET_SEASHELL) {
-        goto skipNotActiveIfIndoors;
+    if (gb_read_hram(gb, hActiveEntityType) != ENTITY_DROPPABLE_SECRET_SEASHELL) {
+        /* If indoors and not a seashell, the item can't be dug up or dropped by bushes. */
+        /* ld a, [wIsIndoor]; and a; jp nz, .remainInvisible */
+        if (gb_read(gb, wIsIndoor) != 0) {
+            return true;
+        }
     }
 
-    /* If indoors and not a seashell, the item can't be dug up or dropped by bushes. */
-    /* ld a, [wIsIndoor]; and a; jp nz, .remainInvisible */
-    if (gb_read(gb, wIsIndoor) != 0) {
-        goto remainInvisible;
-    }
-
-    /* Items knocked down with the Pegasus Boots: */
-    /* ld a, [wScreenShakeCountdown]; and a; jr z, .remainInvisible */
-    /* ld a, [wPegasusBootsCollisionCountdown]; and a; jr z, .remainInvisible */
-    /* ldh a, [hActiveEntityPosX]; add $08; ld hl, wPegasusBootsCollisionPosX; sub [hl]; add $10; cp $20; jr nc, .remainInvisible */
-    /* ldh a, [hActiveEntityPosY]; add $08; ld hl, wPegasusBootsCollisionPosY; sub [hl]; add $10; cp $20; jr nc, .remainInvisible */
-checkPegasusBootsCollision:
-    if (gb_read(gb, wScreenShakeCountdown) == 0) {
-        goto remainInvisible;
-    }
-    if (gb_read(gb, wPegasusBootsCollisionCountdown) == 0) {
-        goto remainInvisible;
-    }
-    int16_t diff_x = (int16_t)gb_read_hram(gb, hActiveEntityPosX) + 8;
-    diff_x -= gb_read(gb, wPegasusBootsCollisionPosX);
-    diff_x += 0x10;
-    if (diff_x >= 0x20) {
-        goto remainInvisible;
-    }
-    int16_t diff_y = (int16_t)gb_read_hram(gb, hActiveEntityPosY) + 8;
-    diff_y -= gb_read(gb, wPegasusBootsCollisionPosY);
-    diff_y += 0x10;
-    if (diff_y >= 0x20) {
-        goto remainInvisible;
-    }
-
-skipNotActiveIfIndoors:
-    /* call func_003_7E0E */
+    /* .skipNotActiveIfIndoors: call func_003_7E0E */
     func_003_7E0E(gb, bc);
 
     /* ldh a, [hActiveEntityType]; cp ENTITY_DROPPABLE_HEART; jr z, .activeIfOnShortGrass */
-    if (gb_read_hram(gb, hActiveEntityType) == ENTITY_DROPPABLE_HEART) {
+    uint8_t active_type = gb_read_hram(gb, hActiveEntityType);
+    if (active_type == ENTITY_DROPPABLE_HEART) {
         goto activeIfOnShortGrass;
     }
 
     /* cp ENTITY_DROPPABLE_SECRET_SEASHELL; jr nz, .activeIfOnShortGrassEnd */
-    if (gb_read_hram(gb, hActiveEntityType) != ENTITY_DROPPABLE_SECRET_SEASHELL) {
+    if (active_type != ENTITY_DROPPABLE_SECRET_SEASHELL) {
         goto activeIfOnShortGrassEnd;
     }
 
     /* Seashells buried under short grass (some of these don't exist) */
-    /* ldh a, [hMapRoom]; cp UNKNOWN_ROOM_DA; jr z, .activeIfOnShortGrassEnd */
-    /* cp UNKNOWN_ROOM_A5; jr z, .activeIfOnShortGrassEnd */
-    /* cp UNKNOWN_ROOM_74; jr z, .activeIfOnShortGrassEnd */
-    /* cp UNKNOWN_ROOM_3A; jr z, .activeIfOnShortGrassEnd */
-    /* cp UNKNOWN_ROOM_A8; jr z, .activeIfOnShortGrassEnd */
-    /* cp UNKNOWN_ROOM_B2; jr z, .activeIfOnShortGrassEnd */
     uint8_t map_room = gb_read_hram(gb, hMapRoom);
     if (map_room == UNKNOWN_ROOM_DA || map_room == UNKNOWN_ROOM_A5 ||
         map_room == UNKNOWN_ROOM_74 || map_room == UNKNOWN_ROOM_3A ||
@@ -1688,32 +1675,65 @@ activeIfOnShortGrassEnd:
 activeIfOnShovelHole:
     /* ldh a, [hObjectUnderEntity]; cp OBJECT_SHOVEL_HOLE; jr nz, .remainInvisible */
     if (gb_read_hram(gb, hObjectUnderEntity) != OBJECT_SHOVEL_HOLE) {
-        goto remainInvisible;
+        return true;
     }
 
 setOptionsAndReveal:
     /* ld hl, wEntitiesOptions1Table; add hl, bc; ld [hl], ENTITY_OPT1_SPLASH_IN_WATER|ENTITY_OPT1_EXCLUDED_FROM_KILL_ALL; jr .reveal */
     gb_write(gb, wEntitiesOptions1Table + bc, ENTITY_OPT1_SPLASH_IN_WATER | ENTITY_OPT1_EXCLUDED_FROM_KILL_ALL);
-    /* fallthrough to .reveal */
-    /* .reveal: (items revealed are thrown away from Link) */
+    goto reveal;
+
+checkPegasusBootsCollision:
+    /* Items knocked down with the Pegasus Boots: */
+    /* ld a, [wScreenShakeCountdown]; and a; jr z, .remainInvisible */
+    if (gb_read(gb, wScreenShakeCountdown) == 0) {
+        return true;
+    }
+
+    /* ld a, [wPegasusBootsCollisionCountdown]; and a; jr z, .remainInvisible */
+    if (gb_read(gb, wPegasusBootsCollisionCountdown) == 0) {
+        return true;
+    }
+
+    /* ldh a, [hActiveEntityPosX]; add $08; ld hl, wPegasusBootsCollisionPosX; sub [hl]; add $10; cp $20; jr nc, .remainInvisible */
+    uint8_t pos_x = gb_read_hram(gb, hActiveEntityPosX);
+    uint8_t pegasus_x = gb_read(gb, wPegasusBootsCollisionPosX);
+    uint8_t diff_x = (uint8_t)((uint8_t)(pos_x + 8) - pegasus_x) + 0x10;
+    if (diff_x >= 0x20) {
+        return true;
+    }
+
+    /* ldh a, [hActiveEntityPosY]; add $08; ld hl, wPegasusBootsCollisionPosY; sub [hl]; add $10; cp $20; jr nc, .remainInvisible */
+    uint8_t pos_y = gb_read_hram(gb, hActiveEntityPosY);
+    uint8_t pegasus_y = gb_read(gb, wPegasusBootsCollisionPosY);
+    uint8_t diff_y = (uint8_t)((uint8_t)(pos_y + 8) - pegasus_y) + 0x10;
+    if (diff_y >= 0x20) {
+        return true;
+    }
+
+reveal:
+    /* Items revealed are thrown away from Link */
     /* ld hl, wEntitiesPrivateState3Table; add hl, bc; ld [hl], b */
     gb_write(gb, wEntitiesPrivateState3Table + bc, 0);
     /* ld hl, wEntitiesPrivateState4Table; add hl, bc; ld [hl], b */
     gb_write(gb, wEntitiesPrivateState4Table + bc, 0);
     /* call GetEntityPrivateCountdown1; ld [hl], $18 */
     gb_write(gb, wEntitiesPrivateCountdown1Table + bc, 0x18);
+
     /* ld a, $0C; call GetVectorTowardsLink */
-    uint8_t vec_x, vec_y;
-    GetVectorTowardsLink(gb, &vec_x, &vec_y);
-    /* ldh a, [hMultiPurpose1]; cpl; inc a; ld hl, wEntitiesSpeedXTable; add hl, bc; ld [hl], a */
-    /* ldh a, [hMultiPurpose0]; cpl; inc a; ld hl, wEntitiesSpeedYTable; add hl, bc; ld [hl], a */
+    GetVectorTowardsLink_with_length(gb, 0x0C, NULL, NULL);
+    uint8_t vx = gb_read_hram(gb, hMultiPurpose1);
+    uint8_t vy = gb_read_hram(gb, hMultiPurpose0);
+    gb_write(gb, wEntitiesSpeedXTable + bc, (uint8_t)(~vx + 1));
+    gb_write(gb, wEntitiesSpeedYTable + bc, (uint8_t)(~vy + 1));
+
     /* ld hl, wEntitiesSpeedZTable; add hl, bc; ld [hl], $20 */
     gb_write(gb, wEntitiesSpeedZTable + bc, 0x20);
+
     /* call GetEntitySlowTransitionCountdown; ld [hl], $80 */
     gb_write(gb, wEntitiesSlowTransitionCountdownTable + bc, 0x80);
 
-remainInvisible:
-    return;
+    return true;
 }
 
 /* ===== func_003_61C0 (03:61C0) ===== */
@@ -1732,28 +1752,21 @@ void func_003_61C0(GBState *gb, uint16_t bc) {
     }
 
     /* bit 7, a; jr z, .jr_61D6 */
-    if ((pos_z & 0x80) == 0) {
-        goto jr_61D6;
+    if ((pos_z & 0x80) != 0) {
+        /* inc [hl]; jr ret_003_61DD */
+        gb_write(gb, wEntitiesPosZTable + bc, (uint8_t)(pos_z + 1));
+        return;
     }
 
-    /* inc [hl]; jr ret_003_61DD */
-    gb_write(gb, wEntitiesPosZTable + bc, pos_z + 1);
-    return;
-
-jr_61D6:
-    /* cp $10; jr nc, .jr_61DC */
+    /* .jr_61D6: cp $10; jr nc, .jr_61DC */
     if (pos_z >= 0x10) {
-        goto jr_61DC;
+        /* dec [hl]; ret */
+        gb_write(gb, wEntitiesPosZTable + bc, (uint8_t)(pos_z - 1));
+        return;
     }
 
     /* inc [hl]; ret */
-    gb_write(gb, wEntitiesPosZTable + bc, pos_z + 1);
-    return;
-
-jr_61DC:
-    /* dec [hl]; ret */
-    gb_write(gb, wEntitiesPosZTable + bc, pos_z - 1);
-    return;
+    gb_write(gb, wEntitiesPosZTable + bc, (uint8_t)(pos_z + 1));
 }
 
 /* BCD addition helper: adds a value to a BCD byte, returns result */
@@ -1794,25 +1807,25 @@ void PickableCanBeCollectedBySwordTable(GBState *gb) {
 }
 
 /* ===== PickableHandleGrabbedByItemIfNeeded (03:62AF) ===== */
-void PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t bc) {
-    if (!gb) return;
+bool PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t bc) {
+    if (!gb) return false;
 
     uint8_t grabbed = gb_read(gb, wEntitiesPrivateState5Table + bc);
     if (grabbed == 0) {
-        return;
+        return false;
     }
 
     uint8_t grabber = (uint8_t)(grabbed - 1);
     uint8_t status = gb_read(gb, wEntitiesStatusTable + grabber);
     if (status == 0) {
         PickableCollect(gb, bc);
-        return;
+        return true;
     }
 
     uint8_t type = gb_read(gb, wEntitiesTypeTable + grabber);
     if (type != ENTITY_BOOMERANG && type != ENTITY_HOOKSHOT_CHAIN) {
         PickableCollect(gb, bc);
-        return;
+        return true;
     }
 
     /* Snap to boomerang or hookshot */
@@ -1821,14 +1834,15 @@ void PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t bc) {
     uint8_t pos_y = gb_read(gb, wEntitiesPosYTable + grabber);
     gb_write(gb, wEntitiesPosYTable + bc, pos_y);
     gb_write(gb, wEntitiesPosZTable + bc, 0);
+    return true;
 }
 
 /* ===== PickableCollectIfNeeded (03:62EB) ===== */
-void PickableCollectIfNeeded(GBState *gb, uint16_t bc) {
-    if (!gb) return;
+bool PickableCollectIfNeeded(GBState *gb, uint16_t bc) {
+    if (!gb) return false;
 
     if (GetEntityPrivateCountdown1(gb, bc) != 0) {
-        return;
+        return false;
     }
 
     uint8_t type = gb_read_hram(gb, hActiveEntityType);
@@ -1843,10 +1857,11 @@ void PickableCollectIfNeeded(GBState *gb, uint16_t bc) {
     }
 
     if (!func_003_6C6B(gb, bc)) {
-        return;
+        return false;
     }
 
     PickableCollect(gb, bc);
+    return true;
 }
 
 static void PickableCollect(GBState *gb, uint16_t bc) {

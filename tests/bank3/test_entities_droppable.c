@@ -114,13 +114,19 @@ static void test_PickableCollectIfNeeded(void) {
     gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
 
     /* Set up Link collision so func_003_6C6B returns true: */
-    /* Position entity 1 at Link's position */
     uint8_t link_x = 0x50;
     uint8_t link_y = 0x40;
     gb_write_hram(&gb, hLinkPositionX, link_x);
     gb_write_hram(&gb, hLinkPositionY, link_y);
     gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), link_x);
     gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), link_y);
+    gb_write_hram(&gb, hActiveEntityPosX, (uint8_t)(link_x + 8));
+    gb_write_hram(&gb, hActiveEntityVisualPosY, (uint8_t)(link_y + 8));
+    uint16_t hb = (uint16_t)(wEntitiesHitboxPositionTable + (1 << 2));
+    gb_write(&gb, hb + 0, 0x00);
+    gb_write(&gb, hb + 1, 0x04);
+    gb_write(&gb, hb + 2, 0x00);
+    gb_write(&gb, hb + 3, 0x04);
     gb_write(&gb, (uint16_t)(wEntitiesPhysicsFlagsTable + 1), 0);
 
     /* In func_003_6C6B, (hFrameCounter ^ c) bit 0 must be 1 */
@@ -856,8 +862,11 @@ static void test_DroppableFairyEntityHandler(void) {
 
     /* When Link is far (dist >= 0x20 in X and Y), fairy moves towards Link */
     setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x80);
     gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x10);
     gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x10);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x10);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x10);
     gb_write_hram(&gb, hLinkPositionX, 0x50);
     gb_write_hram(&gb, hLinkPositionY, 0x50);
 
@@ -872,8 +881,11 @@ static void test_DroppableFairyEntityHandler(void) {
     /* When Link is close and countdown == 0, sets countdown = 0x30 and picks random speed */
     gb_init(&gb);
     setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x80);
     gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x50);
     gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x50);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x50);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50);
     gb_write_hram(&gb, hLinkPositionX, 0x55);
     gb_write_hram(&gb, hLinkPositionY, 0x55);
     gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
@@ -1289,6 +1301,253 @@ static void test_SirensInstrumentEntityHandler(void) {
     printf("[PASS] SirensInstrumentEntityHandler\n");
 }
 
+/* Test 26: DroppableMagicPowder, Arrows, Rupee */
+static void test_DroppableMagicPowder_Arrows_Rupee(void) {
+    printf("[RUN ] DroppableMagicPowder_Arrows_Rupee\n");
+
+    GBState gb;
+
+    /* 1. DroppableMagicPowder: Outdoors with toadstool unloads */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write(&gb, wHasToadstool, 1);
+    DroppableMagicPowderEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* 2. DroppableMagicPowder: Outdoors without toadstool remains active */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x80);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write(&gb, wHasToadstool, 0);
+    DroppableMagicPowderEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    /* 3. DroppableMagicPowder: Indoors in normal dungeon with toadstool unloads */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, wIsIndoor, 1);
+    gb_write_hram(&gb, hMapId, 0); /* Tail Cave */
+    gb_write(&gb, wHasToadstool, 1);
+    DroppableMagicPowderEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* 4. DroppableMagicPowder: Indoors in Color Dungeon with toadstool does NOT unload */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x80);
+    gb_write(&gb, wIsIndoor, 1);
+    gb_write_hram(&gb, hMapId, MAP_COLOR_DUNGEON);
+    gb_write(&gb, wHasToadstool, 1);
+    DroppableMagicPowderEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    /* 5. DroppableArrows: renders sprite pair and runs */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x80);
+    DroppableArrowsEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    /* 6. DroppableRupee: renders sprite and runs */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x80);
+    DroppableRupeeEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    printf("[PASS] DroppableMagicPowder_Arrows_Rupee\n");
+}
+
+/* Test 27: DroppableDisappearIfNeeded */
+static void test_DroppableDisappearIfNeeded(void) {
+    printf("[RUN ] DroppableDisappearIfNeeded\n");
+
+    GBState gb;
+
+    /* 1. Countdown >= 0x1C (e.g. 0x20): returns without changing variant or unloading */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x20);
+    gb_write(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1), 5);
+    DroppableDisappearIfNeeded(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1)) == 5);
+
+    /* 2. Countdown == 0: unloads entity */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x00);
+    DroppableDisappearIfNeeded(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* 3. Countdown < 0x1C and odd (0x17): sets variant to 0 */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x17);
+    DroppableDisappearIfNeeded(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1)) == 0x00);
+
+    /* 4. Countdown < 0x1C and even (0x16): sets variant to 0xFF (flicker) */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x16);
+    DroppableDisappearIfNeeded(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1)) == 0xFF);
+
+    printf("[PASS] DroppableDisappearIfNeeded\n");
+}
+
+/* Test 28: DroppableRevealOrReturnIfNeeded */
+static void test_DroppableRevealOrReturnIfNeeded(void) {
+    printf("[RUN ] DroppableRevealOrReturnIfNeeded\n");
+
+    GBState gb;
+
+    /* 1. Entity not hidden (wEntitiesPrivateState3Table == 0): returns false */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x00);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == false);
+
+    /* 2. Hidden entity during room transition: returns true without revealing */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x02);
+    gb_write(&gb, wRoomTransitionState, 1);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x02);
+
+    /* 3. Buried item indoors (not seashell): remains invisible */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x02);
+    gb_write(&gb, wIsIndoor, 1);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_DROPPABLE_HEART);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x02);
+
+    /* 4. Buried heart outdoors on short grass: reveals! */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x20);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x20);
+    gb_write(&gb, wRoomObjects + 0x11, OBJECT_SHORT_GRASS);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x02);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_DROPPABLE_HEART);
+    gb_write_hram(&gb, hLinkPositionX, 0x50);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x00);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState4Table + 1)) == 0x00);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesOptions1Table + 1)) == (ENTITY_OPT1_SPLASH_IN_WATER | ENTITY_OPT1_EXCLUDED_FROM_KILL_ALL));
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateCountdown1Table + 1)) == 0x18);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpeedZTable + 1)) == 0x20);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1)) == 0x80);
+
+    /* 5. Buried item on shovel hole: reveals! */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x20);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x20);
+    gb_write(&gb, wRoomObjects + 0x11, OBJECT_SHOVEL_HOLE);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x02);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_DROPPABLE_RUPEE);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x00);
+
+    /* 6. Buried item on other tile (not grass, not hole): remains invisible and sets priv4 = 1 */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x20);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x20);
+    gb_write(&gb, wRoomObjects + 0x11, 0x00);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x02);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_DROPPABLE_RUPEE);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x02);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState4Table + 1)) == 0x01);
+
+    /* 7. Seashell in excluded room (UNKNOWN_ROOM_DA): short grass does NOT reveal */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x20);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x20);
+    gb_write(&gb, wRoomObjects + 0x11, OBJECT_SHORT_GRASS);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x02);
+    gb_write(&gb, wIsIndoor, 0);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_DA);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_DROPPABLE_SECRET_SEASHELL);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x02);
+
+    /* 8. Pegasus Boots bonk (private_state3 == 1):
+          - screen shake 0 -> remains invisible */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x01);
+    gb_write(&gb, wScreenShakeCountdown, 0);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x01);
+
+    /*    - collision in range -> reveals! */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x01);
+    gb_write(&gb, wScreenShakeCountdown, 5);
+    gb_write(&gb, wPegasusBootsCollisionCountdown, 5);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x40);
+    gb_write(&gb, wPegasusBootsCollisionPosX, 0x38);
+    gb_write(&gb, wPegasusBootsCollisionPosY, 0x48);
+    assert(DroppableRevealOrReturnIfNeeded(&gb, 1) == true);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x00);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpeedZTable + 1)) == 0x20);
+
+    printf("[PASS] DroppableRevealOrReturnIfNeeded\n");
+}
+
+/* Test 29: func_003_61C0 */
+static void test_func_003_61C0(void) {
+    printf("[RUN ] func_003_61C0\n");
+
+    GBState gb;
+
+    /* 1. Frame counter & 3 != 0: returns without modifying PosZ */
+    gb_init(&gb);
+    gb_write_hram(&gb, hFrameCounter, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 1), 0x08);
+    func_003_61C0(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosZTable + 1)) == 0x08);
+
+    /* 2. Frame counter & 3 == 0 and PosZ == 0x10: returns without modifying */
+    gb_write_hram(&gb, hFrameCounter, 4);
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 1), 0x10);
+    func_003_61C0(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosZTable + 1)) == 0x10);
+
+    /* 3. PosZ < 0x10 (e.g. 0x05): increments towards 0x10 */
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 1), 0x05);
+    func_003_61C0(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosZTable + 1)) == 0x06);
+
+    /* 4. PosZ > 0x10 (e.g. 0x15): decrements towards 0x10 */
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 1), 0x15);
+    func_003_61C0(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosZTable + 1)) == 0x14);
+
+    /* 5. PosZ negative (bit 7 set, e.g. 0xF0): increments towards 0x10 */
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 1), 0xF0);
+    func_003_61C0(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosZTable + 1)) == 0xF1);
+
+    printf("[PASS] func_003_61C0\n");
+}
+
 void test_bank3_entities_droppable(void) {
     test_PickableCanBeCollectedBySwordTable();
     test_PickableHandleGrabbedByItemIfNeeded();
@@ -1318,4 +1577,8 @@ void test_bank3_entities_droppable(void) {
     test_SleepyToadstoolEntityHandler();
     test_HidingSlimeKeyEntityHandler();
     test_DroppableFairyEntityHandler();
+    test_DroppableMagicPowder_Arrows_Rupee();
+    test_DroppableDisappearIfNeeded();
+    test_DroppableRevealOrReturnIfNeeded();
+    test_func_003_61C0();
 }

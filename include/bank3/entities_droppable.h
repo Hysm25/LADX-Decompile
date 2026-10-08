@@ -59,11 +59,11 @@ void HoldEntityAboveLink(GBState *gb, uint16_t bc);
 void func_003_5A2E(GBState *gb, uint16_t bc);
 void DroppableDisappearIfNeeded(GBState *gb, uint16_t bc);
 void func_003_61C0(GBState *gb, uint16_t bc);
-void DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t bc);
+bool DroppableRevealOrReturnIfNeeded(GBState *gb, uint16_t bc);
 void func_003_7E0E(GBState *gb, uint16_t bc);
 void PickableCanBeCollectedBySwordTable(GBState *gb);
-void PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t bc);
-void PickableCollectIfNeeded(GBState *gb, uint16_t bc);
+bool PickableHandleGrabbedByItemIfNeeded(GBState *gb, uint16_t bc);
+bool PickableCollectIfNeeded(GBState *gb, uint16_t bc);
 
 /* Pickable Item Collection Functions (03:6350-03:64C8) */
 void PickDroppableMagicPowder(GBState *gb, uint16_t bc);
