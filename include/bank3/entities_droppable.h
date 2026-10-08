@@ -96,4 +96,15 @@ uint16_t SpawnNewEntityInRange_slot(GBState *gb, uint8_t entity_type, uint8_t st
 uint16_t SpawnNewEntityInRange_impl(GBState *gb, uint8_t entity_type, uint16_t bc, uint8_t start_e);
 void ConfigureNewEntity_helper(GBState *gb, uint16_t bc);
 
+/* Chest Data Tables (03:504F-03:5068) */
+extern const uint8_t OpenChestTilesGBC[4];
+extern const uint8_t OpenChestTiles[4];
+extern const uint8_t ChestToInventoryMappingTable[12];
+extern const uint8_t ChestRupeeCountHigh[5];
+extern const uint8_t ChestRupeeCountLow[5];
+
+/* Chest Entity Functions (03:506D-03:5129) */
+void EntityInitChestWithItem(GBState *gb, uint16_t bc);
+void ChestGiveNoneInventoryItem(GBState *gb, uint8_t variant);
+
 #endif /* LADX_BANK3_ENTITIES_DROPPABLE_H */

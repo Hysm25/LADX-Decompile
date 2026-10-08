@@ -427,3 +427,72 @@ void SpawnOctorokRock(GBState *gb, uint16_t bc) {
 
     /* pop bc; and a; .return: ret */
 }
+
+/* ===== Iron Mask Data Tables (03:4FEB-03:4FFB) ===== */
+
+/* UnmaskedIronMaskSpriteVariants (03:4FEB) - 2 variants * 2 sprites * 2 bytes = 8 bytes */
+const uint8_t UnmaskedIronMaskSpriteVariants[8] = {
+    0x70, OAM_GBC_PAL_2 | OAMF_PAL0,
+    0x72, OAM_GBC_PAL_2 | OAMF_PAL0,
+    0x72, OAM_GBC_PAL_2 | OAMF_PAL0 | OAMF_XFLIP,
+    0x70, OAM_GBC_PAL_2 | OAMF_PAL0 | OAMF_XFLIP
+};
+
+/* IronMaskSpeedXValues (03:4FF3) */
+const int8_t IronMaskSpeedXValues[4] = {
+    0x0C, (int8_t)0xF4, 0x00, 0x00
+};
+
+/* IronMaskSpeedYValues (03:4FF7) */
+const int8_t IronMaskSpeedYValues[4] = {
+    0x00, 0x00, (int8_t)0xF4, 0x0C
+};
+
+/* ===== IronMaskEntityHandler (03:4FFB) ===== */
+void IronMaskEntityHandler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld hl, wEntitiesPrivateState2Table; add hl, bc; ld a, [hl]; and a; jr z, .masked */
+    uint8_t unmasked = gb_read(gb, (uint16_t)(wEntitiesPrivateState2Table + bc));
+    if (unmasked == 0) {
+        /* .masked: ld de, MaskedIronMaskSpriteVariants; call AnimateRoamingEnemy; ret */
+        AnimateRoamingEnemy(gb, bc);
+        return;
+    }
+
+    /* ld de, UnmaskedIronMaskSpriteVariants; call RenderActiveEntitySpritesPair */
+    RenderActiveEntitySpritesPair(gb, UnmaskedIronMaskSpriteVariants, NULL);
+
+    /* call ReturnIfNonInteractive_03 */
+    ReturnIfNonInteractive_03(gb, false);
+
+    /* call ApplyRecoilIfNeeded_03 */
+    ApplyRecoilIfNeeded_03(gb, bc);
+
+    /* call DefaultEnemyDamageCollisionHandler */
+    DefaultEnemyDamageCollisionHandler(gb, bc);
+
+    /* call UpdateEntityPosWithSpeed_03 */
+    UpdateEntityPosWithSpeed_03(gb, bc);
+
+    /* call ApplyEntityInteractionWithBackground */
+    ApplyEntityInteractionWithBackground(gb, bc);
+
+    /* call GetEntityTransitionCountdown; jr nz, .changeDirectionEnd */
+    uint8_t countdown = GetEntityTransitionCountdown(gb, bc);
+    if (countdown == 0) {
+        /* call GetRandomByte; and $1F; add $20; ld [hl], a */
+        uint8_t new_timer = (uint8_t)((GetRandomByte(gb) & 0x1F) + 0x20);
+        gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), new_timer);
+
+        /* and $03; ld e, a; ld d, b; ld hl, IronMaskSpeedXValues; add hl, de; ld a, [hl]... */
+        uint8_t dir = (uint8_t)(new_timer & 0x03);
+        gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + bc), (uint8_t)IronMaskSpeedXValues[dir]);
+        gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + bc), (uint8_t)IronMaskSpeedYValues[dir]);
+    }
+
+    /* .changeDirectionEnd: ldh a, [hFrameCounter]; rra 4x; and $01; jp SetEntitySpriteVariant */
+    uint8_t frame = gb_read_hram(gb, hFrameCounter);
+    uint8_t variant = (uint8_t)((frame >> 4) & 0x01);
+    SetEntitySpriteVariant(gb, bc, variant);
+}

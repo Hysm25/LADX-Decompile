@@ -225,6 +225,7 @@
 #define wBossAgonySFXCountdown                0xC5A7
 #define wOAMNextAvailableSlot                 0xC3C0
 #define wItemUsageContext                     0xC1AD
+#define wOwlEntityIndex                       0xC501
 #define wSwordMoblinAlertingSoundCounter      0xC502
 #define wEntityHorizontallyCollidedObject     0xC503
 #define wPickedUpRockIndex                    0xC50C

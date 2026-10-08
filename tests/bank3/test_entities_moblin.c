@@ -563,6 +563,87 @@ static void test_SpawnOctorokRock(void) {
     printf("[PASS] SpawnOctorokRock\n");
 }
 
+/* ===== IronMaskEntityHandler Test ===== */
+static void test_IronMaskEntityHandler(void) {
+    printf("[RUN ] IronMaskEntityHandler\n");
+
+    /* 1. Verify Data Tables */
+    assert(sizeof(UnmaskedIronMaskSpriteVariants) == 8);
+    assert(UnmaskedIronMaskSpriteVariants[0] == 0x70);
+    assert(UnmaskedIronMaskSpriteVariants[1] == (OAM_GBC_PAL_2 | OAMF_PAL0));
+    assert(UnmaskedIronMaskSpriteVariants[2] == 0x72);
+    assert(UnmaskedIronMaskSpriteVariants[3] == (OAM_GBC_PAL_2 | OAMF_PAL0));
+    assert(UnmaskedIronMaskSpriteVariants[4] == 0x72);
+    assert(UnmaskedIronMaskSpriteVariants[5] == (OAM_GBC_PAL_2 | OAMF_PAL0 | OAMF_XFLIP));
+    assert(UnmaskedIronMaskSpriteVariants[6] == 0x70);
+    assert(UnmaskedIronMaskSpriteVariants[7] == (OAM_GBC_PAL_2 | OAMF_PAL0 | OAMF_XFLIP));
+
+    assert(IronMaskSpeedXValues[0] == 0x0C);
+    assert(IronMaskSpeedXValues[1] == (int8_t)0xF4);
+    assert(IronMaskSpeedXValues[2] == 0x00);
+    assert(IronMaskSpeedXValues[3] == 0x00);
+
+    assert(IronMaskSpeedYValues[0] == 0x00);
+    assert(IronMaskSpeedYValues[1] == 0x00);
+    assert(IronMaskSpeedYValues[2] == (int8_t)0xF4);
+    assert(IronMaskSpeedYValues[3] == 0x0C);
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x01;
+
+    /* 2. Masked path (unmasked == 0): dispatches to AnimateRoamingEnemy */
+    setup_interactive(&gb);
+    gb_write(&gb, wEntitiesPrivateState2Table + bc, 0x00);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_IRON_MASK);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x20);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x20);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x20);
+    IronMaskEntityHandler(&gb, bc);
+
+    /* 3. Unmasked path (unmasked == 1) with countdown == 0 */
+    gb_init(&gb);
+    setup_interactive(&gb);
+    gb_write(&gb, wEntitiesPrivateState2Table + bc, 0x01);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_IRON_MASK);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x20);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x20);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x20);
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x00);
+    /* Frame counter for variant (frame >> 4) & 1 */
+    gb_write_hram(&gb, hFrameCounter, 0x10); /* 0x10 >> 4 = 1 */
+
+    IronMaskEntityHandler(&gb, bc);
+
+    /* Verify transition countdown set to (rand & 0x1F) + 0x20 */
+    uint8_t timer = gb_read(&gb, wEntitiesTransitionCountdownTable + bc);
+    assert(timer >= 0x20 && timer <= 0x3F);
+    uint8_t dir = (uint8_t)(timer & 0x03);
+    (void)dir;
+    assert((int8_t)gb_read(&gb, wEntitiesSpeedXTable + bc) == IronMaskSpeedXValues[dir]);
+    assert((int8_t)gb_read(&gb, wEntitiesSpeedYTable + bc) == IronMaskSpeedYValues[dir]);
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + bc) == 1);
+
+    /* 4. Unmasked path with countdown != 0: retains speeds, updates frame variant */
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x10);
+    gb_write(&gb, wEntitiesSpeedXTable + bc, 0x05);
+    gb_write(&gb, wEntitiesSpeedYTable + bc, 0x06);
+    gb_write_hram(&gb, hFrameCounter, 0x00); /* 0x00 >> 4 = 0 */
+    IronMaskEntityHandler(&gb, bc);
+    assert(gb_read(&gb, wEntitiesSpeedXTable + bc) == 0x05);
+    assert(gb_read(&gb, wEntitiesSpeedYTable + bc) == 0x06);
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + bc) == 0);
+
+    /* 5. NULL check */
+    IronMaskEntityHandler(NULL, bc);
+
+    printf("[PASS] IronMaskEntityHandler\n");
+}
+
 /* ===== Entry Point for Bank 3 Moblin/Roaming Enemy Tests ===== */
 void test_bank3_entities_moblin(void) {
     test_DataTables_Moblin();
@@ -573,4 +654,5 @@ void test_bank3_entities_moblin(void) {
     test_SetEntityVariantForDirection_03();
     test_SpawnMoblinArrow();
     test_SpawnOctorokRock();
+    test_IronMaskEntityHandler();
 }

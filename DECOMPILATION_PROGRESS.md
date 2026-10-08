@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~93.7%
-* **Number of Verified Functions**: 1136
-* **Number of Decompiled Functions**: 1136
-* **Number Remaining**: ~76 functions
-* **Current Subsystem**: ROM Bank 3 (Universal Entity State Handlers)
-* **Current Task**: Batch 105 Verification Completed
-* **Last Completed Task**: Batch 105 Verification — ROM Bank 3 Universal Entity State Handlers, Thrown/Lifted Mechanics, and Fall Physics (`EntityInitEntity25`, `EntityInitEntity26`, `Entity25Handler`, `Entity26Handler`, `EntityBurningHandler`, `EntityFallHandler`, `EntityThrownHandler`, `EntityStunnedHandler`, `EntityGetLiftedUp`, `EntityLiftedHandler`, `func_003_5795`, `ConfigureNewEntity_attributes`).
-* **Last Update Timestamp**: 2026-10-08T17:10:00+00:00
+* **Current Overall Progress**: ~94.1%
+* **Number of Verified Functions**: 1140
+* **Number of Decompiled Functions**: 1140
+* **Number Remaining**: ~72 functions
+* **Current Subsystem**: ROM Bank 3 (Universal Entity State Handlers, Chest Dispensers, Pushable Blocks)
+* **Current Task**: Batch 106 Verification Completed
+* **Last Completed Task**: Batch 106 Verification — ROM Bank 3 Roaming Enemy AI, Chest Item Dispensers, and Pushable Block Initialization (`IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, `EntityInitPushedBlock`).
+* **Last Update Timestamp**: 2026-10-08T23:05:00+00:00
 
 ---
 
@@ -1425,6 +1425,48 @@
 
 ---
 
+## Batch 106 Verification — ROM Bank 3 Roaming Enemy AI, Chest Item Dispensers, and Pushable Block Initialization
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:4FEB`-`03:5245`). Implemented across `src/bank3/entities_moblin.c`, `src/bank3/entities_droppable.c`, and `src/bank3/entities_pushed_block.c` with declarations in `include/bank3/entities_moblin.h`, `include/bank3/entities_droppable.h`, and `include/bank3/entities_pushed_block.h`.
+- **Functions Decompiled & Verified:**
+  - `IronMaskEntityHandler` (`03:4FFB`, `bank3.asm:1598`): Roaming enemy AI handler for Iron Mask. When masked (`wEntitiesPrivateState2Table[bc] == 0`), delegates directly to `AnimateRoamingEnemy` with `MaskedIronMaskSpriteVariants`. When unmasked (`wEntitiesPrivateState2Table[bc] != 0`): renders unmasked sprite pair with `UnmaskedIronMaskSpriteVariants`; filters non-interactive entities; applies recoil and default enemy damage collision; updates position with speed; and resolves background collisions. When transition countdown reaches 0: rolls a new timer `(rand & 0x1F) + 0x20` and chooses a new speed pair along the 4 cardinal directions from `IronMaskSpeedXValues` and `IronMaskSpeedYValues` using `timer & 0x03`. Updates walking sprite variant `(hFrameCounter >> 4) & 1` via `SetEntitySpriteVariant`.
+  - `EntityInitChestWithItem` (`03:506D`, `bank3.asm:1677`): Entity initializer for chests containing items. Sets `wC111 = 0x2A` and `hNoiseSfx = NOISE_SFX_DOOR_UNLOCKED`. Selects open chest tile layout based on GBC mode (`OpenChestTilesGBC` on DMG, `OpenChestTiles` on GBC per original ASM logic) and places open chest background object (`OBJECT_CHEST_OPEN` / `0xA1`) via `func_003_51C9`. Offsets entity Y position up by 8 pixels (`sub 0x08`), sets vertical pop speed `speedY = 0xFC`, and stores chest item variant in `hMultiPurposeG`. For `CHEST_TAIL_KEY` (0x11), sets the Tail Cave owl cutscene entity countdown `wEntitiesPrivateCountdown1Table[wOwlEntityIndex] = 0x38`. Dispatches reward:
+    - `variant >= CHEST_MESSAGE` (0x21): Marks room completed and returns immediately.
+    - `variant == CHEST_SEASHELL` (0x20): Marks room completed and increments seashell count clamped at 99 via `IncreaseValueAtHLClampAt99`.
+    - `variant >= CHEST_RUPEES_50` (0x1B..0x1F): Buffers rupee reward low/high from `ChestRupeeCountLow` and `ChestRupeeCountHigh`, sets `wC3CE = 0x18`, and marks room completed. Supports 50, 20, 100, 200, and 500 rupee quantities.
+    - `variant >= CHEST_MAP` (0x16..0x1A): Increments dungeon item flag in `wHasDungeonMap`, calls `SynchronizeDungeonsItemFlags_trampoline(SynchronizeDungeonsItemFlags)`, and marks room completed.
+    - `variant >= CHEST_FLIPPERS` (0x0C..0x15): Dispatches to `ChestGiveNoneInventoryItem(variant)` to increment slot in `wInventoryItems + variant` (e.g. flippers, dungeon keys, golden leaves) and marks room completed.
+    - Equipment variants (< 0x0C): increments `wShieldLevel` for `CHEST_SHIELD`; increments `wPowerBraceletLevel` for `CHEST_POWER_BRACELET` if level < 2; BCD-increments `wBombCount` for `CHEST_BOMB`; gives item from `ChestToInventoryMappingTable` via `GiveInventoryItem`; and marks room completed.
+  - `ChestGiveNoneInventoryItem` (`03:5125`, `bank3.asm:1811`): Gives inventory items stored directly in the `wInventoryItems` table by index (flippers, keys, leaves), incrementing `wInventoryItems + variant` and falling through to `MarkRoomCompleted`.
+  - `EntityInitPushedBlock` (`03:516E`, `bank3.asm:1871`): Movable block entity initializer. Computes direction to Link via `GetEntityDirectionToLink_03` and assigns pushing speed along the push axis from `Data_003_523D` and `Data_003_5241`. Executes `PushedBlockEntityHandler` and `ApplyEntityInteractionWithBackground`. If background collision occurs (`wEntitiesCollisionsTable[bc] != 0`), unloads block via `UnloadEntityAndReturn`. Otherwise triggers rumble sound `NOISE_SFX_RUMBLE` (`0x11`) and replaces underlying map tiles via `func_003_51C9`:
+    - Overworld Color Dungeon entrance (`ROOM_OW_COLOR_DUNGEON_ENTRANCE`): if tombstones unsolved (`wColorDungonCorrectTombStones != 0x80`), uses `Data_003_516A` and object code `0x03`; else uses `Data_003_5166` and object code `0xC6`.
+    - Normal overworld: uses `Data_003_5166` and object code `0xC6`.
+    - Indoor room `UNKNOWN_ROOM_C7`: uses `Data_003_5156` and object code `0xBE`.
+    - Normal indoor room: uses `Data_003_515A` and object code `0x0D`.
+- **Data Tables Verified:**
+  - `UnmaskedIronMaskSpriteVariants` (`03:4FEB`: 2 animation frames * 2 sprites * 2 bytes = 8 bytes)
+  - `IronMaskSpeedXValues` (`03:4FF3`: `{0x0C, -12 (0xF4), 0x00, 0x00}`)
+  - `IronMaskSpeedYValues` (`03:4FF7`: `{0x00, 0x00, -12 (0xF4), 0x0C}`)
+  - `OpenChestTilesGBC` (`03:504F`: `{0x62, 0x70, 0x63, 0x71}`)
+  - `OpenChestTiles` (`03:5053`: `{0x62, 0x70, 0x62, 0x70}`)
+  - `ChestToInventoryMappingTable` (`03:5057`: 12 item mapping bytes for bracelet, shield, bow, hookshot, magic rod, boots, ocarina, feather, shovel, powder, bombs, sword)
+  - `ChestRupeeCountHigh` (`03:5063`: `{0, 0, 0, 0, 1}`)
+  - `ChestRupeeCountLow` (`03:5068`: `{50, 20, 100, 200, 244}`)
+  - `Data_003_5156` (`03:5156`: `{0x6A, 0x7A, 0x6B, 0x7B}` pushed block indoor C7 tiles)
+  - `Data_003_515A` (`03:515A`: `{0x10, 0x12, 0x11, 0x13}` pushed block normal indoor tiles)
+  - `Data_003_5166` (`03:5166`: `{0x68, 0x77, 0x69, 0x4B}` pushed block normal outdoor tiles)
+  - `Data_003_516A` (`03:516A`: `{0x76, 0x76, 0x76, 0x76}` pushed block Color Dungeon entrance tiles)
+  - `Data_003_523D` (`03:523D`: `{-8 (0xF8), 8 (0x08), 0x00, 0x00}` X velocities per push direction)
+  - `Data_003_5241` (`03:5241`: `{0x00, 0x00, 8 (0x08), -8 (0xF8)}` Y velocities per push direction)
+- **Tests Added & Verified:**
+  - `test_IronMaskEntityHandler` in `tests/bank3/test_entities_moblin.c`: validates unmasked and speed tables, masked delegation to `AnimateRoamingEnemy`, unmasked step-tick with recoil/damage/speeds, zero transition timer randomization, nonzero timer speed retention, frame variant calculation, and NULL safety.
+  - `test_EntityInitPushedBlock` in `tests/bank3/test_entities_physics.c`: validates speed and tile replacement tables, background collision abort and unload, outdoor push with rumble sound and tile/object writes, Color Dungeon tombstone condition branch, standard indoor push, and room C7 push.
+  - `test_ChestGiveNoneInventoryItem_and_EntityInitChestWithItem` in `tests/bank3/test_entities_droppable.c`: validates chest tile layouts, inventory mappings, rupee low/high tables, standalone `ChestGiveNoneInventoryItem` slot increment and room event marking, tail key owl countdown trigger, message return, seashell count increment, rupee buffer assignment (50 and 500 rupees), dungeon map synchronization, shield/bracelet/bomb level increments, equipment inventory granting, and NULL safety.
+  - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1140 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Item dispensation logic, equipment level increments, BCD bomb counter arithmetic, rupee buffers, and pushed block replacement tiles verified exact to assembly instruction sequence.
+
+---
+
 ## Completeness & Inventory Audit (Pre-Batch 106)
 
 An independent, evidence-based audit of LADX decompilation completeness was performed at commit `e599699` across ROM Banks 0, 1, 2, and 3.
@@ -1520,22 +1562,20 @@ These routines are implemented in `src/bank3/entities_init_basic.c`, `entities_l
 44. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
 45. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
 
-#### Group B: Missing Functions Not Yet Implemented in C (14 routines)
+#### Group B: Missing Functions Not Yet Implemented in C (10 routines)
 These routines have not yet been decompiled or implemented in `src/`:
-1. `IronMaskEntityHandler` (`03:4FFB`, `bank3.asm:1598`): Roaming enemy state handler for masked Iron Mask.
-2. `EntityInitChestWithItem` (`03:506D`, `bank3.asm:1677`): Entity initializer for chests containing items.
-3. `ChestGiveNoneInventoryItem` (`03:5125`, `bank3.asm:1811`): Handler for empty/none chest item pickups.
-4. `EntityInitPushedBlock` (`03:516E`, `bank3.asm:1871`): Entity initializer for movable blocks.
-5. `SmashRock` (`03:5407`, `bank3.asm:2069`): Rock breaking physics and sprite disintegration.
-6. `EntityDeathHandler` (`03:5518`, `bank3.asm:2176`): Universal enemy death animation and drop spawning sequence.
-7. `SpawnEnemyDrop` (`03:55CF`, `bank3.asm:2356`): Random enemy drop item selection (hearts, rupees, bombs, fairies).
-8. `EntityInitEntity13` (`03:59D7`, `bank3.asm:2741`): Stub entity 13 initializer (`ret`).
-9. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`).
-10. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Internal loop entry point of entity collision system.
-11. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment.
-12. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
-13. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
-14. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper.
+1. `SmashRock` (`03:5407`, `bank3.asm:2069`): Rock breaking physics and sprite disintegration.
+2. `EntityDeathHandler` (`03:5518`, `bank3.asm:2176`): Universal enemy death animation and drop spawning sequence.
+3. `SpawnEnemyDrop` (`03:55CF`, `bank3.asm:2356`): Random enemy drop item selection (hearts, rupees, bombs, fairies).
+4. `EntityInitEntity13` (`03:59D7`, `bank3.asm:2741`): Stub entity 13 initializer (`ret`).
+5. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`).
+6. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Internal loop entry point of entity collision system.
+7. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment.
+8. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
+9. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
+10. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper.
+
+*(Note: `IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, and `EntityInitPushedBlock` were decompiled, tested, and VERIFIED in Batch 106).*
 
 #### Group C: Shared Entry Points & Mid-Routine Labels (17 routines)
 These entry points are secondary entry labels or fall-through jump points in ASM that alias or branch into existing functions:

@@ -894,6 +894,131 @@ static void test_PushedBlockEntityHandler(void) {
     printf("[PASS] PushedBlockEntityHandler\n");
 }
 
+static void test_EntityInitPushedBlock(void) {
+    printf("[RUN ] EntityInitPushedBlock\n");
+
+    /* 1. Data Tables Verification */
+    assert(Data_003_5156[0] == 0x6A && Data_003_5156[1] == 0x7A && Data_003_5156[2] == 0x6B && Data_003_5156[3] == 0x7B);
+    assert(Data_003_515A[0] == 0x10 && Data_003_515A[1] == 0x12 && Data_003_515A[2] == 0x11 && Data_003_515A[3] == 0x13);
+    assert(Data_003_5166[0] == 0x68 && Data_003_5166[1] == 0x77 && Data_003_5166[2] == 0x69 && Data_003_5166[3] == 0x4B);
+    assert(Data_003_516A[0] == 0x76 && Data_003_516A[1] == 0x76 && Data_003_516A[2] == 0x76 && Data_003_516A[3] == 0x76);
+    assert(Data_003_523D[0] == 0xF8 && Data_003_523D[1] == 0x08 && Data_003_523D[2] == 0x00 && Data_003_523D[3] == 0x00);
+    assert(Data_003_5241[0] == 0x00 && Data_003_5241[1] == 0x00 && Data_003_5241[2] == 0x08 && Data_003_5241[3] == 0xF8);
+
+    GBState gb;
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    uint16_t bc = 0x02;
+
+    /* Setup common entity state */
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+
+    /* 2. Collision branch: if collisions != 0, unloads entity */
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x01);
+    EntityInitPushedBlock(&gb, bc);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    /* 3. Successful outdoor push: plays rumble sfx, writes Data_003_5166 and 0xC6 */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write_hram(&gb, hMapRoom, 0x10);
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+
+    EntityInitPushedBlock(&gb, bc);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_RUMBLE);
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0xC6);
+    assert(gb_read(&gb, wDDD8) == 0xC6);
+
+    /* 4. Color dungeon entrance: unopened (tombstones != 0x80) -> Data_003_516A, 0x03 */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write_hram(&gb, hMapRoom, ROOM_OW_COLOR_DUNGEON_ENTRANCE);
+    gb_write(&gb, wColorDungonCorrectTombStones, 0x00);
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+
+    EntityInitPushedBlock(&gb, bc);
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0x03);
+    assert(gb_read(&gb, wDDD8) == 0x03);
+
+    /* 5. Indoor push: normal indoor -> Data_003_515A, 0x0D */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+
+    EntityInitPushedBlock(&gb, bc);
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0x0D);
+    assert(gb_read(&gb, wDDD8) == 0x0D);
+
+    /* 6. Indoor push in UNKNOWN_ROOM_C7 -> Data_003_5156, 0xBE */
+    gb_init(&gb);
+    init_mock_physics_rom(&gb);
+    gb_write(&gb, wActiveEntityIndex, (uint8_t)bc);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x3F);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x47);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_C7);
+    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x00);
+
+    EntityInitPushedBlock(&gb, bc);
+    assert(gb_read(&gb, wRoomObjects + 0x34) == 0xBE);
+    assert(gb_read(&gb, wDDD8) == 0xBE);
+
+    /* 7. NULL check */
+    EntityInitPushedBlock(NULL, bc);
+
+    printf("[PASS] EntityInitPushedBlock\n");
+}
+
 static void test_EntityBackgroundTables(void) {
     printf("[RUN ] EntityBackgroundTables\n");
 
@@ -1396,6 +1521,7 @@ void test_bank3_entities_physics(void) {
     test_BombBounceOffWalls();
     test_func_003_51C9();
     test_PushedBlockEntityHandler();
+    test_EntityInitPushedBlock();
     test_EntityBackgroundTables();
     test_func_003_7E0E();
     test_ApplyEntityCollisionWithObject();

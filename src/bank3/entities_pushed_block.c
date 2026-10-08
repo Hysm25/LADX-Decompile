@@ -31,11 +31,89 @@ static const uint8_t Unknown010SpriteVariants[8] = {
     0x7E, 0xC7,  0x7E, 0xC7 | OAMF_XFLIP
 };
 
+/* Data_003_5156 (03:5156) */
+const uint8_t Data_003_5156[4] = { 0x6A, 0x7A, 0x6B, 0x7B };
+
+/* Data_003_515A (03:515A) */
+const uint8_t Data_003_515A[4] = { 0x10, 0x12, 0x11, 0x13 };
+
 /* Data_003_515E (03:515E) */
 static const uint8_t Data_003_515E[4] = { 0xF8, 0xF9, 0xFA, 0xFB };
 
 /* Data_003_5162 (03:5162) */
 static const uint8_t Data_003_5162[4] = { 0x0E, 0x1E, 0x0F, 0x1F };
+
+/* Data_003_5166 (03:5166) */
+const uint8_t Data_003_5166[4] = { 0x68, 0x77, 0x69, 0x4B };
+
+/* Data_003_516A (03:516A) */
+const uint8_t Data_003_516A[4] = { 0x76, 0x76, 0x76, 0x76 };
+
+/* Data_003_523D (03:523D) */
+const uint8_t Data_003_523D[4] = { 0xF8, 0x08, 0x00, 0x00 };
+
+/* Data_003_5241 (03:5241) */
+const uint8_t Data_003_5241[4] = { 0x00, 0x00, 0x08, 0xF8 };
+
+/* ===== EntityInitPushedBlock (03:516E) ===== */
+void EntityInitPushedBlock(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call GetEntityDirectionToLink_03 */
+    uint8_t dir = (uint8_t)(GetEntityDirectionToLink_03(gb) & 0x03);
+
+    /* ld hl, Data_003_523D; add hl, de; ld a, [hl]; ld hl, wEntitiesSpeedXTable; add hl, bc; ld [hl], a */
+    gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + bc), Data_003_523D[dir]);
+
+    /* ld hl, Data_003_5241; add hl, de; ld a, [hl]; ld hl, wEntitiesSpeedYTable; add hl, bc; ld [hl], a */
+    gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + bc), Data_003_5241[dir]);
+
+    /* call PushedBlockEntityHandler */
+    PushedBlockEntityHandler(gb, bc);
+
+    /* call ApplyEntityInteractionWithBackground */
+    ApplyEntityInteractionWithBackground(gb, bc);
+
+    /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld a, [hl]; and a; jp nz, UnloadEntityAndReturn */
+    if (gb_read(gb, (uint16_t)(wEntitiesCollisionsTable + bc)) != 0) {
+        UnloadEntityAndReturn(gb, bc);
+        return;
+    }
+
+    /* .jr_5198: ld a, NOISE_SFX_RUMBLE; ldh [hNoiseSfx], a */
+    gb_write_hram(gb, hNoiseSfx, NOISE_SFX_RUMBLE);
+
+    /* ld de, Data_003_5166; ld b, $C6 */
+    const uint8_t *de = Data_003_5166;
+    uint8_t b = 0xC6;
+
+    /* ldh a, [hMapRoom]; cp ROOM_OW_COLOR_DUNGEON_ENTRANCE; jr nz, .jr_51B3 */
+    if (gb_read_hram(gb, hMapRoom) == ROOM_OW_COLOR_DUNGEON_ENTRANCE) {
+        /* ld a, [wColorDungonCorrectTombStones]; cp $80; jr z, .jr_51B3 */
+        if (gb_read(gb, wColorDungonCorrectTombStones) != 0x80) {
+            /* ld de, Data_003_516A; ld b, $03 */
+            de = Data_003_516A;
+            b = 0x03;
+        }
+    }
+
+    /* .jr_51B3: ld a, [wIsIndoor]; and a; jr z, func_003_51C9 */
+    if (gb_read(gb, wIsIndoor) != 0) {
+        /* ld de, Data_003_515A; ld b, $0D */
+        de = Data_003_515A;
+        b = 0x0D;
+
+        /* ldh a, [hMapRoom]; cp UNKNOWN_ROOM_C7; jr nz, func_003_51C9 */
+        if (gb_read_hram(gb, hMapRoom) == UNKNOWN_ROOM_C7) {
+            /* ld de, Data_003_5156; ld b, $BE */
+            de = Data_003_5156;
+            b = 0xBE;
+        }
+    }
+
+    /* func_003_51C9 */
+    func_003_51C9(gb, bc, de, b);
+}
 
 /* ===== PushedBlockEntityHandler (03:5249) ===== */
 void PushedBlockEntityHandler(GBState *gb, uint16_t bc) {

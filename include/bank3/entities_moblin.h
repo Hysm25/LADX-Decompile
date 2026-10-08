@@ -19,6 +19,9 @@ extern const int8_t OctorokRockOffsetYPerDirection[4];
 extern const int8_t OctorokRockSpeedXPerDirection[4];
 extern const int8_t OctorokRockSpeedYPerDirection[4];
 extern const uint8_t MaskedIronMaskSpriteVariants[32];
+extern const uint8_t UnmaskedIronMaskSpriteVariants[8];
+extern const int8_t IronMaskSpeedXValues[4];
+extern const int8_t IronMaskSpeedYValues[4];
 
 /* Roaming Enemy & Projectile Functions (03:57E9-03:59D6) */
 void OctorokEntityHandler(GBState *gb, uint16_t bc);
@@ -29,5 +32,8 @@ void RoamingEnemyState0Handler(GBState *gb, uint16_t bc);
 void SetEntityVariantForDirection_03(GBState *gb, uint16_t bc);
 void SpawnMoblinArrow(GBState *gb, uint16_t bc);
 void SpawnOctorokRock(GBState *gb, uint16_t bc);
+
+/* Iron Mask Entity Handler (03:4FFB-03:504E) */
+void IronMaskEntityHandler(GBState *gb, uint16_t bc);
 
 #endif /* LADX_BANK3_ENTITIES_MOBLIN_H */

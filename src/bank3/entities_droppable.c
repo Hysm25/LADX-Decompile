@@ -2209,3 +2209,151 @@ void SpawnNewEntityInRange(GBState *gb, uint16_t bc) {
     uint8_t start_e = gb_read_hram(gb, hMultiPurpose0);
     SpawnNewEntityInRange_impl(gb, type, bc, start_e);
 }
+
+/* ===== Chest Data Tables (03:504F-03:5068) ===== */
+
+/* OpenChestTilesGBC (03:504F) */
+const uint8_t OpenChestTilesGBC[4] = {
+    0x62, 0x70, 0x63, 0x71
+};
+
+/* OpenChestTiles (03:5053) */
+const uint8_t OpenChestTiles[4] = {
+    0x62, 0x70, 0x62, 0x70
+};
+
+/* ChestToInventoryMappingTable (03:5057) */
+const uint8_t ChestToInventoryMappingTable[12] = {
+    INVENTORY_POWER_BRACELET, /* CHEST_POWER_BRACELET */
+    INVENTORY_SHIELD,         /* CHEST_SHIELD */
+    INVENTORY_BOW,            /* CHEST_BOW */
+    INVENTORY_HOOKSHOT,       /* CHEST_HOOKSHOT */
+    INVENTORY_MAGIC_ROD,      /* CHEST_MAGIC_ROD */
+    INVENTORY_PEGASUS_BOOTS,  /* CHEST_PEGASUS_BOOTS */
+    INVENTORY_OCARINA,        /* CHEST_OCARINA */
+    INVENTORY_ROCS_FEATHER,   /* CHEST_FEATHER */
+    INVENTORY_SHOVEL,         /* CHEST_SHOVEL */
+    INVENTORY_MAGIC_POWDER,   /* CHEST_MAGIC_POWDER_BAG */
+    INVENTORY_BOMBS,          /* CHEST_BOMB */
+    INVENTORY_SWORD           /* CHEST_SWORD */
+};
+
+/* ChestRupeeCountHigh (03:5063) */
+const uint8_t ChestRupeeCountHigh[5] = {
+    0, 0, 0, 0, 1
+};
+
+/* ChestRupeeCountLow (03:5068) */
+const uint8_t ChestRupeeCountLow[5] = {
+    50, 20, 100, 200, 244
+};
+
+/* ===== ChestGiveNoneInventoryItem (03:5125) ===== */
+void ChestGiveNoneInventoryItem(GBState *gb, uint8_t variant) {
+    if (!gb) return;
+    uint8_t count = gb_read(gb, (uint16_t)(wInventoryItems + variant));
+    gb_write(gb, (uint16_t)(wInventoryItems + variant), (uint8_t)(count + 1));
+    MarkRoomCompleted(gb);
+}
+
+/* ===== EntityInitChestWithItem (03:506D) ===== */
+void EntityInitChestWithItem(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld a, $2A; ld [wC111], a */
+    gb_write(gb, wC111, 0x2A);
+
+    /* ld a, NOISE_SFX_DOOR_UNLOCKED; ldh [hNoiseSfx], a */
+    gb_write_hram(gb, hNoiseSfx, NOISE_SFX_DOOR_UNLOCKED);
+
+    /* ld de, OpenChestTilesGBC; ldh a, [hIsGBC]; and a; jr z, .jr_5081; ld de, OpenChestTiles */
+    const uint8_t *tiles = (gb_read_hram(gb, hIsGBC) == 0) ? OpenChestTilesGBC : OpenChestTiles;
+
+    /* ld b, $A1; call func_003_51C9 */
+    func_003_51C9(gb, bc, tiles, OBJECT_CHEST_OPEN);
+
+    /* ld hl, wEntitiesPosYTable; add hl, bc; ld a, [hl]; sub $08; ld [hl], a */
+    uint8_t pos_y = gb_read(gb, (uint16_t)(wEntitiesPosYTable + bc));
+    gb_write(gb, (uint16_t)(wEntitiesPosYTable + bc), (uint8_t)(pos_y - 8));
+
+    /* ld hl, wEntitiesSpeedYTable; add hl, bc; ld [hl], $FC */
+    gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + bc), 0xFC);
+
+    /* ld hl, wEntitiesSpriteVariantTable; add hl, bc; ld a, [hl]; ldh [hMultiPurposeG], a */
+    uint8_t variant = gb_read(gb, (uint16_t)(wEntitiesSpriteVariantTable + bc));
+    gb_write_hram(gb, hMultiPurposeG, variant);
+
+    /* cp CHEST_TAIL_KEY; jr nz, .jr_50AC */
+    if (variant == CHEST_TAIL_KEY) {
+        /* ld a, [wOwlEntityIndex]; ld e, a; ld hl, wEntitiesPrivateCountdown1Table; add hl, de; ld [hl], $38 */
+        uint8_t owl_index = gb_read(gb, wOwlEntityIndex);
+        gb_write(gb, (uint16_t)(wEntitiesPrivateCountdown1Table + owl_index), 0x38);
+    }
+
+    /* .jr_50AC: cp CHEST_MESSAGE; jp nc, MarkRoomCompleted */
+    if (variant >= CHEST_MESSAGE) {
+        MarkRoomCompleted(gb);
+        return;
+    }
+
+    /* cp CHEST_SEASHELL; jr nz, .jr_50B9; jp label_003_636D */
+    if (variant == CHEST_SEASHELL) {
+        MarkRoomCompleted(gb);
+        IncreaseValueAtHLClampAt99(gb);
+        return;
+    }
+
+    /* .jr_50B9: cp CHEST_RUPEES_50; jr c, .jr_50D8; cp $20; jr nc, .jr_50D8 */
+    if (variant >= CHEST_RUPEES_50 && variant < 0x20) {
+        uint8_t rupee_idx = (uint8_t)(variant - CHEST_RUPEES_50);
+        gb_write(gb, wAddRupeeBufferLow, ChestRupeeCountLow[rupee_idx]);
+        gb_write(gb, wAddRupeeBufferHigh, ChestRupeeCountHigh[rupee_idx]);
+        gb_write(gb, wC3CE, 0x18);
+        MarkRoomCompleted(gb);
+        return;
+    }
+
+    /* .jr_50D8: cp CHEST_MAP; jr c, .jr_50EF; cp CHEST_RUPEES_50; jr nc, .jr_50EF */
+    if (variant >= CHEST_MAP && variant < CHEST_RUPEES_50) {
+        uint8_t map_offset = (uint8_t)(variant - CHEST_MAP);
+        uint8_t cur_val = gb_read(gb, (uint16_t)(wHasDungeonMap + map_offset));
+        gb_write(gb, (uint16_t)(wHasDungeonMap + map_offset), (uint8_t)(cur_val + 1));
+        SynchronizeDungeonsItemFlags_trampoline(gb, SynchronizeDungeonsItemFlags);
+        MarkRoomCompleted(gb);
+        return;
+    }
+
+    /* .jr_50EF: cp CHEST_FLIPPERS; jr nc, ChestGiveNoneInventoryItem */
+    if (variant >= CHEST_FLIPPERS) {
+        ChestGiveNoneInventoryItem(gb, variant);
+        return;
+    }
+
+    /* ldh a, [hMultiPurposeG]; cp CHEST_SHIELD; jr nz, .shieldEnd; inc [hl] */
+    if (variant == CHEST_SHIELD) {
+        uint8_t shield = gb_read(gb, wShieldLevel);
+        gb_write(gb, wShieldLevel, (uint8_t)(shield + 1));
+    }
+
+    /* cp CHEST_POWER_BRACELET; jr nz, .powerBraceletEnd */
+    if (variant == CHEST_POWER_BRACELET) {
+        /* ld a, [wPowerBraceletLevel]; cp $02; jr z, .powerBraceletEnd; inc [hl] */
+        uint8_t bracelet = gb_read(gb, wPowerBraceletLevel);
+        if (bracelet != 0x02) {
+            gb_write(gb, wPowerBraceletLevel, (uint8_t)(bracelet + 1));
+        }
+    }
+
+    /* cp CHEST_BOMB; jr nz, .bombsEnd */
+    if (variant == CHEST_BOMB) {
+        uint8_t bomb_count = gb_read(gb, wBombCount);
+        gb_write(gb, wBombCount, bcd_add(bomb_count, 1));
+    }
+
+    /* ld d, [hl]; call GiveInventoryItem; jr MarkRoomCompleted */
+    if (variant < 12) {
+        uint8_t inv_item = ChestToInventoryMappingTable[variant];
+        GiveInventoryItem(gb, inv_item);
+    }
+    MarkRoomCompleted(gb);
+}

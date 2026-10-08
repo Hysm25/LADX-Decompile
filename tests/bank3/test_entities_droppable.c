@@ -1548,6 +1548,156 @@ static void test_func_003_61C0(void) {
     printf("[PASS] func_003_61C0\n");
 }
 
+/* ===== EntityInitChestWithItem and ChestGiveNoneInventoryItem Tests ===== */
+static void test_ChestGiveNoneInventoryItem_and_EntityInitChestWithItem(void) {
+    printf("[RUN ] ChestGiveNoneInventoryItem_and_EntityInitChestWithItem\n");
+
+    /* 1. Data Tables Verification */
+    assert(OpenChestTilesGBC[0] == 0x62 && OpenChestTilesGBC[1] == 0x70 && OpenChestTilesGBC[2] == 0x63 && OpenChestTilesGBC[3] == 0x71);
+    assert(OpenChestTiles[0] == 0x62 && OpenChestTiles[1] == 0x70 && OpenChestTiles[2] == 0x62 && OpenChestTiles[3] == 0x70);
+    assert(sizeof(ChestToInventoryMappingTable) == 12);
+    assert(ChestToInventoryMappingTable[0] == INVENTORY_POWER_BRACELET);
+    assert(ChestToInventoryMappingTable[1] == INVENTORY_SHIELD);
+    assert(ChestToInventoryMappingTable[2] == INVENTORY_BOW);
+    assert(ChestToInventoryMappingTable[3] == INVENTORY_HOOKSHOT);
+    assert(ChestToInventoryMappingTable[4] == INVENTORY_MAGIC_ROD);
+    assert(ChestToInventoryMappingTable[5] == INVENTORY_PEGASUS_BOOTS);
+    assert(ChestToInventoryMappingTable[6] == INVENTORY_OCARINA);
+    assert(ChestToInventoryMappingTable[7] == INVENTORY_ROCS_FEATHER);
+    assert(ChestToInventoryMappingTable[8] == INVENTORY_SHOVEL);
+    assert(ChestToInventoryMappingTable[9] == INVENTORY_MAGIC_POWDER);
+    assert(ChestToInventoryMappingTable[10] == INVENTORY_BOMBS);
+    assert(ChestToInventoryMappingTable[11] == INVENTORY_SWORD);
+
+    assert(ChestRupeeCountHigh[0] == 0 && ChestRupeeCountLow[0] == 50);
+    assert(ChestRupeeCountHigh[1] == 0 && ChestRupeeCountLow[1] == 20);
+    assert(ChestRupeeCountHigh[2] == 0 && ChestRupeeCountLow[2] == 100);
+    assert(ChestRupeeCountHigh[3] == 0 && ChestRupeeCountLow[3] == 200);
+    assert(ChestRupeeCountHigh[4] == 1 && ChestRupeeCountLow[4] == 244);
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x01;
+
+    /* 2. ChestGiveNoneInventoryItem test */
+    gb_write(&gb, (uint16_t)(wInventoryItems + CHEST_FLIPPERS), 0x00);
+    gb_write_hram(&gb, hMapRoom, 0x10);
+    ChestGiveNoneInventoryItem(&gb, CHEST_FLIPPERS);
+    assert(gb_read(&gb, (uint16_t)(wInventoryItems + CHEST_FLIPPERS)) == 0x01);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 3. EntityInitChestWithItem common setup & Tail Key */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_TAIL_KEY);
+    gb_write(&gb, wOwlEntityIndex, 0x03);
+    gb_write_hram(&gb, hMapRoom, 0x12);
+
+    EntityInitChestWithItem(&gb, bc);
+
+    assert(gb_read(&gb, wC111) == 0x2A);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_DOOR_UNLOCKED);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + bc)) == 0x38); /* 0x40 - 8 */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpeedYTable + bc)) == 0xFC);
+    assert(gb_read_hram(&gb, hMultiPurposeG) == CHEST_TAIL_KEY);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateCountdown1Table + 3)) == 0x38);
+    /* Tail key >= CHEST_FLIPPERS, so wHasTailKey incremented */
+    assert(gb_read(&gb, wHasTailKey) == 0x01);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 4. CHEST_MESSAGE (variant >= 0x21) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_MESSAGE);
+    EntityInitChestWithItem(&gb, bc);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 5. CHEST_SEASHELL (variant 0x20) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_SEASHELL);
+    gb_write(&gb, wSeashellsCount, 0x04);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wSeashellsCount) == 0x05);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 6. CHEST_RUPEES_50 (variant 0x1B) and 500 rupees (0x1F) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_RUPEES_50);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wAddRupeeBufferLow) == 50);
+    assert(gb_read(&gb, wAddRupeeBufferHigh) == 0);
+    assert(gb_read(&gb, wC3CE) == 0x18);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 500 rupees variant */
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_RUPEES_50 + 4);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wAddRupeeBufferLow) == 244);
+    assert(gb_read(&gb, wAddRupeeBufferHigh) == 1);
+    assert(gb_read(&gb, wC3CE) == 0x18);
+
+    /* 7. CHEST_MAP (variant 0x16) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_MAP);
+    gb_write(&gb, wHasDungeonMap, 0x00);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wHasDungeonMap) == 0x01);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 8. CHEST_SHIELD (variant 0x01) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_SHIELD);
+    gb_write(&gb, wShieldLevel, 0x01);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wShieldLevel) == 0x02);
+    assert((gb_read_hram(&gb, hRoomStatus) & ROOM_STATUS_EVENT_1) != 0);
+
+    /* 9. CHEST_POWER_BRACELET (variant 0x00) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_POWER_BRACELET);
+    gb_write(&gb, wPowerBraceletLevel, 0x01);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wPowerBraceletLevel) == 0x02);
+    /* bracelet lvl 2 is not incremented */
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wPowerBraceletLevel) == 0x02);
+
+    /* 10. CHEST_BOMB (variant 0x0A) */
+    gb_init(&gb);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x3F);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x47);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + bc, CHEST_BOMB);
+    gb_write(&gb, wBombCount, 0x09);
+    EntityInitChestWithItem(&gb, bc);
+    assert(gb_read(&gb, wBombCount) == 0x10); /* BCD add 9+1 = 0x10 */
+
+    /* 11. NULL checks */
+    EntityInitChestWithItem(NULL, bc);
+    ChestGiveNoneInventoryItem(NULL, 0);
+
+    printf("[PASS] ChestGiveNoneInventoryItem_and_EntityInitChestWithItem\n");
+}
+
 void test_bank3_entities_droppable(void) {
     test_PickableCanBeCollectedBySwordTable();
     test_PickableHandleGrabbedByItemIfNeeded();
@@ -1581,4 +1731,5 @@ void test_bank3_entities_droppable(void) {
     test_DroppableDisappearIfNeeded();
     test_DroppableRevealOrReturnIfNeeded();
     test_func_003_61C0();
+    test_ChestGiveNoneInventoryItem_and_EntityInitChestWithItem();
 }

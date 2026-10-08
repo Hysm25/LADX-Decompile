@@ -3,6 +3,17 @@
 
 #include "gb.h"
 
+/* Pushed Block Data Tables (03:5156-03:5245) */
+extern const uint8_t Data_003_5156[4];
+extern const uint8_t Data_003_515A[4];
+extern const uint8_t Data_003_5166[4];
+extern const uint8_t Data_003_516A[4];
+extern const uint8_t Data_003_523D[4];
+extern const uint8_t Data_003_5241[4];
+
+/* EntityInitPushedBlock (03:516E) */
+void EntityInitPushedBlock(GBState *gb, uint16_t bc);
+
 /* Pushed Block Entity Handler (03:5249) */
 void PushedBlockEntityHandler(GBState *gb, uint16_t bc);
 
