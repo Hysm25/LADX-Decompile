@@ -72,6 +72,7 @@
 #define NOISE_SFX_BUZZ_BLOB_ELECTROCUTE         0x1C
 #define NOISE_SFX_OPEN_KEY_CAVERN               0x2A
 #define NOISE_SFX_RUMBLE2                       0x2B
+#define NOISE_SFX_INSTRUMENT_WARP               0x2C
 
 #define LOW_HEALTH_SFX_PAUSE                    0x30
 
@@ -83,6 +84,7 @@
 #define JINGLE_NEW_HEART                        0x19
 #define JINGLE_SEAGULL                          0x21
 #define JINGLE_DUNGEON_OPENED                   0x23
+#define JINGLE_INSTRUMENT_WARP                  0x2B
 #define JINGLE_MANBO_WARP                       0x2C
 
 #endif /* LADX_CONSTANTS_SFX_H */

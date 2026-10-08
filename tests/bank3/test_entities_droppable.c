@@ -1152,6 +1152,143 @@ static void test_SwordShieldPickableEntityHandler(void) {
     printf("[PASS] SwordShieldPickableEntityHandler\n");
 }
 
+/* Test: SirensInstrumentEntityHandler and states 0-2 */
+static void test_SirensInstrumentEntityHandler(void) {
+    printf("[RUN ] SirensInstrumentEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* 1. Pruning when room status event 1 is set */
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState1Table + 1), 0);
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    /* 2. State 0:
+          - Active state 0:
+            Countdown 0x10 -> decrements to 0x0F, increments state to 1,
+            sets wHasInstrument1 + map_id |= 2, room event 1, opens dialog in table 1, holds above Link */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState1Table + 1), 0);
+    gb_write_hram(&gb, hActiveEntityState, 0);
+    gb_write_hram(&gb, hMapId, 2); /* Dungeon 3 (Sea Lily's Bell) */
+    gb_write_hram(&gb, hMapRoom, 0x15);
+    gb_write(&gb, wIsIndoor, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0x10);
+    gb_write_hram(&gb, hLinkPositionX, 0x40);
+    gb_write_hram(&gb, hLinkPositionY, 0x50);
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0x0F);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 1);
+    assert((gb_read(&gb, (uint16_t)(wHasInstrument1 + 2)) & 0x02) != 0);
+    assert((gb_read(&gb, (uint16_t)(wIndoorARoomStatus + 0x15)) & ROOM_STATUS_EVENT_1) != 0);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 1)) == 0x40);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosYTable + 1)) == 0x44); /* 0x50 - 0x0C */
+
+    /* Active state 1:
+       When music index == 0 and dialog state == 0 -> plays InstrumentMusicTable[map_id],
+       increments state to 2, countdown = 0xFF */
+    gb_write_hram(&gb, hActiveEntityState, 1);
+    gb_write(&gb, wActiveMusicIndex, 0);
+    gb_write(&gb, wDialogState, 0);
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_INSTRUMENT_SEA_LILYS_BELL);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1)) == 0xFF);
+
+    /* Active state 2:
+       Countdown != 0 -> decrements private state 3 */
+    gb_write_hram(&gb, hActiveEntityState, 2);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0x10);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1), 0x05);
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState3Table + 1)) == 0x04);
+
+    /* Active state 2:
+       Countdown == 0 -> plays JINGLE_INSTRUMENT_WARP, spawns ENTITY_INSTRUMENT_OF_THE_SIRENS, increments state */
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 0);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 1), 0x30);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 1), 0x40);
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_INSTRUMENT_WARP);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 1)) == 3);
+    /* Check spawned entity in slot 15 */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 15)) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesTypeTable + 15)) == ENTITY_INSTRUMENT_OF_THE_SIRENS);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState1Table + 15)) == 0x02);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 15)) == 0x80);
+
+    /* 3. State 1: SirensInstrumentState1Handler
+       Calls UpdateEntityPosWithSpeed_03, unloads when transition countdown reaches 0 */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 2);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState1Table + 2), 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 2), 0x20);
+    gb_write(&gb, (uint16_t)(wEntitiesSpeedXTable + 2), 0x40);
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 2), 5);
+    SirensInstrumentEntityHandler(&gb, 2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPosXTable + 2)) == 0x24);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 2)) == ENTITY_STATUS_ACTIVE);
+
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 2), 0);
+    SirensInstrumentEntityHandler(&gb, 2);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 2)) == ENTITY_STATUS_DISABLED);
+
+    /* 4. State 2: SirensInstrumentState2Handler
+       - While slow transition countdown != 0: calls animateSirensInstrumentPickup */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState1Table + 1), 2);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0x40);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState2Table + 1), 0x00);
+    gb_write_hram(&gb, hFrameCounter, 0x00); /* & 7 == 0 -> plays SFX and increments priv2 */
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read(&gb, wC167) == 0x01);
+    assert(gb_read_hram(&gb, hNoiseSfx) == NOISE_SFX_INSTRUMENT_WARP);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesPrivateState2Table + 1)) == 0x01);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_ACTIVE);
+
+    /* - When slow countdown == 0: unloads entity, increments state of wD201, executes dungeon-specific post-event */
+    /* Test Map 0 (D1): Bow-Wow kidnapped */
+    gb_init(&gb);
+    setup_interactive_entity(&gb, 1);
+    setup_interactive_entity(&gb, 5);
+    gb_write(&gb, wD201, 5);
+    gb_write(&gb, (uint16_t)(wEntitiesStateTable + 5), 3);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState1Table + 1), 2);
+    gb_write(&gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + 1), 0);
+    gb_write_hram(&gb, hMapId, 0); /* D1 */
+    SirensInstrumentEntityHandler(&gb, 1);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStateTable + 5)) == 4);
+    assert(gb_read(&gb, wIsBowWowFollowingLink) == BOW_WOW_KIDNAPPED);
+
+    /* Test Map 1 (D2): Tarin flag = 2 */
+    gb_write_hram(&gb, hMapId, 1);
+    AfterSirensInstrumentD2(&gb);
+    assert(gb_read(&gb, wTarinFlag) == 0x02);
+
+    /* Test Map 3 (D4): Ghost following Link = 2 */
+    gb_write_hram(&gb, hMapId, 3);
+    AfterSirensInstrumentD4(&gb);
+    assert(gb_read(&gb, wIsGhostFollowingLink) == 0x02);
+
+    /* Test Map 5 (D6): Marin in animal village cleared */
+    gb_write(&gb, wIsMarinInAnimalVillage, 1);
+    AfterSirensInstrumentD6(&gb);
+    assert(gb_read(&gb, wIsMarinInAnimalVillage) == 0);
+
+    /* Test Map 6 (D7): Rooster following Link cleared */
+    gb_write(&gb, wIsRoosterFollowingLink, 1);
+    AfterSirensInstrumentD7(&gb);
+    assert(gb_read(&gb, wIsRoosterFollowingLink) == 0);
+
+    printf("[PASS] SirensInstrumentEntityHandler\n");
+}
+
 void test_bank3_entities_droppable(void) {
     test_PickableCanBeCollectedBySwordTable();
     test_PickableHandleGrabbedByItemIfNeeded();
@@ -1174,6 +1311,7 @@ void test_bank3_entities_droppable(void) {
     test_HeartPieceEntityHandler();
     test_GuardianAcorn_PieceOfPower_IronMasksMask();
     test_SwordShieldPickableEntityHandler();
+    test_SirensInstrumentEntityHandler();
     test_HookshotDropEntityHandler();
     test_KeyDropPointEntityHandler();
     test_DroppableHeart_Bombs_Seashell();

@@ -85,6 +85,7 @@
 #define wDoorYPositions              0xC1E0
 #define wDoorPositions               0xC1F0
 #define wMusicTrackToPlay       0xD368
+#define wActiveMusicIndex       0xD369
 #define w2_D16A                 0xD16A
 #define wWarp0MapCategory       0xD401
 #define wWarpStructs            0xD401
@@ -663,6 +664,7 @@
 #define wC570                                 0xC570
 #define wC590                                 0xC590
 #define wD200                                 0xD200
+#define wD201                                 0xD201
 #define wC166                                 0xC166
 #define wLinkPlayingOcarinaCountdown          0xC166
 #define wC1CF                                 0xC1CF

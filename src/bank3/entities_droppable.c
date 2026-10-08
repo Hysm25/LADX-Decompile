@@ -846,6 +846,433 @@ void SleepyToadstoolEntityHandler(GBState *gb, uint16_t bc) {
     HoldEntityAboveLink(gb, bc);
 }
 
+/* ===== SirensInstrument2SpriteVariants (03:5D83) ===== */
+static const uint8_t SirensInstrument2SpriteVariants[16] = {
+    0x70, 0x01, 0x72, 0x01,  /* variant 0 */
+    0x74, 0x01, 0x76, 0x01,  /* variant 1 */
+    0x78, 0x01, 0x7A, 0x01,  /* variant 2 */
+    0x7C, 0x01, 0x7E, 0x01   /* variant 3 */
+};
+
+/* ===== SirensInstrumentEntityHandler (03:5D93) ===== */
+void SirensInstrumentEntityHandler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld hl, wEntitiesPrivateState1Table; add hl, bc; ld a, [hl]; JP_TABLE */
+    uint8_t priv1 = gb_read(gb, wEntitiesPrivateState1Table + bc);
+    switch (priv1) {
+        case 0: SirensInstrumentState0Handler(gb, bc); break;
+        case 1: SirensInstrumentState1Handler(gb, bc); break;
+        case 2: SirensInstrumentState2Handler(gb, bc); break;
+        default: break;
+    }
+}
+
+/* ===== Data_003_5D9F (03:5D9F) ===== */
+static const uint8_t Data_003_5D9F[29] = {
+    0xE4, 0xE4, 0xE4, 0xE4, 0x90, 0x90, 0x90, 0x90, 0x40, 0x40, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+/* ===== Data_003_5DBC (03:5DBC) ===== */
+static const uint8_t Data_003_5DBC[29] = {
+    0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C,
+    0x08, 0x08, 0x08, 0x08, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+/* ===== AfterSirensInstrumentD1 (03:5E0C) ===== */
+void AfterSirensInstrumentD1(GBState *gb) {
+    if (!gb) return;
+    /* Mark Bow-Wow as kidnapped */
+    gb_write(gb, wIsBowWowFollowingLink, BOW_WOW_KIDNAPPED);
+}
+
+/* ===== AfterSirensInstrumentD2 (03:5E12) ===== */
+void AfterSirensInstrumentD2(GBState *gb) {
+    if (!gb) return;
+    gb_write(gb, wTarinFlag, 0x02);
+}
+
+/* ===== AfterSirensInstrumentD3 (03:5E18) ===== */
+void AfterSirensInstrumentD3(GBState *gb) {
+    (void)gb;
+}
+
+/* ===== AfterSirensInstrumentD4 (03:5E19) ===== */
+void AfterSirensInstrumentD4(GBState *gb) {
+    if (!gb) return;
+    /* Mark Ghost as following Link */
+    gb_write(gb, wIsGhostFollowingLink, 0x02);
+}
+
+/* ===== AfterSirensInstrumentNone (03:5E1E) ===== */
+void AfterSirensInstrumentNone(GBState *gb) {
+    (void)gb;
+}
+
+/* ===== AfterSirensInstrumentD6 (03:5E1F) ===== */
+void AfterSirensInstrumentD6(GBState *gb) {
+    if (!gb) return;
+    /* Mark Marin as disappeared */
+    gb_write(gb, wIsMarinInAnimalVillage, 0x00);
+}
+
+/* ===== AfterSirensInstrumentD7 (03:5E24) ===== */
+void AfterSirensInstrumentD7(GBState *gb) {
+    if (!gb) return;
+    /* Make the rooster not following Link anymore */
+    gb_write(gb, wIsRoosterFollowingLink, 0x00);
+}
+
+/* ===== animateSirensInstrumentPickup (03:5E29) ===== */
+void animateSirensInstrumentPickup(GBState *gb, uint16_t bc, uint8_t slow_countdown) {
+    if (!gb) return;
+
+    /* cp $50; jr nc, ret_003_5E8A */
+    if (slow_countdown >= 0x50) {
+        return;
+    }
+
+    /* ld hl, wEntitiesPrivateState2Table; add hl, bc; ld a, [hl]; cp $19; jr nc, ret_003_5E8A */
+    uint16_t priv2_addr = wEntitiesPrivateState2Table + bc;
+    uint8_t priv2 = gb_read(gb, priv2_addr);
+    if (priv2 >= 0x19) {
+        return;
+    }
+
+    /* ldh a, [hFrameCounter]; and $07; jr nz, jr_003_5E5B */
+    if ((gb_read_hram(gb, hFrameCounter) & 0x07) == 0) {
+        /* ld a, [hl]; and a; jr nz, .jr_5E45; ld a, NOISE_SFX_INSTRUMENT_WARP; ldh [hNoiseSfx], a */
+        if (priv2 == 0) {
+            gb_write_hram(gb, hNoiseSfx, NOISE_SFX_INSTRUMENT_WARP);
+        }
+
+        /* .jr_5E45: inc [hl] */
+        gb_write(gb, priv2_addr, (uint8_t)(priv2 + 1));
+
+        /* cp $18; jr nz, jr_003_5E5B */
+        if (priv2 == 0x18) {
+            /* ld a, ENTITY_GOOMBA; call SpawnNewEntity */
+            uint16_t new_entity = SpawnNewEntityInRange_impl(gb, ENTITY_GOOMBA, bc, MAX_ENTITIES - 1);
+            if (new_entity != 0xFFFF) {
+                /* ld hl, wEntitiesPrivateState1Table; add hl, de; ld [hl], $01 */
+                gb_write(gb, (uint16_t)(wEntitiesPrivateState1Table + new_entity), 0x01);
+                /* ld hl, wEntitiesTransitionCountdownTable; add hl, de; ld [hl], $60 */
+                gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + new_entity), 0x60);
+            }
+        }
+    }
+
+    /* jr_003_5E5B:
+       ldh a, [hFrameCounter]; and $03; ld hl, wEntitiesPrivateState2Table; add hl, bc; add [hl]; ld e, a; ld d, b */
+    uint8_t current_priv2 = gb_read(gb, priv2_addr);
+    uint8_t palette_idx = (uint8_t)((gb_read_hram(gb, hFrameCounter) & 0x03) + current_priv2);
+
+    /* ldh a, [hIsGBC]; and a; jr z, .jr_5E76 */
+    if (gb_read_hram(gb, hIsGBC) != 0) {
+        func_020_6D0E_trampoline(gb, 0x03, NULL);
+    } else {
+        /* .jr_5E76:
+           ld hl, Data_003_5D9F; add hl, de; ld a, [hl]; ld [wBGPalette], a
+           ld hl, Data_003_5DBC; add hl, de; ld a, [hl]; ld [wOBJ0Palette], a
+           xor a; ld [wOBJ1Palette], a */
+        if (palette_idx < sizeof(Data_003_5D9F)) {
+            gb_write(gb, wBGPalette, Data_003_5D9F[palette_idx]);
+            gb_write(gb, wOBJ0Palette, Data_003_5DBC[palette_idx]);
+            gb_write(gb, wOBJ1Palette, 0);
+        }
+    }
+}
+
+/* ===== SirensInstrumentState2Handler (03:5DD9) ===== */
+void SirensInstrumentState2Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call func_006_783C_trampoline */
+    func_006_783C_trampoline(gb, NULL);
+
+    /* ld a, $01; ld [wC167], a */
+    gb_write(gb, wC167, 0x01);
+
+    /* call GetEntitySlowTransitionCountdown; jr nz, animateSirensInstrumentPickup */
+    uint8_t slow_countdown = GetEntitySlowTransitionCountdown(gb, bc);
+    if (slow_countdown != 0) {
+        animateSirensInstrumentPickup(gb, bc, slow_countdown);
+        return;
+    }
+
+    /* call UnloadEntity */
+    UnloadEntity(gb, bc);
+
+    /* xor a; ldh [hLinkAnimationState], a */
+    gb_write_hram(gb, hLinkAnimationState, 0);
+
+    /* ld a, [wD201]; ld e, a; ld d, b; ld hl, wEntitiesStateTable; add hl, de; inc [hl] */
+    uint8_t target_entity = gb_read(gb, wD201);
+    uint8_t state = gb_read(gb, (uint16_t)(wEntitiesStateTable + target_entity));
+    gb_write(gb, (uint16_t)(wEntitiesStateTable + target_entity), (uint8_t)(state + 1));
+
+    /* call disableMovementInTransition */
+    disableMovementInTransition(gb);
+
+    /* ldh a, [hMapId]; JP_TABLE */
+    uint8_t map_id = gb_read_hram(gb, hMapId);
+    switch (map_id) {
+        case 0: AfterSirensInstrumentD1(gb); break;
+        case 1: AfterSirensInstrumentD2(gb); break;
+        case 2: AfterSirensInstrumentD3(gb); break;
+        case 3: AfterSirensInstrumentD4(gb); break;
+        case 4: AfterSirensInstrumentNone(gb); break;
+        case 5: AfterSirensInstrumentD6(gb); break;
+        case 6: AfterSirensInstrumentD7(gb); break;
+        case 7: AfterSirensInstrumentNone(gb); break;
+        default: break;
+    }
+}
+
+/* ===== SirensInstrument1SpriteVariants (03:5E8B) ===== */
+static const uint8_t SirensInstrument1SpriteVariants[8] = {
+    0x6C, 0x00, 0xFF, 0xFF,  /* variant 0 */
+    0x6C, 0x00, 0x6E, 0x00   /* variant 1 */
+};
+
+/* ===== SirensInstrumentState1Handler (03:5E93) ===== */
+void SirensInstrumentState1Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld de, SirensInstrument1SpriteVariants; call RenderActiveEntitySpritesPair */
+    RenderActiveEntitySpritesPair(gb, SirensInstrument1SpriteVariants, NULL);
+
+    /* call UpdateEntityPosWithSpeed_03 */
+    UpdateEntityPosWithSpeed_03(gb, bc);
+
+    /* call GetEntityTransitionCountdown; jp z, UnloadEntityAndReturn */
+    if (GetEntityTransitionCountdown(gb, bc) == 0) {
+        UnloadEntityAndReturn(gb, bc);
+    }
+}
+
+/* ===== InstrumentMusicTable (03:5F04) ===== */
+static const uint8_t InstrumentMusicTable[8] = {
+    MUSIC_INSTRUMENT_FULL_MOON_CELLO,
+    MUSIC_INSTRUMENT_CONCH_HORN,
+    MUSIC_INSTRUMENT_SEA_LILYS_BELL,
+    MUSIC_INSTRUMENT_SURF_HARP,
+    MUSIC_INSTRUMENT_WIND_MARIMBA,
+    MUSIC_INSTRUMENT_CORAL_TRIANGLE,
+    MUSIC_INSTRUMENT_ORGAN_OF_EVENING_CALM,
+    MUSIC_INSTRUMENT_THUNDER_DRUM
+};
+
+/* ===== func_003_5ED5 (03:5ED5) ===== */
+void func_003_5ED5(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call GetEntityTransitionCountdown; jp z, PickableHandler */
+    uint16_t countdown_addr = wEntitiesTransitionCountdownTable + bc;
+    uint8_t countdown = gb_read(gb, countdown_addr);
+    if (countdown == 0) {
+        PickableHandler(gb, bc);
+        return;
+    }
+
+    /* cp $10; jr nz, .jr_5EFE */
+    if (countdown == 0x10) {
+        /* dec [hl] */
+        gb_write(gb, countdown_addr, 0x0F);
+
+        /* call IncrementEntityState */
+        IncrementEntityState(gb, bc);
+
+        /* ldh a, [hMapId]; add $00; call OpenDialogInTable1 */
+        uint8_t map_id = gb_read_hram(gb, hMapId);
+        OpenDialogInTable1(gb, map_id);
+
+        /* ldh a, [hMapId]; ld e, a; ld d, b; ld hl, wHasInstrument1; add hl, de; ld a, [hl]; or $02; ld [hl], a */
+        uint16_t inst_addr = (uint16_t)(wHasInstrument1 + map_id);
+        gb_write(gb, inst_addr, (uint8_t)(gb_read(gb, inst_addr) | 0x02));
+
+        /* call GetRoomStatusAddressInHL; ld a, [hl]; or $10; ld [hl], a */
+        uint16_t room_status_addr = GetRoomStatusAddressInHL(gb);
+        gb_write(gb, room_status_addr, (uint8_t)(gb_read(gb, room_status_addr) | ROOM_STATUS_EVENT_1));
+    }
+
+    /* .jr_5EFE: dec a; jp HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+}
+
+/* ===== func_003_5F0C (03:5F0C) ===== */
+void func_003_5F0C(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ld a, [wActiveMusicIndex]; and a; jr nz, .jr_5F2C
+       ld a, [wDialogState]; and a; jr nz, .jr_5F2C */
+    if (gb_read(gb, wActiveMusicIndex) == 0 && gb_read(gb, wDialogState) == 0) {
+        /* ldh a, [hMapId]; ld e, a; ld d, b; ld hl, InstrumentMusicTable; add hl, de; ld a, [hl]; ld [wMusicTrackToPlay], a */
+        uint8_t map_id = gb_read_hram(gb, hMapId);
+        if (map_id < sizeof(InstrumentMusicTable)) {
+            gb_write(gb, wMusicTrackToPlay, InstrumentMusicTable[map_id]);
+        }
+
+        /* call IncrementEntityState */
+        IncrementEntityState(gb, bc);
+
+        /* call GetEntityTransitionCountdown; ld [hl], $FF */
+        gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + bc), 0xFF);
+    }
+
+    /* .jr_5F2C: jp HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+}
+
+/* ===== Data_003_5F2F (03:5F2F) ===== */
+static const uint8_t Data_003_5F2F[2] = {
+    0x0A, 0xFA
+};
+
+/* ===== Data_003_5F31 (03:5F31) ===== */
+static const uint8_t Data_003_5F31[2] = {
+    0x04, 0xFC
+};
+
+/* ===== func_003_5F33 (03:5F33) ===== */
+void func_003_5F33(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call GetEntityTransitionCountdown; jr nz, .jr_5F5F */
+    if (GetEntityTransitionCountdown(gb, bc) == 0) {
+        /* ld a, JINGLE_INSTRUMENT_WARP; ldh [hJingle], a */
+        gb_write_hram(gb, hJingle, JINGLE_INSTRUMENT_WARP);
+
+        /* ld a, ENTITY_INSTRUMENT_OF_THE_SIRENS; call SpawnNewEntity */
+        uint16_t new_entity = SpawnNewEntityInRange_impl(gb, ENTITY_INSTRUMENT_OF_THE_SIRENS, bc, MAX_ENTITIES - 1);
+        if (new_entity != 0xFFFF) {
+            /* ldh a, [hMultiPurpose0]; dec a; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
+            uint8_t pos_x = (uint8_t)(gb_read_hram(gb, hMultiPurpose0) - 1);
+            gb_write(gb, (uint16_t)(wEntitiesPosXTable + new_entity), pos_x);
+
+            /* ldh a, [hMultiPurpose1]; ld hl, wEntitiesPosYTable; add hl, de; ld [hl], a */
+            uint8_t pos_y = gb_read_hram(gb, hMultiPurpose1);
+            gb_write(gb, (uint16_t)(wEntitiesPosYTable + new_entity), pos_y);
+
+            /* ld hl, wEntitiesPrivateState1Table; add hl, de; ld [hl], $02 */
+            gb_write(gb, (uint16_t)(wEntitiesPrivateState1Table + new_entity), 0x02);
+
+            /* ld hl, wEntitiesSlowTransitionCountdownTable; add hl, de; ld [hl], $80 */
+            gb_write(gb, (uint16_t)(wEntitiesSlowTransitionCountdownTable + new_entity), 0x80);
+        }
+
+        /* jp IncrementEntityState */
+        IncrementEntityState(gb, bc);
+        return;
+    }
+
+    /* .jr_5F5F: ld hl, wEntitiesPrivateState3Table; add hl, bc; dec [hl]; ld a, [hl]; cp $FF; jr nz, .jr_5FB9 */
+    uint16_t priv3_addr = wEntitiesPrivateState3Table + bc;
+    uint8_t priv3 = (uint8_t)(gb_read(gb, priv3_addr) - 1);
+    gb_write(gb, priv3_addr, priv3);
+
+    if (priv3 == 0xFF) {
+        /* ld [hl], $17 */
+        gb_write(gb, priv3_addr, 0x17);
+
+        /* ld hl, wEntitiesPrivateState4Table; add hl, bc; inc [hl]; ld a, [hl]; and $01; ldh [hMultiPurposeG], a */
+        uint16_t priv4_addr = wEntitiesPrivateState4Table + bc;
+        uint8_t priv4 = (uint8_t)(gb_read(gb, priv4_addr) + 1);
+        gb_write(gb, priv4_addr, priv4);
+        uint8_t bit0 = priv4 & 0x01;
+        gb_write_hram(gb, hMultiPurposeG, bit0);
+
+        /* ld a, ENTITY_INSTRUMENT_OF_THE_SIRENS; call SpawnNewEntity */
+        uint16_t new_entity = SpawnNewEntityInRange_impl(gb, ENTITY_INSTRUMENT_OF_THE_SIRENS, bc, MAX_ENTITIES - 1);
+        if (new_entity != 0xFFFF) {
+            /* ld hl, wEntitiesPrivateState1Table; add hl, de; inc [hl] */
+            uint8_t priv1 = (uint8_t)(gb_read(gb, (uint16_t)(wEntitiesPrivateState1Table + new_entity)) + 1);
+            gb_write(gb, (uint16_t)(wEntitiesPrivateState1Table + new_entity), priv1);
+
+            /* ldh a, [hMultiPurposeG]; ld c, a; ld hl, Data_003_5F2F; add hl, bc; ldh a, [hMultiPurpose0]; add [hl]; ld hl, wEntitiesPosXTable; add hl, de; ld [hl], a */
+            uint8_t offset_x = Data_003_5F2F[bit0];
+            uint8_t pos_x = (uint8_t)(gb_read_hram(gb, hMultiPurpose0) + offset_x);
+            gb_write(gb, (uint16_t)(wEntitiesPosXTable + new_entity), pos_x);
+
+            /* ld hl, Data_003_5F31; add hl, bc; ld a, [hl]; ld hl, wEntitiesSpeedXTable; add hl, de; ld [hl], a */
+            uint8_t speed_x = Data_003_5F31[bit0];
+            gb_write(gb, (uint16_t)(wEntitiesSpeedXTable + new_entity), speed_x);
+
+            /* ldh a, [hMultiPurpose1]; ld hl, wEntitiesPosYTable; add hl, de; add $F8; ld [hl], a */
+            uint8_t pos_y = (uint8_t)(gb_read_hram(gb, hMultiPurpose1) + 0xF8);
+            gb_write(gb, (uint16_t)(wEntitiesPosYTable + new_entity), pos_y);
+
+            /* ld hl, wEntitiesSpeedYTable; add hl, de; ld [hl], $FD */
+            gb_write(gb, (uint16_t)(wEntitiesSpeedYTable + new_entity), 0xFD);
+
+            /* ld hl, wEntitiesTransitionCountdownTable; add hl, de; ld [hl], $38 */
+            gb_write(gb, (uint16_t)(wEntitiesTransitionCountdownTable + new_entity), 0x38);
+
+            /* call GetRandomByte; and $01; ld hl, wEntitiesSpriteVariantTable; add hl, de; ld [hl], a */
+            uint8_t variant = (uint8_t)(GetRandomByte(gb) & 0x01);
+            gb_write(gb, (uint16_t)(wEntitiesSpriteVariantTable + new_entity), variant);
+        }
+    }
+
+    /* .jr_5FB9: jp HoldEntityAboveLink */
+    HoldEntityAboveLink(gb, bc);
+}
+
+/* ===== func_003_5FBC (03:5FBC) ===== */
+void func_003_5FBC(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+    HoldEntityAboveLink(gb, bc);
+}
+
+/* ===== func_003_5FBF (03:5FBF) ===== */
+void func_003_5FBF(GBState *gb, uint16_t bc) {
+    (void)gb;
+    (void)bc;
+}
+
+/* ===== SirensInstrumentState0Handler (03:5EA3) ===== */
+void SirensInstrumentState0Handler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* ldh a, [hActiveEntityState]; cp $03; jr nc, .jr_5EAE */
+    uint8_t active_state = gb_read_hram(gb, hActiveEntityState);
+    if (active_state < 0x03) {
+        /* ld a, $03; call cycleInstrumentItemColor_trampoline */
+        cycleInstrumentItemColor_trampoline(gb, 0x03, NULL);
+    }
+
+    /* .jr_5EAE: ld a, c; ld [wD201], a */
+    gb_write(gb, wD201, (uint8_t)(bc & 0xFF));
+
+    /* ldh a, [hRoomStatus]; and ROOM_STATUS_EVENT_1; jp nz, UnloadEntityAndReturn */
+    if (gb_read_hram(gb, hRoomStatus) & ROOM_STATUS_EVENT_1) {
+        UnloadEntityAndReturn(gb, bc);
+        return;
+    }
+
+    /* ldh a, [hMapId]; and $03; ldh [hActiveEntitySpriteVariant], a */
+    uint8_t map_id = gb_read_hram(gb, hMapId);
+    gb_write_hram(gb, hActiveEntitySpriteVariant, (uint8_t)(map_id & 0x03));
+
+    /* call label_394D */
+    label_394D(gb, NULL);
+
+    /* ld de, SirensInstrument2SpriteVariants; call RenderActiveEntitySpritesPair */
+    RenderActiveEntitySpritesPair(gb, SirensInstrument2SpriteVariants, NULL);
+
+    /* ldh a, [hActiveEntityState]; JP_TABLE */
+    active_state = gb_read_hram(gb, hActiveEntityState);
+    switch (active_state) {
+        case 0: func_003_5ED5(gb, bc); break;
+        case 1: func_003_5F0C(gb, bc); break;
+        case 2: func_003_5F33(gb, bc); break;
+        case 3: func_003_5FBC(gb, bc); break;
+        case 4: func_003_5FBF(gb, bc); break;
+        default: break;
+    }
+}
+
 /* ===== DroppableBombsSprite (03:5FC0) ===== */
 static const uint8_t DroppableBombsSprite[2] = {
     0x80, 0x15

@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~82.6%
-* **Number of Verified Functions**: 1080
-* **Number of Decompiled Functions**: 880
-* **Number Remaining**: ~132 functions
+* **Current Overall Progress**: ~84.0%
+* **Number of Verified Functions**: 1097
+* **Number of Decompiled Functions**: 897
+* **Number Remaining**: ~115 functions
 * **Current Subsystem**: ROM Bank 3 (Droppable and Pickable Entity Handlers & Helpers)
-* **Current Task**: Batch 99 Verification Completed
-* **Last Completed Task**: Batch 99 Verification — ROM Bank 3 Heart Piece and Sword/Shield Pickable Entity Handlers (`HeartPieceEntityHandler`, `HeartPieceState0Handler`-`HeartPieceState8Handler`, `DrawHeartPiecesInDialog`, `SwordShieldPickableEntityHandler`, `SwordShieldPickableState0Handler`-`SwordShieldPickableState3Handler`).
-* **Last Update Timestamp**: 2026-10-08T02:40:00+00:00
+* **Current Task**: Batch 100 Verification Completed
+* **Last Completed Task**: Batch 100 Verification — ROM Bank 3 Siren's Instrument Entity Handler and Post-Dungeon Events (`SirensInstrumentEntityHandler`, `SirensInstrumentState0Handler`-`SirensInstrumentState2Handler`, `func_003_5ED5`, `func_003_5F0C`, `func_003_5F33`, `func_003_5FBC`, `func_003_5FBF`, `animateSirensInstrumentPickup`, `AfterSirensInstrumentD1`-`AfterSirensInstrumentD7`).
+* **Last Update Timestamp**: 2026-10-08T09:58:00+00:00
 
 ---
 
@@ -1212,3 +1212,39 @@
   - `test_SwordShieldPickableEntityHandler`: Tests beach sword room event 1 pruning vs Like-like shield retention, state 0 countdown 0x10 dialog 0x9B and countdown 1 fanfare/track assignment/state increment, state 1 slow transition wait and spin attack/noise SFX trigger, state 2 countdown wait and variant reset, and state 3 sword poke VFX at countdown 26 and sword award/B-button slot/room completion/unload at countdown 0.
   - Full CMake test suite PASS (100% tests passed in ~3.3s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1080 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Heart piece 4-count full heart bonus and beach sword sequence timing verified exact to assembly instruction sequence.
+
+---
+
+## Batch 100 Verification — ROM Bank 3 Siren's Instrument Entity Handler and Post-Dungeon Events
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:5D83`-`03:5FBF`). Implemented in `src/bank3/entities_droppable.c` with declarations in `include/bank3/entities_droppable.h`. Instrument music constants, warp jingle/sfx, and memory variables updated in `include/constants/audio.h`, `include/constants/sfx.h`, and `include/constants/memory.h`.
+- **Functions Decompiled & Verified:**
+  - `SirensInstrumentEntityHandler` (`03:5D93`): Dispatches via `wEntitiesPrivateState1Table` to `SirensInstrumentState0Handler` (state 0), `SirensInstrumentState1Handler` (state 1), or `SirensInstrumentState2Handler` (state 2).
+  - `SirensInstrumentState0Handler` (`03:5EA3`): Calls `cycleInstrumentItemColor_trampoline` if active state < 3. Stores active entity index `bc` in `wD201`. Prunes entity if room event 1 is set (`hRoomStatus & ROOM_STATUS_EVENT_1`). Sets `hActiveEntitySpriteVariant = hMapId & 0x03`. Calls `label_394D`, renders `SirensInstrument2SpriteVariants`, and dispatches to active state handlers 0..4 via jump table (`func_003_5ED5`, `func_003_5F0C`, `func_003_5F33`, `func_003_5FBC`, `func_003_5FBF`).
+  - `func_003_5ED5` (`03:5ED5`): Countdown == 0 dispatches to `PickableHandler`. Countdown == 0x10 decrements to 0x0F, increments entity state (to 1), opens `Dialog100 + map_id` via Table 1 (`OpenDialogInTable1`), sets acquired instrument bit (`wHasInstrument1[map_id] |= 0x02`), sets room event 1 on room status address (`GetRoomStatusAddressInHL`), and holds item above Link (`HoldEntityAboveLink`). Other countdown values hold item above Link.
+  - `func_003_5F0C` (`03:5F0C`): When `wActiveMusicIndex == 0` and `wDialogState == 0`: plays instrument theme from `InstrumentMusicTable[map_id]`, increments entity state (to 2), sets transition countdown = 0xFF. Holds item above Link.
+  - `func_003_5F33` (`03:5F33`): While transition countdown != 0: decrements `wEntitiesPrivateState3Table`. When private state 3 wraps to 0xFF, resets it to 0x17, increments private state 4, and spawns `ENTITY_INSTRUMENT_OF_THE_SIRENS` particle with offsets from `Data_003_5F2F` and speeds from `Data_003_5F31`, setting countdown 0x38 and random variant (0 or 1). When transition countdown reaches 0: plays `JINGLE_INSTRUMENT_WARP`, spawns `ENTITY_INSTRUMENT_OF_THE_SIRENS` with private state 1 = 2 and slow countdown 0x80, and increments entity state (to 3).
+  - `func_003_5FBC` (`03:5FBC`): Holds item above Link (`HoldEntityAboveLink`).
+  - `func_003_5FBF` (`03:5FBF`): No-op return.
+  - `SirensInstrumentState1Handler` (`03:5E93`): Renders `SirensInstrument1SpriteVariants`, updates position with speed (`UpdateEntityPosWithSpeed_03`), and unloads entity when transition countdown == 0.
+  - `SirensInstrumentState2Handler` (`03:5DD9`): Calls `func_006_783C_trampoline`, sets `wC167 = 1`. If slow transition countdown != 0: calls `animateSirensInstrumentPickup`. When slow countdown == 0: unloads entity, clears `hLinkAnimationState = 0`, increments state of parent entity `wD201`, calls `disableMovementInTransition`, and executes dungeon-specific post-instrument handler via `hMapId` jump table (`AfterSirensInstrumentD1`..`AfterSirensInstrumentD7`).
+  - `animateSirensInstrumentPickup` (`03:5E29`): Returns if slow countdown >= 0x50 or private state 2 >= 0x19. On `hFrameCounter & 7 == 0`: if private state 2 == 0 plays `NOISE_SFX_INSTRUMENT_WARP`, increments private state 2; if old value was 0x18, spawns `ENTITY_GOOMBA` with private state 1 = 1 and countdown 0x60. On DMG, sets palette effect from `Data_003_5D9F` (`wBGPalette`) and `Data_003_5DBC` (`wOBJ0Palette`), clears `wOBJ1Palette = 0`; on GBC, calls `func_020_6D0E_trampoline`.
+  - `AfterSirensInstrumentD1` (`03:5E0C`): Sets `wIsBowWowFollowingLink = BOW_WOW_KIDNAPPED` (`0x80`).
+  - `AfterSirensInstrumentD2` (`03:5E12`): Sets `wTarinFlag = 0x02`.
+  - `AfterSirensInstrumentD3` (`03:5E18`): No-op return.
+  - `AfterSirensInstrumentD4` (`03:5E19`): Sets `wIsGhostFollowingLink = 0x02`.
+  - `AfterSirensInstrumentNone` (`03:5E1E`): No-op return (Dungeons 5 and 8).
+  - `AfterSirensInstrumentD6` (`03:5E1F`): Clears `wIsMarinInAnimalVillage = 0`.
+  - `AfterSirensInstrumentD7` (`03:5E24`): Clears `wIsRoosterFollowingLink = 0`.
+- **Data Tables Verified:**
+  - `SirensInstrument2SpriteVariants` (`03:5D83`)
+  - `Data_003_5D9F` (`03:5D9F`)
+  - `Data_003_5DBC` (`03:5DBC`)
+  - `SirensInstrument1SpriteVariants` (`03:5E8B`)
+  - `InstrumentMusicTable` (`03:5F04`)
+  - `Data_003_5F2F` (`03:5F2F`)
+  - `Data_003_5F31` (`03:5F31`)
+- **Tests:** Dedicated test function added to `tests/bank3/test_entities_droppable.c`:
+  - `test_SirensInstrumentEntityHandler`: Tests room completion pruning, state 0 countdown 0x10 dialog/instrument acquisition/room event 1 flag assignment, active state 1 instrument music track assignment (`InstrumentMusicTable`), active state 2 particle countdown and warp spawn (`ENTITY_INSTRUMENT_OF_THE_SIRENS`), state 1 movement and unload, state 2 slow transition palette/warp noise SFX progression and Goomba spawn, and dungeon-specific story flag updates (D1 Bow-Wow kidnapped, D2 Tarin flag, D4 Ghost following Link, D6 Marin disappeared, D7 Rooster departure).
+  - Full CMake test suite PASS (100% tests passed in ~2.7s); strict C11 `-Wall -Wextra -Werror -pedantic` syntax checks PASS; `git diff --check` PASS. All 1097 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Siren's Instrument multi-state sequence and post-dungeon story flag updates verified exact to assembly instruction sequence.
