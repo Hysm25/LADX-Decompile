@@ -1278,3 +1278,29 @@
   - `test_BouncingEntityPhysics`: Tests side-scrolling no collision vs floor bounce (position snap, speed negation and halving, key clink SFX, bomb bump jingle), and top-down positive Z pass-through, shallow water landing velocity zeroing, high velocity ground bounce (speed negation and halving), and low velocity landing halt.
   - Full test suite PASS (402 passed test assertions); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1105 verified functions passing.
 - **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Pickup rendering, bouncing mechanics, and reveal/bury state machine verified exact to assembly instruction sequence.
+
+---
+
+## Batch 102 Verification — ROM Bank 3 Projectile Collision System & Octorok Rock Entity Handler
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:6A1E`-`03:6A33`, `03:6BD6`-`03:6C6A`). Implemented in `src/bank3/entities_collision.c` and `src/bank3/entities_arrow.c` with declarations in `include/bank3/entities_collision.h`, `include/bank3/entities_arrow.h`, and `include/home/entities.h`.
+- **Functions Decompiled & Verified:**
+  - `CheckLinkCollisionWithProjectile` (`03:6BDE`): Tests projectile collision against Link. Returns false if Link is non-interactive (`wLinkMotionState >= LINK_MOTION_TYPE_NON_INTERACTIVE`), airborne (`hLinkPositionZ != 0`), or out of range (`|dx| >= 6`, `|dy| >= 6`). If shield is active (`wIsUsingShield != 0`):
+    - For `ENTITY_LASER_BEAM`: checks mirror shield (`wShieldLevel >= 2`) and deflection angle via `Data_003_6BDA` (`(ent_dir - Data_003_6BDA[link_dir]) & 0x0F < 5`). If satisfied, sets `wEntitiesCollisionsTable = 0x02`, plays `JINGLE_SWORD_POKING`, spawns `TRANSCIENT_VFX_SWORD_POKE`, and deflects laser without damage to Link.
+    - For other projectiles: checks if Link faces opposite to projectile direction via `ReversedDirectionsTable`. If facing opposite, plays `JINGLE_SHIELD_TING`, marks `wEntitiesCollisionsTable = 0xFF`, and blocks damage.
+    - If shield condition is not met (unshielded or bypassed): calls `func_003_6CC0`, which checks harmless/falling flags and applies damage/recoil via `ApplyLinkCollisionWithEnemy`. For `ENTITY_LASER_BEAM` or `ENTITY_MOBLIN_ARROW`, unloads the entity via `UnloadEntityAndReturn`; otherwise marks `wEntitiesCollisionsTable = 0xFF`. Returns true.
+  - `CheckLinkCollisionWithProjectile_showSwordPokeVfx` (`03:6C36`): Internal helper that positions and spawns `TRANSCIENT_VFX_SWORD_POKE` at projectile coordinates.
+  - `OctorokRockEntityHandler` (`03:6A26`): Entity handler for Octorok rocks. When `GetEntityTransitionCountdown == 0`, invokes `CheckLinkCollisionWithProjectile`. Renders `OctorokRockSpriteVariants` and moves via `ArrowRenderAndMove`.
+- **Data Tables Verified:**
+  - `ReversedDirectionsTable` (`03:6BD6`: `{DIRECTION_LEFT, DIRECTION_RIGHT, DIRECTION_DOWN, DIRECTION_UP}`)
+  - `Data_003_6BDA` (`03:6BDA`: `{0x02, 0x0A, 0x0E, 0x06}`)
+  - `OctorokRockSpriteVariants` (`03:6A1E`: `{0x6C, 0x01, 0x6C, 0x21, 0x5C, 0x01, 0x5C, 0x21}`)
+- **Supporting Updates:**
+  - Removed placeholder stub of `CheckLinkCollisionWithProjectile` from `src/home/entities.c` and updated `CheckLinkCollisionWithProjectile_trampoline` to delegate to the bank 3 implementation.
+  - Added `JINGLE_SHIELD_TING` (`0x16`) constant to `include/constants/sfx.h`.
+- **Tests:** Dedicated test functions added to `tests/bank3/test_entities_collision.c`:
+  - `test_DataTables_ProjectileCollision`: Validates dimensions and contents of `ReversedDirectionsTable`, `Data_003_6BDA`, and `OctorokRockSpriteVariants`.
+  - `test_CheckLinkCollisionWithProjectile`: Tests non-interactive Link, airborne Link, out-of-range Link, unshielded collision damage and collision table mark, unshielded moblin arrow unload, unshielded laser beam unload, harmless projectile damage skip, falling Link damage skip, shield block ting sound and damage deflection, wrong-direction shield penetration, lower-level shield laser beam damage, mirror shield laser beam reflection (correct angle, jingle, vfx, no damage), and non-matching angle laser damage.
+  - `test_OctorokRockEntityHandler`: Tests countdown != 0 collision bypass and countdown == 0 collision test with damage/shield response.
+  - Full test suite PASS (405 passed test suites); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1108 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls and vfx routines callback-modeled. Projectile collision bounding boxes, shield deflection angles, and damage fallthrough verified exact to assembly instruction sequence.

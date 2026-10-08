@@ -16,6 +16,12 @@ void func_003_6E2B(GBState *gb, uint16_t bc);
 void EnemyCollidedWithSword(GBState *gb, uint16_t bc);
 void ApplySwordDamagesToEnemy(GBState *gb, uint16_t bc);
 
+/* Projectile Collision Handlers and Tables (03:6BD6-03:6C6A) */
+extern const uint8_t ReversedDirectionsTable[4];
+extern const uint8_t Data_003_6BDA[4];
+bool CheckLinkCollisionWithProjectile(GBState *gb, uint16_t bc);
+void CheckLinkCollisionWithProjectile_showSwordPokeVfx(GBState *gb, uint8_t y_pos);
+
 /* func_003_6B7B is declared in entities_physics.h */
 void func_003_6B7B(GBState *gb, uint16_t bc);
 

@@ -700,7 +700,7 @@ bool ApplySwordIntersectionWithObjects(GBState *gb, uint16_t entity_index);
 void AnimateRoamingEnemy(GBState *gb, uint16_t entity_index);
 
 /**
- * CheckLinkCollisionWithProjectile (03:6C72)
+ * CheckLinkCollisionWithProjectile (03:6BDE)
  * Checks collision between Link and a projectile entity.
  *
  * @param gb Pointer to Game Boy hardware state

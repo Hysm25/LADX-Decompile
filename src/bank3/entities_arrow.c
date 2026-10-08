@@ -49,13 +49,13 @@ static const uint8_t ArrowSpinningSpriteVariantFrames[4] = {
 };
 
 /* Octorok Rock sprite variants - from 03:6A1E (OctorokRockSpriteVariants) */
-static const uint8_t OctorokRockSpriteVariants[8] = {
+const uint8_t OctorokRockSpriteVariants[8] = {
     /* variant 0: tile $6C, attrs */
     0x6C, 0x01,
-    0x6C, OAMF_XFLIP,
+    0x6C, 0x21,
     /* variant 1: tile $5C, attrs */
     0x5C, 0x01,
-    0x5C, OAMF_XFLIP
+    0x5C, 0x21
 };
 
 /* ===== ArrowEntityHandler (03:6A34) ===== */
@@ -337,4 +337,18 @@ void OctorokEntityHandler(GBState *gb, uint16_t bc) {
 
     /* call AnimateRoamingEnemy; ret */
     AnimateRoamingEnemy(gb, bc);
+}
+
+/* ===== OctorokRockEntityHandler (03:6A26) ===== */
+void OctorokRockEntityHandler(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+
+    /* call GetEntityTransitionCountdown; jr nz, .jr_6A2E */
+    if (GetEntityTransitionCountdown(gb, bc) == 0) {
+        /* call CheckLinkCollisionWithProjectile */
+        CheckLinkCollisionWithProjectile(gb, bc);
+    }
+
+    /* .jr_6A2E: ld de, OctorokRockSpriteVariants; jp ArrowRenderAndMove.skipLoadingSprites */
+    ArrowRenderAndMove(gb, bc);
 }

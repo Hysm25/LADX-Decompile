@@ -13,6 +13,12 @@ void EntityBounceOffWallX(GBState *gb, uint16_t bc);
 void EntityBounceOffWallY(GBState *gb, uint16_t bc);
 void ArrowRockAfterHittingWall(GBState *gb, uint16_t bc);
 
+/* Octorok Rock sprite variants (03:6A1E) */
+extern const uint8_t OctorokRockSpriteVariants[8];
+
+/* Octorok Rock Entity Handler (03:6A26) */
+void OctorokRockEntityHandler(GBState *gb, uint16_t bc);
+
 /* Octorok Entity Handler (03:57E9) */
 void OctorokEntityHandler(GBState *gb, uint16_t bc);
 

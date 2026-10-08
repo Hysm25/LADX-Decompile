@@ -23,6 +23,7 @@
 #define JINGLE_FALL_DOWN                        0x08
 #define JINGLE_FOREST_LOST                      0x1E
 #define JINGLE_GOT_HEART                        0x14
+#define JINGLE_SHIELD_TING                      0x16
 
 /* Values for hWaveSfx */
 #define WAVE_SFX_NONE                           0x00

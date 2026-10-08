@@ -302,6 +302,8 @@ void CheckLinkCollisionWithProjectile_trampoline(GBState *gb, void (*check_colli
     gb_write(gb, rSelectROMBank, 0x03);
     if (check_collision) {
         check_collision(gb);
+    } else {
+        CheckLinkCollisionWithProjectile(gb, gb_read(gb, wActiveEntityIndex));
     }
     ReloadSavedBank(gb);
 }
@@ -1228,12 +1230,4 @@ void OpenDialogInTable0_trampoline(GBState *gb, uint8_t dialog_id) {
     /* Stub: Opens a dialog from table 0 */
     (void)dialog_id;
     gb_write(gb, wDialogState, 0x01);  /* Set dialog as opening */
-}
-
-bool CheckLinkCollisionWithProjectile(GBState *gb, uint16_t entity_index) {
-    if (!gb) return false;
-    /* Stub: Checks collision between Link and a projectile entity */
-    /* From 03:6C72 - checks if Link is in air, not interactive, then checks hitbox collision */
-    (void)entity_index;
-    return false;
 }

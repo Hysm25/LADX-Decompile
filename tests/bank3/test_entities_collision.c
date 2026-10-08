@@ -12,6 +12,7 @@
 #include "constants/inventory.h"
 #include "constants/sfx.h"
 #include "constants/audio.h"
+#include "bank3/entities_arrow.h"
 
 /* Test EntityDamagesForGroup table values */
 static void test_EntityDamagesForGroup(void) {
@@ -1723,6 +1724,243 @@ static void test_CheckExplosionInteractionWithEntities(void) {
     printf("[PASS] CheckExplosionInteractionWithEntities & GetVectorTowardsOtherEntity\n");
 }
 
+/* Test Projectile Collision Tables (03:6BD6, 03:6BDA, 03:6A1E) */
+static void test_DataTables_ProjectileCollision(void) {
+    printf("[RUN ] ReversedDirectionsTable, Data_003_6BDA, OctorokRockSpriteVariants\n");
+
+    assert(sizeof(ReversedDirectionsTable) == 4);
+    assert(ReversedDirectionsTable[DIRECTION_RIGHT] == DIRECTION_LEFT);
+    assert(ReversedDirectionsTable[DIRECTION_LEFT] == DIRECTION_RIGHT);
+    assert(ReversedDirectionsTable[DIRECTION_UP] == DIRECTION_DOWN);
+    assert(ReversedDirectionsTable[DIRECTION_DOWN] == DIRECTION_UP);
+
+    assert(sizeof(Data_003_6BDA) == 4);
+    assert(Data_003_6BDA[0] == 0x02);
+    assert(Data_003_6BDA[1] == 0x0A);
+    assert(Data_003_6BDA[2] == 0x0E);
+    assert(Data_003_6BDA[3] == 0x06);
+
+    assert(sizeof(OctorokRockSpriteVariants) == 8);
+    assert(OctorokRockSpriteVariants[0] == 0x6C && OctorokRockSpriteVariants[1] == 0x01);
+    assert(OctorokRockSpriteVariants[2] == 0x6C && OctorokRockSpriteVariants[3] == 0x21);
+    assert(OctorokRockSpriteVariants[4] == 0x5C && OctorokRockSpriteVariants[5] == 0x01);
+    assert(OctorokRockSpriteVariants[6] == 0x5C && OctorokRockSpriteVariants[7] == 0x21);
+
+    printf("[PASS] ReversedDirectionsTable, Data_003_6BDA, OctorokRockSpriteVariants\n");
+}
+
+/* Test CheckLinkCollisionWithProjectile (03:6BDE) */
+static void test_CheckLinkCollisionWithProjectile(void) {
+    printf("[RUN ] CheckLinkCollisionWithProjectile\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x02;
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00); /* 4 nominal damage */
+
+    /* 1. Link is non-interactive: returns false */
+    gb_write(&gb, wLinkMotionState, LINK_MOTION_TYPE_NON_INTERACTIVE);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == false);
+
+    /* 2. Link is in the air: returns false */
+    gb_write(&gb, wLinkMotionState, 0);
+    gb_write_hram(&gb, hLinkPositionZ, 4);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == false);
+
+    /* 3. Link is out of range horizontally */
+    gb_write_hram(&gb, hLinkPositionZ, 0);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x50); /* diff_x = 0x20 + 6 = 38 >= 12 */
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == false);
+
+    /* 4. Link is out of range vertically */
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x60); /* diff_y = 0x20 + 6 = 38 >= 12 */
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == false);
+
+    /* 5. In range, unshielded (wIsUsingShield = 0): damages Link, sets collisions table = 0xFF */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x32);
+    gb_write_hram(&gb, hLinkPositionY, 0x42);
+    gb_write(&gb, wIsUsingShield, 0);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0x04);
+    assert(gb_read(&gb, wInvincibilityCounter) == 0x50);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0xFF);
+
+    /* 6. Harmless entity: func_003_6CC0 skips damage */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesPhysicsFlagsTable + bc, ENTITY_PHYSICS_HARMLESS);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x32);
+    gb_write_hram(&gb, hLinkPositionY, 0x42);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0); /* skipped */
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0xFF);
+
+    /* 7. Falling Link animation (0x4E): func_003_6CC0 skips damage */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write_hram(&gb, hLinkAnimationState, 0x4E);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x32);
+    gb_write_hram(&gb, hLinkPositionY, 0x42);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0);
+
+    /* 8. Unshielded Moblin arrow: damages Link and unloads */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_MOBLIN_ARROW);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    /* 9. Shield block with opposite direction: plays JINGLE_SHIELD_TING, no damage */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, wIsUsingShield, 1);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_RIGHT);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_LEFT); /* opposite */
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_SHIELD_TING);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0xFF);
+
+    /* 10. Shield with non-opposite direction: does NOT block */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, wIsUsingShield, 1);
+    gb_write(&gb, wEntitiesDirectionTable + bc, DIRECTION_RIGHT);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_UP); /* not opposite */
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0x04);
+
+    /* 11. Laser beam against lower-level shield (wShieldLevel = 1): hits and unloads */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_LASER_BEAM);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, wIsUsingShield, 1);
+    gb_write(&gb, wShieldLevel, 1);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    /* 12. Laser beam reflected by Mirror Shield (wShieldLevel = 2, matching angle):
+       Link direction RIGHT (0) -> e = 0x02. Entity direction 0x04 -> (4 - 2) & 0x0F = 2 < 5 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_LASER_BEAM);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, wIsUsingShield, 1);
+    gb_write(&gb, wShieldLevel, 2);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, 0x04);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0x02);
+    assert(gb_read_hram(&gb, hJingle) == JINGLE_SWORD_POKING);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0);
+
+    /* 13. Laser beam with Mirror Shield at non-matching angle: (7 - 2) & 0x0F = 5 >= 5 -> unloads */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_LASER_BEAM);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x40);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, wIsUsingShield, 1);
+    gb_write(&gb, wShieldLevel, 2);
+    gb_write_hram(&gb, hLinkDirection, DIRECTION_RIGHT);
+    gb_write(&gb, wEntitiesDirectionTable + bc, 0x07);
+    assert(CheckLinkCollisionWithProjectile(&gb, bc) == true);
+    assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] CheckLinkCollisionWithProjectile\n");
+}
+
+/* Test OctorokRockEntityHandler (03:6A26) */
+static void test_OctorokRockEntityHandler(void) {
+    printf("[RUN ] OctorokRockEntityHandler\n");
+
+    GBState gb;
+    gb_init(&gb);
+    uint16_t bc = 0x02;
+    gb_write(&gb, wActiveEntityIndex, bc);
+    gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityStatus, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityType, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesTypeTable + bc, ENTITY_OCTOROK_ROCK);
+    gb_write(&gb, wEntitiesHealthGroup + bc, 0x00);
+    gb_write(&gb, wGameplayType, GAMEPLAY_WORLD);
+    gb_write(&gb, wTransitionSequenceCounter, 4);
+
+    /* Case 1: Transition countdown != 0: bypasses collision check */
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x05);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x30);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x40);
+    gb_write_hram(&gb, hLinkPositionX, 0x30);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    OctorokRockEntityHandler(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0);
+
+    /* Case 2: Transition countdown == 0: executes collision check */
+    gb_write(&gb, wEntitiesTransitionCountdownTable + bc, 0x00);
+    OctorokRockEntityHandler(&gb, bc);
+    assert(gb_read(&gb, wEntitiesCollisionsTable + bc) == 0xFF);
+    assert(gb_read(&gb, wSubtractHealthBuffer) == 0x04);
+
+    printf("[PASS] OctorokRockEntityHandler\n");
+}
+
 void test_bank3_entities_collision(void) {
     test_EntityDamagesForGroup();
     test_ApplyLinkCollision_CheepCheep();
@@ -1747,4 +1985,7 @@ void test_bank3_entities_collision(void) {
     test_func_003_75A2_MagicPowderAndIronMask();
     test_func_003_75A2_ProjectileReactions();
     test_CheckExplosionInteractionWithEntities();
+    test_DataTables_ProjectileCollision();
+    test_CheckLinkCollisionWithProjectile();
+    test_OctorokRockEntityHandler();
 }

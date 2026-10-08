@@ -138,6 +138,111 @@ const uint8_t Data_003_473C[128] = {
     0x00, 0x01, 0x02, 0x40, 0x00, 0x00, 0xFF, 0x00
 };
 
+/* ===== ReversedDirectionsTable (03:6BD6) ===== */
+const uint8_t ReversedDirectionsTable[4] = {
+    DIRECTION_LEFT,   /* RIGHT -> LEFT */
+    DIRECTION_RIGHT,  /* LEFT  -> RIGHT */
+    DIRECTION_DOWN,   /* UP    -> DOWN */
+    DIRECTION_UP      /* DOWN  -> UP */
+};
+
+/* ===== Data_003_6BDA (03:6BDA) ===== */
+const uint8_t Data_003_6BDA[4] = {
+    0x02, /* RIGHT */
+    0x0A, /* LEFT */
+    0x0E, /* UP */
+    0x06  /* DOWN */
+};
+
+/* ===== CheckLinkCollisionWithProjectile_showSwordPokeVfx (03:6C36) ===== */
+void CheckLinkCollisionWithProjectile_showSwordPokeVfx(GBState *gb, uint8_t y_pos) {
+    if (!gb) return;
+    gb_write_hram(gb, hMultiPurpose1, y_pos);
+    gb_write_hram(gb, hMultiPurpose0, gb_read_hram(gb, hActiveEntityPosX));
+    AddTranscientVfx(gb, TRANSCIENT_VFX_SWORD_POKE);
+}
+
+/* ===== CheckLinkCollisionWithProjectile (03:6BDE) ===== */
+bool CheckLinkCollisionWithProjectile(GBState *gb, uint16_t bc) {
+    if (!gb) return false;
+
+    /* If Link is not interactive, return. */
+    if (gb_read(gb, wLinkMotionState) >= LINK_MOTION_TYPE_NON_INTERACTIVE) {
+        return false;
+    }
+
+    /* If Link is in the air, return. */
+    if (gb_read_hram(gb, hLinkPositionZ) != 0) {
+        return false;
+    }
+
+    /* If Link is not touching the entity, return. */
+    uint8_t entity_x = gb_read_hram(gb, hActiveEntityPosX);
+    uint8_t link_x = gb_read_hram(gb, hLinkPositionX);
+    uint8_t diff_x = (uint8_t)(link_x - entity_x + 0x06);
+    if (diff_x >= 0x0C) {
+        return false;
+    }
+
+    uint8_t entity_y = gb_read_hram(gb, hActiveEntityVisualPosY);
+    uint8_t link_y = gb_read_hram(gb, hLinkPositionY);
+    uint8_t diff_y = (uint8_t)(link_y - entity_y + 0x06);
+    if (diff_y >= 0x0C) {
+        return false;
+    }
+
+    /* Check shield usage */
+    if (gb_read(gb, wIsUsingShield) == 0) {
+        goto shieldEnd;
+    }
+
+    /* Special case: laser beam against mirror shield */
+    uint8_t entity_type = gb_read_hram(gb, hActiveEntityType);
+    if (entity_type == ENTITY_LASER_BEAM) {
+        if (gb_read(gb, wShieldLevel) < 2) {
+            goto shieldEnd;
+        }
+
+        uint8_t link_dir = gb_read_hram(gb, hLinkDirection) & 0x03;
+        uint8_t e = Data_003_6BDA[link_dir];
+        uint8_t ent_dir = gb_read(gb, wEntitiesDirectionTable + bc);
+        uint8_t diff_dir = (uint8_t)((ent_dir - e) & 0x0F);
+        if (diff_dir >= 0x05) {
+            goto shieldEnd;
+        }
+
+        gb_write(gb, wEntitiesCollisionsTable + bc, 0x02);
+        gb_write_hram(gb, hJingle, JINGLE_SWORD_POKING);
+        CheckLinkCollisionWithProjectile_showSwordPokeVfx(gb, gb_read_hram(gb, hActiveEntityPosY));
+        return true;
+    }
+
+    /* If the entity is in a direction opposite to Link's direction… */
+    uint8_t ent_dir = gb_read(gb, wEntitiesDirectionTable + bc) & 0x03;
+    if (gb_read_hram(gb, hLinkDirection) != ReversedDirectionsTable[ent_dir]) {
+        goto shieldEnd;
+    }
+
+    /* Play the "a projectile hits the shield" sound */
+    gb_write_hram(gb, hJingle, JINGLE_SHIELD_TING);
+    gb_write(gb, wEntitiesCollisionsTable + bc, 0xFF);
+    return true;
+
+shieldEnd:
+    /* Does a lot of stuff! Applies damage and knockback to Link if not harmless / falling */
+    if (!func_003_6CC0(gb, bc)) {
+        ApplyLinkCollisionWithEnemy(gb, bc);
+    }
+
+    entity_type = gb_read_hram(gb, hActiveEntityType);
+    if (entity_type == ENTITY_LASER_BEAM || entity_type == ENTITY_MOBLIN_ARROW) {
+        UnloadEntityAndReturn(gb, bc);
+        return true;
+    }
+
+    gb_write(gb, wEntitiesCollisionsTable + bc, 0xFF);
+    return true;
+}
 
 /* ===== CheckLinkCollisionWithEnemy (03:6C72) ===== */
 bool CheckLinkCollisionWithEnemy(GBState *gb, uint16_t bc) {
