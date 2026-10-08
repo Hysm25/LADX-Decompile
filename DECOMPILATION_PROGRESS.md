@@ -1467,3 +1467,92 @@ The repository contains 1,066 active unique C function definitions in `src/` (ex
 ### 4. Behavioral Verification Assessment & Confidence Level
 - **Test Integrity:** All verified routines are tested against `GBState` memory state, register effects, collision masks, physics velocities, and event flags. No mock-only stubbing is used for verified logic.
 - **Verification Confidence:** **98.5%** confidence across verified routines; 100% test suite pass rate.
+
+### 5. Detailed Census of the 76 Remaining Routines in Bank 3
+
+Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 76 in-scope routines reside exclusively in Bank 3 and are classified as follows:
+
+#### Group A: Implemented in C but Pending Formal Behavioral Test Verification (45 routines)
+These routines are implemented in `src/bank3/entities_init_basic.c`, `entities_liftable_rock.c`, and `entities_magic_rod.c`, but lack dedicated behavioral unit tests in `tests/`:
+1. `EntityInitSnake` (`03:493D`, `bank3.asm:298`) -> `src/bank3/entities_init_basic.c:48`
+2. `EntityInitSideViewPlatformVertical` (`03:4943`, `bank3.asm:303`) -> `src/bank3/entities_init_basic.c:62`
+3. `EntityInitZol` (`03:4953`, `bank3.asm:317`) -> `src/bank3/entities_init_basic.c:84`
+4. `EntityInitMarinAtTheShore` (`03:495A`, `bank3.asm:323`) -> `src/bank3/entities_init_basic.c:94`
+5. `EntityInitBomber` (`03:4965`, `bank3.asm:331`) -> `src/bank3/entities_init_basic.c:111`
+6. `EntityInitBushCrawler` (`03:4973`, `bank3.asm:340`) -> `src/bank3/entities_init_basic.c:127`
+7. `EntityInitTarinBeekeeper` (`03:4974`, `bank3.asm:343`) -> `src/bank3/entities_init_basic.c:134`
+8. `EntityInitTelephone` (`03:497C`, `bank3.asm:348`) -> `src/bank3/entities_init_basic.c:147`
+9. `EntityInitRichard` (`03:4980`, `bank3.asm:352`) -> `src/bank3/entities_init_basic.c:155`
+10. `SetMusicTrackIfHasSword` (`03:4995`, `bank3.asm:368`) -> `src/bank3/entities_init_basic.c:181`
+11. `SetMusicTrack` (`03:499C`, `bank3.asm:376`) -> `src/bank3/entities_init_basic.c:195`
+12. `EntityInitFinalNightmare` (`03:49A6`, `bank3.asm:383`) -> `src/bank3/entities_init_basic.c:212`
+13. `EntityInitDreamShrineBed` (`03:49AD`, `bank3.asm:388`) -> `src/bank3/entities_init_basic.c:221`
+14. `EntityInitFishermanUnderBridge` (`03:49B1`, `bank3.asm:392`) -> `src/bank3/entities_init_basic.c:229`
+15. `EntityInitKikiTheMonkey` (`03:49B5`, `bank3.asm:396`) -> `src/bank3/entities_init_basic.c:237`
+16. `EntityInitFireballShooter` (`03:49C2`, `bank3.asm:408`) -> `src/bank3/entities_init_basic.c:251`
+17. `EntityInitAntiKirby` (`03:49C8`, `bank3.asm:412`) -> `src/bank3/entities_init_basic.c:261`
+18. `EntityInitMovingBlockMover` (`03:49D4`, `bank3.asm:420`) -> `src/bank3/entities_init_basic.c:278`
+19. `EntityInitDesertLanmola` (`03:49E2`, `bank3.asm:431`) -> `src/bank3/entities_init_basic.c:292`
+20. `EntityInitFloatingItem2` (`03:49E6`, `bank3.asm:437`) -> `src/bank3/entities_init_basic.c:300`
+21. `EntityInitFloatingItem` (`03:49F4`, `bank3.asm:445`) -> `src/bank3/entities_init_basic.c:315`
+22. `SetZPosForFloatingItem` (`03:4A12`, `bank3.asm:464`) -> `src/bank3/entities_init_basic.c:351`
+23. `EntityInitKid71` (`03:4A19`, `bank3.asm:470`) -> `src/bank3/entities_init_basic.c:360`
+24. `EntityInitKid72` (`03:4A27`, `bank3.asm:478`) -> `src/bank3/entities_init_basic.c:377`
+25. `EntityInitMrWrite` (`03:4A28`, `bank3.asm:481`) -> `src/bank3/entities_init_basic.c:386`
+26. `EntityInitBigFairy` (`03:4A34`, `bank3.asm:492`) -> `src/bank3/entities_init_basic.c:416`
+27. `EntityInitBowWow` (`03:4A5B`, `bank3.asm:519`) -> `src/bank3/entities_init_basic.c:454`
+28. `EntityInitOwlEvent` (`03:4A73`, `bank3.asm:538`) -> `src/bank3/entities_init_basic.c:491`
+29. `EntityInitSword` (`03:4A78`, `bank3.asm:544`) -> `src/bank3/entities_init_basic.c:504`
+30. `UnloadEntityIfRoomStatusSet` (`03:4A7A`, `bank3.asm:549`) -> `src/bank3/entities_init_basic.c:516`
+31. `EntityInitMarin` (`03:4A80`, `bank3.asm:555`) -> `src/bank3/entities_init_basic.c:532`
+32. `EntityInitTarin` (`03:4ACE`, `bank3.asm:618`) -> `src/bank3/entities_init_basic.c:606`
+33. `EntityInitMadamMeowMeow` (`03:4B0E`, `bank3.asm:663`) -> `src/bank3/entities_init_basic.c:671`
+34. `EntityInitRaftRaftOwner` (`03:4B1B`, `bank3.asm:674`) -> `src/bank3/entities_init_basic.c:686`
+35. `EntityInitNpcFacingDown` (`03:4B2F`, `bank3.asm:690`) -> `src/bank3/entities_init_basic.c:711`
+36. `EntityInitStoreOwner` (`03:4B35`, `bank3.asm:696`) -> `src/bank3/entities_init_basic.c:720`
+37. `EntityInitWitch` (`03:4B42`, `bank3.asm:706`) -> `src/bank3/entities_init_basic.c:736`
+38. `EntityInitShopOwner` (`03:4B43`, `bank3.asm:709`) -> `src/bank3/entities_init_basic.c:745`
+39. `EntityInitWithRandomDirection` (`03:4B4C`, `bank3.asm:717`) -> `src/bank3/entities_init_basic.c:763`
+40. `SetEntityDirection` (`03:4B51`, `bank3.asm:722`) -> `src/bank3/entities_init_basic.c:776`
+41. `EntityInitNoop` (`03:4B56`, `bank3.asm:728`) -> `src/bank3/entities_init_basic.c:785`
+42. `EntityShiftPosition` (`03:4F83`, `bank3.asm:1499`) -> `src/bank3/entities_init_basic.c:794`
+43. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:34`
+44. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
+45. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
+
+#### Group B: Missing Functions Not Yet Implemented in C (14 routines)
+These routines have not yet been decompiled or implemented in `src/`:
+1. `IronMaskEntityHandler` (`03:4FFB`, `bank3.asm:1598`): Roaming enemy state handler for masked Iron Mask.
+2. `EntityInitChestWithItem` (`03:506D`, `bank3.asm:1677`): Entity initializer for chests containing items.
+3. `ChestGiveNoneInventoryItem` (`03:5125`, `bank3.asm:1811`): Handler for empty/none chest item pickups.
+4. `EntityInitPushedBlock` (`03:516E`, `bank3.asm:1871`): Entity initializer for movable blocks.
+5. `SmashRock` (`03:5407`, `bank3.asm:2069`): Rock breaking physics and sprite disintegration.
+6. `EntityDeathHandler` (`03:5518`, `bank3.asm:2176`): Universal enemy death animation and drop spawning sequence.
+7. `SpawnEnemyDrop` (`03:55CF`, `bank3.asm:2356`): Random enemy drop item selection (hearts, rupees, bombs, fairies).
+8. `EntityInitEntity13` (`03:59D7`, `bank3.asm:2741`): Stub entity 13 initializer (`ret`).
+9. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`).
+10. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Internal loop entry point of entity collision system.
+11. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment.
+12. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
+13. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
+14. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper.
+
+#### Group C: Shared Entry Points & Mid-Routine Labels (17 routines)
+These entry points are secondary entry labels or fall-through jump points in ASM that alias or branch into existing functions:
+1. `NoopFunction` (`03:4B56`, `bank3.asm:729`): Alias of `EntityInitNoop` (`ret`).
+2. `EntityInitWithShiftedPosition` (`03:4F83`, `bank3.asm:1498`): Alias of `EntityShiftPosition`.
+3. `label_003_52D7` (`03:52D7`, `bank3.asm:2011`): Mid-routine entry in `func_003_52D4`.
+4. `label_003_57E6` (`03:57E6`, `bank3.asm:2735`): Jump tail in `func_003_5795`.
+5. `label_003_5C49` (`03:5C49`, `bank3.asm:3183`): Fall-through branch in `SwordShieldPickable`.
+6. `label_003_5CD6` (`03:5CD6`, `bank3.asm:3291`): Interaction check branch in `SwordShieldPickable`.
+7. `label_003_636D` (`03:636D`, `bank3.asm:4457`): Room completion branch in `DroppableHeart`.
+8. `label_003_63D2` (`03:63D2`, `bank3.asm:4527`): Transition countdown branch in `DroppableHeart`.
+9. `label_003_6F04` (`03:6F04`, `bank3.asm:5585`): State 1 branch in sword damage collision.
+10. `label_003_6F24` (`03:6F24`, `bank3.asm:5606`): Recoil branch in sword damage collision.
+11. `label_003_73E6` (`03:73E6`, `bank3.asm:6541`): Early exit `ret` in projectile collision.
+12. `label_003_74E1` (`03:74E1`, `bank3.asm:6706`): Jump to `label_003_74EC` in collision dispatch.
+13. `label_003_7715` (`03:7715`, `bank3.asm:7115`): Type check branch in entity collision iteration.
+14. `label_003_7DCD` (`03:7DCD`, `bank3.asm:8392`): Multi-purpose variable branch in sword object collision.
+15. `label_003_7E05` (`03:7E05`, `bank3.asm:8436`): Entity type check branch in sword object collision.
+16. `label_003_7E09` (`03:7E09`, `bank3.asm:8440`): Zero-flag branch in sword object collision.
+17. `StopWalkingEnd` (`03:58F6`, `03_moblin.asm:153`): Roaming enemy walk physics completion tail.
