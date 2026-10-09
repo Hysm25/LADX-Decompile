@@ -3,6 +3,8 @@
 
 #include "gb.h"
 #include "bank3/entities.h"
+#include "bank3/entities_init_basic.h"
+#include "constants/audio.h"
 #include "constants/entities.h"
 #include "constants/gameplay.h"
 #include "constants/memory.h"
@@ -1108,6 +1110,482 @@ void test_EntityInitGhini(void) {
     printf("[PASS] EntityInitGhini\n");
 }
 
+/* Test EntityInitSnake (03:493D) */
+void test_EntityInitSnake(void) {
+    printf("[RUN ] EntityInitSnake\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Test with entity slot 0x05 */
+    gb_write(&gb, wActiveEntityIndex, 0x05);
+    gb_write(&gb, wEntitiesPrivateCountdown1Table + 0x05, 0x00);
+
+    EntityInitSnake(&gb);
+
+    assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + 0x05) == 0x30);
+
+    /* Test with another slot (0x0F) */
+    gb_write(&gb, wActiveEntityIndex, 0x0F);
+    gb_write(&gb, wEntitiesPrivateCountdown1Table + 0x0F, 0x12);
+
+    EntityInitSnake(&gb);
+
+    assert(gb_read(&gb, wEntitiesPrivateCountdown1Table + 0x0F) == 0x30);
+
+    /* NULL state safety */
+    EntityInitSnake(NULL);
+
+    printf("[PASS] EntityInitSnake\n");
+}
+
+/* Test EntityInitSideViewPlatformVertical (03:4943) */
+void test_EntityInitSideViewPlatformVertical(void) {
+    printf("[RUN ] EntityInitSideViewPlatformVertical\n");
+
+    GBState gb;
+
+    /* Case 1: Room mismatch (not UNKNOWN_ROOM_65), state1 unchanged */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hMapRoom, 0x20); /* != UNKNOWN_ROOM_65 */
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x60); /* >= 0x50 */
+    gb_write(&gb, wEntitiesPrivateState1Table + 0x02, 0x05);
+
+    EntityInitSideViewPlatformVertical(&gb);
+    assert(gb_read(&gb, wEntitiesPrivateState1Table + 0x02) == 0x05);
+
+    /* Case 2: Room match, but visual Y < 0x50, state1 unchanged */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_65);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x4F); /* < 0x50 */
+    gb_write(&gb, wEntitiesPrivateState1Table + 0x02, 0x05);
+
+    EntityInitSideViewPlatformVertical(&gb);
+    assert(gb_read(&gb, wEntitiesPrivateState1Table + 0x02) == 0x05);
+
+    /* Case 3: Room match, visual Y == 0x50 (boundary), state1 incremented */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_65);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x50); /* == 0x50 */
+    gb_write(&gb, wEntitiesPrivateState1Table + 0x02, 0x05);
+
+    EntityInitSideViewPlatformVertical(&gb);
+    assert(gb_read(&gb, wEntitiesPrivateState1Table + 0x02) == 0x06);
+
+    /* Case 4: Room match, visual Y > 0x50, state1 wraps from 0xFF to 0x00 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x07);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_65);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x80);
+    gb_write(&gb, wEntitiesPrivateState1Table + 0x07, 0xFF);
+
+    EntityInitSideViewPlatformVertical(&gb);
+    assert(gb_read(&gb, wEntitiesPrivateState1Table + 0x07) == 0x00);
+
+    /* NULL state safety */
+    EntityInitSideViewPlatformVertical(NULL);
+
+    printf("[PASS] EntityInitSideViewPlatformVertical\n");
+}
+
+/* Test EntityInitZol (03:4953) */
+void test_EntityInitZol(void) {
+    printf("[RUN ] EntityInitZol\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Test slot 0x03 */
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesHealthTable + 0x03, 0x00);
+
+    EntityInitZol(&gb);
+    assert(gb_read(&gb, wEntitiesHealthTable + 0x03) == 0x02);
+
+    /* Test slot 0x0B with non-zero initial health */
+    gb_write(&gb, wActiveEntityIndex, 0x0B);
+    gb_write(&gb, wEntitiesHealthTable + 0x0B, 0x10);
+
+    EntityInitZol(&gb);
+    assert(gb_read(&gb, wEntitiesHealthTable + 0x0B) == 0x02);
+
+    /* NULL state safety */
+    EntityInitZol(NULL);
+
+    printf("[PASS] EntityInitZol\n");
+}
+
+/* Test EntityInitMarinAtTheShore (03:495A) */
+void test_EntityInitMarinAtTheShore(void) {
+    printf("[RUN ] EntityInitMarinAtTheShore\n");
+
+    GBState gb;
+
+    /* Case 1: Marin in animal village -> unloads */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + 0x04, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x01);
+    gb_write(&gb, wIsMarinFollowingLink, 0x00);
+
+    EntityInitMarinAtTheShore(&gb);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x04) == ENTITY_STATUS_DISABLED);
+
+    /* Case 2: Marin following Link -> unloads */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + 0x04, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x00);
+    gb_write(&gb, wIsMarinFollowingLink, 0x01);
+
+    EntityInitMarinAtTheShore(&gb);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x04) == ENTITY_STATUS_DISABLED);
+
+    /* Case 3: Both set -> unloads */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + 0x04, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x01);
+    gb_write(&gb, wIsMarinFollowingLink, 0x01);
+
+    EntityInitMarinAtTheShore(&gb);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x04) == ENTITY_STATUS_DISABLED);
+
+    /* Case 4: Neither set -> retained active */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + 0x04, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x00);
+    gb_write(&gb, wIsMarinFollowingLink, 0x00);
+
+    EntityInitMarinAtTheShore(&gb);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x04) == ENTITY_STATUS_ACTIVE);
+
+    /* NULL state safety */
+    EntityInitMarinAtTheShore(NULL);
+
+    printf("[PASS] EntityInitMarinAtTheShore\n");
+}
+
+/* Test EntityInitBomber (03:4965) */
+void test_EntityInitBomber(void) {
+    printf("[RUN ] EntityInitBomber\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesPosZTable + 0x02, 0x00);
+    gb_write(&gb, wEntitiesInertiaTable + 0x02, 0x00);
+
+    /* Set up deterministic state for GetRandomByte */
+    gb_write_hram(&gb, hFrameCounter, 0x10);
+    gb_write(&gb, wRandomSeed, 0x20);
+    gb_write(&gb, rLY, 0x05);
+    /* Expected GetRandomByte:
+       sum = 0x10 + 0x20 + 0x05 = 0x35
+       rotate right: (0x35 >> 1) | (0x35 << 7) = 0x1A | 0x80 = 0x9A */
+
+    EntityInitBomber(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x10);
+    assert(gb_read(&gb, wEntitiesInertiaTable + 0x02) == 0x9A);
+
+    /* NULL state safety */
+    EntityInitBomber(NULL);
+
+    printf("[PASS] EntityInitBomber\n");
+}
+
+/* Test EntityInitBushCrawler (03:4973) */
+void test_EntityInitBushCrawler(void) {
+    printf("[RUN ] EntityInitBushCrawler\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wEntitiesPosXTable + 0x03, 0x40);
+
+    EntityInitBushCrawler(&gb);
+
+    /* Verify no modifications */
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x40);
+
+    /* NULL state safety */
+    EntityInitBushCrawler(NULL);
+
+    printf("[PASS] EntityInitBushCrawler\n");
+}
+
+/* Test EntityInitTarinBeekeeper (03:4974) */
+void test_EntityInitTarinBeekeeper(void) {
+    printf("[RUN ] EntityInitTarinBeekeeper\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x01, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + 0x01, 0x40);
+    gb_write(&gb, wEntitiesSpriteVariantTable + 0x01, 0x00);
+
+    EntityInitTarinBeekeeper(&gb);
+
+    /* Position shifted by +8 pixels in X and Y */
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x01) == 0x38);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x01) == 0x48);
+
+    /* Sprite variant set to 2 */
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x01) == 0x02);
+
+    /* NULL state safety */
+    EntityInitTarinBeekeeper(NULL);
+
+    printf("[PASS] EntityInitTarinBeekeeper\n");
+}
+
+/* Test EntityInitTelephone (03:497C) */
+void test_EntityInitTelephone(void) {
+    printf("[RUN ] EntityInitTelephone\n");
+
+    GBState gb;
+
+    /* Case 1: No sword -> music track NOT set */
+    gb_init(&gb);
+    gb_write(&gb, wSwordLevel, 0x00);
+    gb_write(&gb, wMusicTrackToPlay, 0x00);
+    gb_write_hram(&gb, hDefaultMusicTrack, 0x00);
+    gb_write_hram(&gb, hDefaultMusicTrackAlt, 0x00);
+    gb_write_hram(&gb, hNextDefaultMusicTrack, 0x00);
+
+    EntityInitTelephone(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x00);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == 0x00);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == 0x00);
+
+    /* Case 2: Has sword -> MUSIC_ULRIRA set to all 4 track variables */
+    gb_init(&gb);
+    gb_write(&gb, wSwordLevel, 0x01);
+
+    EntityInitTelephone(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_ULRIRA);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_ULRIRA);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_ULRIRA);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_ULRIRA);
+
+    /* NULL state safety */
+    EntityInitTelephone(NULL);
+
+    printf("[PASS] EntityInitTelephone\n");
+}
+
+/* Test EntityInitRichard (03:4980) */
+void test_EntityInitRichard(void) {
+    printf("[RUN ] EntityInitRichard\n");
+
+    GBState gb;
+
+    /* Case 1: Golden leaves < SLIME_KEY (6) -> position/direction unchanged, music set if sword */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write(&gb, wGoldenLeavesCount, 0x05);
+    gb_write(&gb, wSwordLevel, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x01, 0x20);
+    gb_write(&gb, wEntitiesDirectionTable + 0x01, DIRECTION_RIGHT);
+
+    EntityInitRichard(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x01) == 0x20);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x01) == DIRECTION_RIGHT);
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_RICHARD_HOUSE);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_RICHARD_HOUSE);
+
+    /* Case 2: Golden leaves == SLIME_KEY (6) -> PosX=0x58, Direction=DOWN, music set */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wGoldenLeavesCount, SLIME_KEY);
+    gb_write(&gb, wSwordLevel, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x02, 0x20);
+    gb_write(&gb, wEntitiesDirectionTable + 0x02, DIRECTION_UP);
+
+    EntityInitRichard(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x58);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_RICHARD_HOUSE);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_RICHARD_HOUSE);
+
+    /* Case 3: Golden leaves > SLIME_KEY, but no sword -> PosX=0x58, Direction=DOWN, NO music */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wGoldenLeavesCount, 0x07);
+    gb_write(&gb, wSwordLevel, 0x00);
+    gb_write(&gb, wEntitiesPosXTable + 0x03, 0x10);
+    gb_write(&gb, wEntitiesDirectionTable + 0x03, DIRECTION_LEFT);
+
+    EntityInitRichard(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x58);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_DOWN);
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x00);
+
+    /* NULL state safety */
+    EntityInitRichard(NULL);
+
+    printf("[PASS] EntityInitRichard\n");
+}
+
+/* Test SetMusicTrackIfHasSword (03:4995) */
+void test_SetMusicTrackIfHasSword(void) {
+    printf("[RUN ] SetMusicTrackIfHasSword\n");
+
+    GBState gb;
+
+    /* Case 1: Sword level 0 -> returns immediately without changing music */
+    gb_init(&gb);
+    gb_write(&gb, wSwordLevel, 0x00);
+    gb_write(&gb, wMusicTrackToPlay, 0x00);
+    gb_write_hram(&gb, hDefaultMusicTrack, 0x00);
+    gb_write_hram(&gb, hDefaultMusicTrackAlt, 0x00);
+    gb_write_hram(&gb, hNextDefaultMusicTrack, 0x00);
+
+    SetMusicTrackIfHasSword(&gb, MUSIC_OVERWORLD);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x00);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == 0x00);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == 0x00);
+
+    /* Case 2: Sword level 1 -> updates all 4 music registers */
+    gb_write(&gb, wSwordLevel, 0x01);
+
+    SetMusicTrackIfHasSword(&gb, MUSIC_OVERWORLD);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_OVERWORLD);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_OVERWORLD);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_OVERWORLD);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_OVERWORLD);
+
+    /* Case 3: Sword level 2 -> updates with another track */
+    gb_write(&gb, wSwordLevel, 0x02);
+
+    SetMusicTrackIfHasSword(&gb, MUSIC_MINIBOSS);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_MINIBOSS);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_MINIBOSS);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_MINIBOSS);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_MINIBOSS);
+
+    /* NULL state safety */
+    SetMusicTrackIfHasSword(NULL, MUSIC_OVERWORLD);
+
+    printf("[PASS] SetMusicTrackIfHasSword\n");
+}
+
+/* Test SetMusicTrack (03:499C) */
+void test_SetMusicTrack(void) {
+    printf("[RUN ] SetMusicTrack\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    SetMusicTrack(&gb, MUSIC_ANGLERS_TUNNEL);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_ANGLERS_TUNNEL);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_ANGLERS_TUNNEL);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_ANGLERS_TUNNEL);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_ANGLERS_TUNNEL);
+
+    /* Update again with different track */
+    SetMusicTrack(&gb, MUSIC_TURTLE_ROCK);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_TURTLE_ROCK);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_TURTLE_ROCK);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_TURTLE_ROCK);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_TURTLE_ROCK);
+
+    /* NULL state safety */
+    SetMusicTrack(NULL, MUSIC_ANGLERS_TUNNEL);
+
+    printf("[PASS] SetMusicTrack\n");
+}
+
+/* Test EntityInitFinalNightmare (03:49A6) */
+void test_EntityInitFinalNightmare(void) {
+    printf("[RUN ] EntityInitFinalNightmare\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wFinalNightmareForm, 0x05);
+
+    EntityInitFinalNightmare(&gb);
+
+    /* Form reset to 0 */
+    assert(gb_read(&gb, wFinalNightmareForm) == 0x00);
+
+    /* NULL state safety */
+    EntityInitFinalNightmare(NULL);
+
+    printf("[PASS] EntityInitFinalNightmare\n");
+}
+
+/* Test EntityInitDreamShrineBed (03:49AD) */
+void test_EntityInitDreamShrineBed(void) {
+    printf("[RUN ] EntityInitDreamShrineBed\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Even without sword, Dream Shrine Bed sets music */
+    gb_write(&gb, wSwordLevel, 0x00);
+
+    EntityInitDreamShrineBed(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_DREAM_SHRINE_BED);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_DREAM_SHRINE_BED);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_DREAM_SHRINE_BED);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_DREAM_SHRINE_BED);
+
+    /* NULL state safety */
+    EntityInitDreamShrineBed(NULL);
+
+    printf("[PASS] EntityInitDreamShrineBed\n");
+}
+
+/* Test EntityInitFishermanUnderBridge (03:49B1) */
+void test_EntityInitFishermanUnderBridge(void) {
+    printf("[RUN ] EntityInitFishermanUnderBridge\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    /* Even without sword, Fisherman Under Bridge sets music */
+    gb_write(&gb, wSwordLevel, 0x00);
+
+    EntityInitFishermanUnderBridge(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_FISHERMAN_UNDER_BRIDGE);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_FISHERMAN_UNDER_BRIDGE);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_FISHERMAN_UNDER_BRIDGE);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == MUSIC_FISHERMAN_UNDER_BRIDGE);
+
+    /* NULL state safety */
+    EntityInitFishermanUnderBridge(NULL);
+
+    printf("[PASS] EntityInitFishermanUnderBridge\n");
+}
+
 void test_bank3_entities(void) {
     /* test_ConfigureNewEntity(); */
     /* test_ConfigureEntityHealth(); */
@@ -1156,4 +1634,19 @@ void test_bank3_entities(void) {
     test_EntityInitWithCountdown();
     test_EntityInitGhini();
 
+    /* Test basic entity init and music triggers (Batch 108) */
+    test_EntityInitSnake();
+    test_EntityInitSideViewPlatformVertical();
+    test_EntityInitZol();
+    test_EntityInitMarinAtTheShore();
+    test_EntityInitBomber();
+    test_EntityInitBushCrawler();
+    test_EntityInitTarinBeekeeper();
+    test_EntityInitTelephone();
+    test_EntityInitRichard();
+    test_SetMusicTrackIfHasSword();
+    test_SetMusicTrack();
+    test_EntityInitFinalNightmare();
+    test_EntityInitDreamShrineBed();
+    test_EntityInitFishermanUnderBridge();
 }

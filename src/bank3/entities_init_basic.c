@@ -77,7 +77,8 @@ void EntityInitSideViewPlatformVertical(GBState *gb) {
     }
 
     /* ld hl, wEntitiesPrivateState1Table; add hl, bc; inc [hl]; ret */
-    gb_write(gb, wEntitiesPrivateState1Table + bc, gb_read(gb, wEntitiesPrivateState1Table + bc) + 1);
+    uint8_t state = gb_read(gb, (uint16_t)(wEntitiesPrivateState1Table + bc));
+    gb_write(gb, (uint16_t)(wEntitiesPrivateState1Table + bc), (uint8_t)(state + 1));
 }
 
 /* ===== EntityInitZol (03:4953) ===== */

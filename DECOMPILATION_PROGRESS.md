@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~94.4%
-* **Number of Verified Functions**: 1144
-* **Number of Decompiled Functions**: 1144
-* **Number Remaining**: ~68 functions
-* **Current Subsystem**: ROM Bank 3 (Enemy Destruction, Item Drops, Rock Smashing, Universal Entity State Handlers)
-* **Current Task**: Batch 107 Verification Completed
-* **Last Completed Task**: Batch 107 Verification — ROM Bank 3 Enemy Destruction, Item Drops, Rock Smashing, and Init Stub (`SmashRock`, `EntityDeathHandler`, `SpawnEnemyDrop`, `EntityInitEntity13`).
-* **Last Update Timestamp**: 2026-10-08T23:57:00+00:00
+* **Current Overall Progress**: ~95.5%
+* **Number of Verified Functions**: 1158
+* **Number of Decompiled Functions**: 1158
+* **Number Remaining**: ~54 functions
+* **Current Subsystem**: ROM Bank 3 (Basic Entity Initializers and Audio Triggers)
+* **Current Task**: Batch 108 Verification Completed
+* **Last Completed Task**: Batch 108 Verification — ROM Bank 3 Basic Entity Initializers & Music Triggers (`EntityInitSnake`, `EntityInitSideViewPlatformVertical`, `EntityInitZol`, `EntityInitMarinAtTheShore`, `EntityInitBomber`, `EntityInitBushCrawler`, `EntityInitTarinBeekeeper`, `EntityInitTelephone`, `EntityInitRichard`, `SetMusicTrackIfHasSword`, `SetMusicTrack`, `EntityInitFinalNightmare`, `EntityInitDreamShrineBed`, `EntityInitFishermanUnderBridge`).
+* **Last Update Timestamp**: 2026-10-09T01:10:00+00:00
 
 ---
 
@@ -1497,6 +1497,44 @@
 
 ---
 
+## Batch 108 Verification — ROM Bank 3 Basic Entity Initializers & Music Triggers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:493D`-`03:49B4`, lines 298-394). Implemented in `src/bank3/entities_init_basic.c` with declarations in `include/bank3/entities_init_basic.h`.
+- **Functions Decompiled & Verified:**
+  - `EntityInitSnake` (`03:493D`, `bank3.asm:298`): Calls `GetEntityPrivateCountdown1`, initializes `wEntitiesPrivateCountdown1Table[bc]` to `$30`.
+  - `EntityInitSideViewPlatformVertical` (`03:4943`, `bank3.asm:303`): Checks `hMapRoom == UNKNOWN_ROOM_65` ($65) and `hActiveEntityVisualPosY >= $50`; if both conditions hold, increments `wEntitiesPrivateState1Table[bc]`.
+  - `EntityInitZol` (`03:4953`, `bank3.asm:317`): Sets initial health in `wEntitiesHealthTable[bc]` to `$02`.
+  - `EntityInitMarinAtTheShore` (`03:495A`, `bank3.asm:323`): Tests `wIsMarinInAnimalVillage | wIsMarinFollowingLink`; if either flag is non-zero, unloads entity via `UnloadEntityAndReturn`.
+  - `EntityInitBomber` (`03:4965`, `bank3.asm:331`): Initializes `wEntitiesPosZTable[bc]` to `$10`, samples `GetRandomByte`, and stores the result in `wEntitiesInertiaTable[bc]`. Falls through to `EntityInitBushCrawler`.
+  - `EntityInitBushCrawler` (`03:4973`, `bank3.asm:340`): Pure return stub (`ret`).
+  - `EntityInitTarinBeekeeper` (`03:4974`, `bank3.asm:343`): Shifts position by +8 pixels in X and Y via `EntityShiftPosition`, and sets sprite variant to `$02` via `SetEntitySpriteVariant`.
+  - `EntityInitTelephone` (`03:497C`, `bank3.asm:348`): Loads `MUSIC_ULRIRA` ($33) and jumps to `SetMusicTrackIfHasSword`.
+  - `EntityInitRichard` (`03:4980`, `bank3.asm:352`): Checks `wGoldenLeavesCount < SLIME_KEY` (6); if golden leaves count >= `SLIME_KEY`, positions entity at X `$58` and sets direction to `DIRECTION_DOWN` ($03). Sets `MUSIC_RICHARD_HOUSE` ($40) and falls through to `SetMusicTrackIfHasSword`.
+  - `SetMusicTrackIfHasSword` (`03:4995`, `bank3.asm:368`): Checks `wSwordLevel`; returns early if 0; otherwise falls through to `SetMusicTrack`.
+  - `SetMusicTrack` (`03:499C`, `bank3.asm:376`): Writes input music track to `wMusicTrackToPlay`, `hDefaultMusicTrack`, `hDefaultMusicTrackAlt`, and `hNextDefaultMusicTrack`.
+  - `EntityInitFinalNightmare` (`03:49A6`, `bank3.asm:383`): Clears `wFinalNightmareForm` to 0, jumps to `label_27F2`.
+  - `EntityInitDreamShrineBed` (`03:49AD`, `bank3.asm:388`): Sets music unconditionally to `MUSIC_DREAM_SHRINE_BED` ($24) via `SetMusicTrack`.
+  - `EntityInitFishermanUnderBridge` (`03:49B1`, `bank3.asm:392`): Sets music unconditionally to `MUSIC_FISHERMAN_UNDER_BRIDGE` ($3A) via `SetMusicTrack`.
+- **Tests Added & Verified:**
+  - `test_EntityInitSnake` in `tests/bank3/test_entities.c`: validates countdown 1 initialization to $30 across slots, and NULL safety.
+  - `test_EntityInitSideViewPlatformVertical` in `tests/bank3/test_entities.c`: validates room check (`UNKNOWN_ROOM_65`), visual Y threshold ($50), boundary and wrap behavior, and NULL safety.
+  - `test_EntityInitZol` in `tests/bank3/test_entities.c`: validates health assignment to $02, and NULL safety.
+  - `test_EntityInitMarinAtTheShore` in `tests/bank3/test_entities.c`: validates unload conditions (Marin in village, Marin following Link, or both), retention condition, and NULL safety.
+  - `test_EntityInitBomber` in `tests/bank3/test_entities.c`: validates Z position to $10, deterministic PRNG inertia assignment, and NULL safety.
+  - `test_EntityInitBushCrawler` in `tests/bank3/test_entities.c`: validates no-op behavior and NULL safety.
+  - `test_EntityInitTarinBeekeeper` in `tests/bank3/test_entities.c`: validates X/Y shift by +8, sprite variant set to 2, and NULL safety.
+  - `test_EntityInitTelephone` in `tests/bank3/test_entities.c`: validates sword presence guard and `MUSIC_ULRIRA` assignment, and NULL safety.
+  - `test_EntityInitRichard` in `tests/bank3/test_entities.c`: validates golden leaves threshold (< SLIME_KEY vs >= SLIME_KEY), position/direction assignment, sword check with `MUSIC_RICHARD_HOUSE`, and NULL safety.
+  - `test_SetMusicTrackIfHasSword` in `tests/bank3/test_entities.c`: validates sword level 0 guard vs sword level > 0 assignment across all 4 music registers, and NULL safety.
+  - `test_SetMusicTrack` in `tests/bank3/test_entities.c`: validates simultaneous update of `wMusicTrackToPlay`, `hDefaultMusicTrack`, `hDefaultMusicTrackAlt`, and `hNextDefaultMusicTrack`, and NULL safety.
+  - `test_EntityInitFinalNightmare` in `tests/bank3/test_entities.c`: validates `wFinalNightmareForm` reset to 0, call to `label_27F2`, and NULL safety.
+  - `test_EntityInitDreamShrineBed` in `tests/bank3/test_entities.c`: validates unconditional assignment of `MUSIC_DREAM_SHRINE_BED`, and NULL safety.
+  - `test_EntityInitFishermanUnderBridge` in `tests/bank3/test_entities.c`: validates unconditional assignment of `MUSIC_FISHERMAN_UNDER_BRIDGE`, and NULL safety.
+  - Full test suite PASS (100% tests passed); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1,158 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Entity state tables, music track registers, and room guards verified exact to assembly instruction sequence.
+
+---
+
 ## Completeness & Inventory Audit (Pre-Batch 106)
 
 An independent, evidence-based audit of LADX decompilation completeness was performed at commit `e599699` across ROM Banks 0, 1, 2, and 3.
@@ -1530,67 +1568,53 @@ The repository contains 1,066 active unique C function definitions in `src/` (ex
 
 ### 3. Recalculated Completeness Metrics
 - **Total In-Scope Baseline Routines:** 1,212
-- **Verified Routines:** 1,144 (100% test pass rate across 405 test suites)
-- **Decompiled Routines:** 1,144
-- **Remaining Routines:** ~68 (all remaining within ROM Bank 3)
+- **Verified Routines:** 1,158 (100% test pass rate across 406 test suites)
+- **Decompiled Routines:** 1,158
+- **Remaining Routines:** ~54 (all remaining within ROM Bank 3)
 - **Blocked Routines:** 0
-- **Overall Completion:** 94.39% (~94.4%)
+- **Overall Completion:** 95.54% (~95.5%)
 
 ### 4. Behavioral Verification Assessment & Confidence Level
 - **Test Integrity:** All verified routines are tested against `GBState` memory state, register effects, collision masks, physics velocities, and event flags. No mock-only stubbing is used for verified logic.
 - **Verification Confidence:** **98.5%** confidence across verified routines; 100% test suite pass rate.
 
-### 5. Detailed Census of the 68 Remaining Routines in Bank 3
+### 5. Detailed Census of the 54 Remaining Routines in Bank 3
 
-Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 68 in-scope routines reside exclusively in Bank 3 and are classified as follows:
+Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 54 in-scope routines reside exclusively in Bank 3 and are classified as follows:
 
-#### Group A: Implemented in C but Pending Formal Behavioral Test Verification (45 routines)
+#### Group A: Implemented in C but Pending Formal Behavioral Test Verification (31 routines)
 These routines are implemented in `src/bank3/entities_init_basic.c`, `entities_liftable_rock.c`, and `entities_magic_rod.c`, but lack dedicated behavioral unit tests in `tests/`:
-1. `EntityInitSnake` (`03:493D`, `bank3.asm:298`) -> `src/bank3/entities_init_basic.c:48`
-2. `EntityInitSideViewPlatformVertical` (`03:4943`, `bank3.asm:303`) -> `src/bank3/entities_init_basic.c:62`
-3. `EntityInitZol` (`03:4953`, `bank3.asm:317`) -> `src/bank3/entities_init_basic.c:84`
-4. `EntityInitMarinAtTheShore` (`03:495A`, `bank3.asm:323`) -> `src/bank3/entities_init_basic.c:94`
-5. `EntityInitBomber` (`03:4965`, `bank3.asm:331`) -> `src/bank3/entities_init_basic.c:111`
-6. `EntityInitBushCrawler` (`03:4973`, `bank3.asm:340`) -> `src/bank3/entities_init_basic.c:127`
-7. `EntityInitTarinBeekeeper` (`03:4974`, `bank3.asm:343`) -> `src/bank3/entities_init_basic.c:134`
-8. `EntityInitTelephone` (`03:497C`, `bank3.asm:348`) -> `src/bank3/entities_init_basic.c:147`
-9. `EntityInitRichard` (`03:4980`, `bank3.asm:352`) -> `src/bank3/entities_init_basic.c:155`
-10. `SetMusicTrackIfHasSword` (`03:4995`, `bank3.asm:368`) -> `src/bank3/entities_init_basic.c:181`
-11. `SetMusicTrack` (`03:499C`, `bank3.asm:376`) -> `src/bank3/entities_init_basic.c:195`
-12. `EntityInitFinalNightmare` (`03:49A6`, `bank3.asm:383`) -> `src/bank3/entities_init_basic.c:212`
-13. `EntityInitDreamShrineBed` (`03:49AD`, `bank3.asm:388`) -> `src/bank3/entities_init_basic.c:221`
-14. `EntityInitFishermanUnderBridge` (`03:49B1`, `bank3.asm:392`) -> `src/bank3/entities_init_basic.c:229`
-15. `EntityInitKikiTheMonkey` (`03:49B5`, `bank3.asm:396`) -> `src/bank3/entities_init_basic.c:237`
-16. `EntityInitFireballShooter` (`03:49C2`, `bank3.asm:408`) -> `src/bank3/entities_init_basic.c:251`
-17. `EntityInitAntiKirby` (`03:49C8`, `bank3.asm:412`) -> `src/bank3/entities_init_basic.c:261`
-18. `EntityInitMovingBlockMover` (`03:49D4`, `bank3.asm:420`) -> `src/bank3/entities_init_basic.c:278`
-19. `EntityInitDesertLanmola` (`03:49E2`, `bank3.asm:431`) -> `src/bank3/entities_init_basic.c:292`
-20. `EntityInitFloatingItem2` (`03:49E6`, `bank3.asm:437`) -> `src/bank3/entities_init_basic.c:300`
-21. `EntityInitFloatingItem` (`03:49F4`, `bank3.asm:445`) -> `src/bank3/entities_init_basic.c:315`
-22. `SetZPosForFloatingItem` (`03:4A12`, `bank3.asm:464`) -> `src/bank3/entities_init_basic.c:351`
-23. `EntityInitKid71` (`03:4A19`, `bank3.asm:470`) -> `src/bank3/entities_init_basic.c:360`
-24. `EntityInitKid72` (`03:4A27`, `bank3.asm:478`) -> `src/bank3/entities_init_basic.c:377`
-25. `EntityInitMrWrite` (`03:4A28`, `bank3.asm:481`) -> `src/bank3/entities_init_basic.c:386`
-26. `EntityInitBigFairy` (`03:4A34`, `bank3.asm:492`) -> `src/bank3/entities_init_basic.c:416`
-27. `EntityInitBowWow` (`03:4A5B`, `bank3.asm:519`) -> `src/bank3/entities_init_basic.c:454`
-28. `EntityInitOwlEvent` (`03:4A73`, `bank3.asm:538`) -> `src/bank3/entities_init_basic.c:491`
-29. `EntityInitSword` (`03:4A78`, `bank3.asm:544`) -> `src/bank3/entities_init_basic.c:504`
-30. `UnloadEntityIfRoomStatusSet` (`03:4A7A`, `bank3.asm:549`) -> `src/bank3/entities_init_basic.c:516`
-31. `EntityInitMarin` (`03:4A80`, `bank3.asm:555`) -> `src/bank3/entities_init_basic.c:532`
-32. `EntityInitTarin` (`03:4ACE`, `bank3.asm:618`) -> `src/bank3/entities_init_basic.c:606`
-33. `EntityInitMadamMeowMeow` (`03:4B0E`, `bank3.asm:663`) -> `src/bank3/entities_init_basic.c:671`
-34. `EntityInitRaftRaftOwner` (`03:4B1B`, `bank3.asm:674`) -> `src/bank3/entities_init_basic.c:686`
-35. `EntityInitNpcFacingDown` (`03:4B2F`, `bank3.asm:690`) -> `src/bank3/entities_init_basic.c:711`
-36. `EntityInitStoreOwner` (`03:4B35`, `bank3.asm:696`) -> `src/bank3/entities_init_basic.c:720`
-37. `EntityInitWitch` (`03:4B42`, `bank3.asm:706`) -> `src/bank3/entities_init_basic.c:736`
-38. `EntityInitShopOwner` (`03:4B43`, `bank3.asm:709`) -> `src/bank3/entities_init_basic.c:745`
-39. `EntityInitWithRandomDirection` (`03:4B4C`, `bank3.asm:717`) -> `src/bank3/entities_init_basic.c:763`
-40. `SetEntityDirection` (`03:4B51`, `bank3.asm:722`) -> `src/bank3/entities_init_basic.c:776`
-41. `EntityInitNoop` (`03:4B56`, `bank3.asm:728`) -> `src/bank3/entities_init_basic.c:785`
-42. `EntityShiftPosition` (`03:4F83`, `bank3.asm:1499`) -> `src/bank3/entities_init_basic.c:794`
-43. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:34`
-44. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
-45. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
+1. `EntityInitKikiTheMonkey` (`03:49B5`, `bank3.asm:396`) -> `src/bank3/entities_init_basic.c:237`
+2. `EntityInitFireballShooter` (`03:49C2`, `bank3.asm:408`) -> `src/bank3/entities_init_basic.c:251`
+3. `EntityInitAntiKirby` (`03:49C8`, `bank3.asm:412`) -> `src/bank3/entities_init_basic.c:261`
+4. `EntityInitMovingBlockMover` (`03:49D4`, `bank3.asm:420`) -> `src/bank3/entities_init_basic.c:278`
+5. `EntityInitDesertLanmola` (`03:49E2`, `bank3.asm:431`) -> `src/bank3/entities_init_basic.c:292`
+6. `EntityInitFloatingItem2` (`03:49E6`, `bank3.asm:437`) -> `src/bank3/entities_init_basic.c:300`
+7. `EntityInitFloatingItem` (`03:49F4`, `bank3.asm:445`) -> `src/bank3/entities_init_basic.c:315`
+8. `SetZPosForFloatingItem` (`03:4A12`, `bank3.asm:464`) -> `src/bank3/entities_init_basic.c:351`
+9. `EntityInitKid71` (`03:4A19`, `bank3.asm:470`) -> `src/bank3/entities_init_basic.c:360`
+10. `EntityInitKid72` (`03:4A27`, `bank3.asm:478`) -> `src/bank3/entities_init_basic.c:377`
+11. `EntityInitMrWrite` (`03:4A28`, `bank3.asm:481`) -> `src/bank3/entities_init_basic.c:386`
+12. `EntityInitBigFairy` (`03:4A34`, `bank3.asm:492`) -> `src/bank3/entities_init_basic.c:416`
+13. `EntityInitBowWow` (`03:4A5B`, `bank3.asm:519`) -> `src/bank3/entities_init_basic.c:454`
+14. `EntityInitOwlEvent` (`03:4A73`, `bank3.asm:538`) -> `src/bank3/entities_init_basic.c:491`
+15. `EntityInitSword` (`03:4A78`, `bank3.asm:544`) -> `src/bank3/entities_init_basic.c:504`
+16. `UnloadEntityIfRoomStatusSet` (`03:4A7A`, `bank3.asm:549`) -> `src/bank3/entities_init_basic.c:516`
+17. `EntityInitMarin` (`03:4A80`, `bank3.asm:555`) -> `src/bank3/entities_init_basic.c:532`
+18. `EntityInitTarin` (`03:4ACE`, `bank3.asm:618`) -> `src/bank3/entities_init_basic.c:606`
+19. `EntityInitMadamMeowMeow` (`03:4B0E`, `bank3.asm:663`) -> `src/bank3/entities_init_basic.c:671`
+20. `EntityInitRaftRaftOwner` (`03:4B1B`, `bank3.asm:674`) -> `src/bank3/entities_init_basic.c:686`
+21. `EntityInitNpcFacingDown` (`03:4B2F`, `bank3.asm:690`) -> `src/bank3/entities_init_basic.c:711`
+22. `EntityInitStoreOwner` (`03:4B35`, `bank3.asm:696`) -> `src/bank3/entities_init_basic.c:720`
+23. `EntityInitWitch` (`03:4B42`, `bank3.asm:706`) -> `src/bank3/entities_init_basic.c:736`
+24. `EntityInitShopOwner` (`03:4B43`, `bank3.asm:709`) -> `src/bank3/entities_init_basic.c:745`
+25. `EntityInitWithRandomDirection` (`03:4B4C`, `bank3.asm:717`) -> `src/bank3/entities_init_basic.c:763`
+26. `SetEntityDirection` (`03:4B51`, `bank3.asm:722`) -> `src/bank3/entities_init_basic.c:776`
+27. `EntityInitNoop` (`03:4B56`, `bank3.asm:728`) -> `src/bank3/entities_init_basic.c:785`
+28. `EntityShiftPosition` (`03:4F83`, `bank3.asm:1499`) -> `src/bank3/entities_init_basic.c:794`
+29. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:34`
+30. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
+31. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
 
 #### Group B: Missing Collision & Iteration Routines Pending Decompilation (6 routines)
 These routines in the entity collision and loop subsystem remain to be decompiled:
