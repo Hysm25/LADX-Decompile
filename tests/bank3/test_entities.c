@@ -1586,6 +1586,395 @@ void test_EntityInitFishermanUnderBridge(void) {
     printf("[PASS] EntityInitFishermanUnderBridge\n");
 }
 
+/* Test EntityInitKikiTheMonkey (03:49B5) */
+void test_EntityInitKikiTheMonkey(void) {
+    printf("[RUN ] EntityInitKikiTheMonkey\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wC168, 0x55);
+    gb_write(&gb, wEntitiesPosYTable + 0x03, 0x44);
+
+    EntityInitKikiTheMonkey(&gb);
+
+    assert(gb_read(&gb, wC168) == 0x00);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0x40);
+
+    /* Underflow test */
+    gb_write(&gb, wEntitiesPosYTable + 0x03, 0x02);
+    EntityInitKikiTheMonkey(&gb);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0xFE);
+
+    /* NULL state safety */
+    EntityInitKikiTheMonkey(NULL);
+
+    printf("[PASS] EntityInitKikiTheMonkey\n");
+}
+
+/* Test EntityInitFireballShooter (03:49C2) */
+void test_EntityInitFireballShooter(void) {
+    printf("[RUN ] EntityInitFireballShooter\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hFrameCounter, 0x10);
+    gb_write(&gb, wRandomSeed, 0x20);
+    gb_write(&gb, rLY, 0x05);
+    /* PRNG output: 0x9A */
+
+    EntityInitFireballShooter(&gb);
+
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x9A);
+
+    /* NULL state safety */
+    EntityInitFireballShooter(NULL);
+
+    printf("[PASS] EntityInitFireballShooter\n");
+}
+
+/* Test EntityInitAntiKirby (03:49C8) */
+void test_EntityInitAntiKirby(void) {
+    printf("[RUN ] EntityInitAntiKirby\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write_hram(&gb, hFrameCounter, 0x10);
+    gb_write(&gb, wRandomSeed, 0x20);
+    gb_write(&gb, rLY, 0x05);
+    /* PRNG output: 0x9A -> (0x9A & 0x3F) + 0x10 = 0x1A + 0x10 = 0x2A */
+
+    EntityInitAntiKirby(&gb);
+
+    assert(gb_read(&gb, wEntitiesSlowTransitionCountdownTable + 0x04) == 0x2A);
+
+    /* NULL state safety */
+    EntityInitAntiKirby(NULL);
+
+    printf("[PASS] EntityInitAntiKirby\n");
+}
+
+/* Test EntityInitMovingBlockMover (03:49D4) */
+void test_EntityInitMovingBlockMover(void) {
+    printf("[RUN ] EntityInitMovingBlockMover\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write(&gb, wEntitiesPosYTable + 0x01, 0x30);
+    gb_write(&gb, wEntitiesPrivateState2Table + 0x01, 0x00);
+
+    EntityInitMovingBlockMover(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x01) == 0x3A);
+    assert(gb_read(&gb, wEntitiesPrivateState2Table + 0x01) == 0x3A);
+
+    /* Overflow wrap test */
+    gb_write(&gb, wEntitiesPosYTable + 0x01, 0xF8);
+    EntityInitMovingBlockMover(&gb);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x01) == 0x02);
+    assert(gb_read(&gb, wEntitiesPrivateState2Table + 0x01) == 0x02);
+
+    /* NULL state safety */
+    EntityInitMovingBlockMover(NULL);
+
+    printf("[PASS] EntityInitMovingBlockMover\n");
+}
+
+/* Test EntityInitDesertLanmola (03:49E2) */
+void test_EntityInitDesertLanmola(void) {
+    printf("[RUN ] EntityInitDesertLanmola\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write_hram(&gb, hDefaultMusicTrack, 0x42);
+
+    EntityInitDesertLanmola(&gb);
+
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x00);
+
+    /* NULL state safety */
+    EntityInitDesertLanmola(NULL);
+
+    printf("[PASS] EntityInitDesertLanmola\n");
+}
+
+/* Test EntityInitFloatingItem2 (03:49E6) */
+void test_EntityInitFloatingItem2(void) {
+    printf("[RUN ] EntityInitFloatingItem2\n");
+
+    GBState gb;
+
+    /* Case A: high nibble of X has bit 0 set -> variant 5, Z pos 0x13 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x05);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x18);
+
+    EntityInitFloatingItem2(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x05) == 0x13);
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x05) == 0x05);
+
+    /* Case B: high nibble of X has bit 0 clear -> variant 4, Z pos 0x13 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x05);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x20);
+
+    EntityInitFloatingItem2(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x05) == 0x13);
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x05) == 0x04);
+
+    /* NULL state safety */
+    EntityInitFloatingItem2(NULL);
+
+    printf("[PASS] EntityInitFloatingItem2\n");
+}
+
+/* Test EntityInitFloatingItem (03:49F4) */
+void test_EntityInitFloatingItem(void) {
+    printf("[RUN ] EntityInitFloatingItem\n");
+
+    GBState gb;
+
+    /* Case A: variant != 1 -> sets Z pos to 0x13, not unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x20); /* e = 0 */
+    gb_write_hram(&gb, hActiveEntityPosY, 0x20); /* ((2+1)<<1)&2 = 2; a = 2 | 0 = 2 */
+    gb_write(&gb, wHasToadstool, 0x01);
+
+    EntityInitFloatingItem(&gb);
+
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x02);
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x13);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_ACTIVE);
+
+    /* Case B: variant == 1 (toadstool), no toadstool in inventory -> sets Z pos to 0x13, not unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x10); /* e = 1 */
+    gb_write_hram(&gb, hActiveEntityPosY, 0x10); /* ((1+1)<<1)&2 = 0; a = 0 | 1 = 1 */
+    gb_write(&gb, wHasToadstool, 0x00);
+
+    EntityInitFloatingItem(&gb);
+
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x01);
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x13);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_ACTIVE);
+
+    /* Case C: variant == 1 (toadstool), already has toadstool -> unloads entity, Z pos not updated */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hActiveEntityPosX, 0x10);
+    gb_write_hram(&gb, hActiveEntityPosY, 0x10);
+    gb_write(&gb, wHasToadstool, 0x01);
+    gb_write(&gb, wEntitiesPosZTable + 0x02, 0x00);
+
+    EntityInitFloatingItem(&gb);
+
+    assert(gb_read(&gb, wEntitiesSpriteVariantTable + 0x02) == 0x01);
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x00);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_DISABLED);
+
+    /* NULL state safety */
+    EntityInitFloatingItem(NULL);
+
+    printf("[PASS] EntityInitFloatingItem\n");
+}
+
+/* Test SetZPosForFloatingItem (03:4A12) */
+void test_SetZPosForFloatingItem(void) {
+    printf("[RUN ] SetZPosForFloatingItem\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wEntitiesPosZTable + 0x07, 0x00);
+
+    SetZPosForFloatingItem(&gb, 0x07);
+
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x07) == 0x13);
+
+    /* NULL state safety */
+    SetZPosForFloatingItem(NULL, 0x07);
+
+    printf("[PASS] SetZPosForFloatingItem\n");
+}
+
+/* Test EntityInitKid71 (03:4A19) */
+void test_EntityInitKid71(void) {
+    printf("[RUN ] EntityInitKid71\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesDirectionTable + 0x03, DIRECTION_DOWN);
+    gb_write(&gb, wEntitiesStateTable + 0x03, 0x00);
+    gb_write(&gb, wEntitiesTransitionCountdownTable + 0x03, 0x00);
+
+    EntityInitKid71(&gb);
+
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_UP);
+    assert(gb_read(&gb, wEntitiesStateTable + 0x03) == 0x01);
+    assert(gb_read(&gb, wEntitiesTransitionCountdownTable + 0x03) == 0x20);
+
+    /* NULL state safety */
+    EntityInitKid71(NULL);
+
+    printf("[PASS] EntityInitKid71\n");
+}
+
+/* Test EntityInitKid72 (03:4A27) */
+void test_EntityInitKid72(void) {
+    printf("[RUN ] EntityInitKid72\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStateTable + 0x03, 0x05);
+
+    EntityInitKid72(&gb);
+
+    assert(gb_read(&gb, wEntitiesStateTable + 0x03) == 0x05);
+
+    /* NULL state safety */
+    EntityInitKid72(NULL);
+
+    printf("[PASS] EntityInitKid72\n");
+}
+
+/* Test EntityInitMrWrite (03:4A28) */
+void test_EntityInitMrWrite(void) {
+    printf("[RUN ] EntityInitMrWrite\n");
+
+    GBState gb;
+
+    /* Case A: Non-Christine house, with sword -> sets track 0x32, shifts X by 8 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write_hram(&gb, hMapRoom, 0x10);
+    gb_write(&gb, wSwordLevel, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x01, 0x20);
+
+    EntityInitMrWrite(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x32);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x32);
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x01) == 0x28);
+
+    /* Case B: Christine house, with sword -> sets track 0x37, shifts X by 8 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write_hram(&gb, hMapRoom, ROOM_INDOOR_B_CHRISTINE_HOUSE);
+    gb_write(&gb, wSwordLevel, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x01, 0x30);
+
+    EntityInitMrWrite(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x37);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x37);
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x01) == 0x38);
+
+    /* Case C: Without sword -> music track NOT set, still shifts X by 8 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write_hram(&gb, hMapRoom, 0x10);
+    gb_write(&gb, wSwordLevel, 0x00);
+    gb_write(&gb, wMusicTrackToPlay, 0x00);
+    gb_write(&gb, wEntitiesPosXTable + 0x01, 0x40);
+
+    EntityInitMrWrite(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x01) == 0x48);
+
+    /* NULL state safety */
+    EntityInitMrWrite(NULL);
+
+    printf("[PASS] EntityInitMrWrite\n");
+}
+
+/* Test EntityInitBigFairy (03:4A34) */
+void test_EntityInitBigFairy(void) {
+    printf("[RUN ] EntityInitBigFairy\n");
+
+    GBState gb;
+
+    /* Case A: Outdoor, full hearts -> unloads entity */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write(&gb, wFullHearts, 0x01);
+    gb_write(&gb, wEntitiesPosZTable + 0x02, 0x00);
+
+    EntityInitBigFairy(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosZTable + 0x02) == 0x10);
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Outdoor, not full hearts -> active, sets music 0x0C if sword, shifts X by 8 */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write(&gb, wFullHearts, 0x00);
+    gb_write(&gb, wSwordLevel, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x02, 0x50);
+
+    EntityInitBigFairy(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x0C);
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x58);
+
+    /* Case C: Color dungeon (indoor + MAP_COLOR_DUNGEON), full hearts -> NOT unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write_hram(&gb, hMapId, MAP_COLOR_DUNGEON);
+    gb_write(&gb, wFullHearts, 0x01);
+    gb_write(&gb, wSwordLevel, 0x01);
+    gb_write(&gb, wEntitiesPosXTable + 0x02, 0x10);
+
+    EntityInitBigFairy(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x0C);
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x02) == 0x18);
+
+    /* Case D: Normal indoor, full hearts -> unloads entity */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write_hram(&gb, hMapId, 0x01); /* Not MAP_COLOR_DUNGEON */
+    gb_write(&gb, wFullHearts, 0x01);
+
+    EntityInitBigFairy(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_DISABLED);
+
+    /* NULL state safety */
+    EntityInitBigFairy(NULL);
+
+    printf("[PASS] EntityInitBigFairy\n");
+}
+
 void test_bank3_entities(void) {
     /* test_ConfigureNewEntity(); */
     /* test_ConfigureEntityHealth(); */
@@ -1649,4 +2038,18 @@ void test_bank3_entities(void) {
     test_EntityInitFinalNightmare();
     test_EntityInitDreamShrineBed();
     test_EntityInitFishermanUnderBridge();
+
+    /* Test entity init functions (Batch 109) */
+    test_EntityInitKikiTheMonkey();
+    test_EntityInitFireballShooter();
+    test_EntityInitAntiKirby();
+    test_EntityInitMovingBlockMover();
+    test_EntityInitDesertLanmola();
+    test_EntityInitFloatingItem2();
+    test_EntityInitFloatingItem();
+    test_SetZPosForFloatingItem();
+    test_EntityInitKid71();
+    test_EntityInitKid72();
+    test_EntityInitMrWrite();
+    test_EntityInitBigFairy();
 }

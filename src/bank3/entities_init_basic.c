@@ -334,18 +334,16 @@ void EntityInitFloatingItem(GBState *gb) {
     SetEntitySpriteVariant(gb, bc, a);
 
     /* cp $01; jr nz, SetZPosForFloatingItem */
-    if (a != 0x01) {
-        SetZPosForFloatingItem(gb, bc);
-
-        return;
+    if (a == 0x01) {
+        /* ld a, [wHasToadstool]; and a; jp nz, UnloadEntityAndReturn */
+        if (gb_read(gb, wHasToadstool) != 0) {
+            UnloadEntityAndReturn(gb, bc);
+            return;
+        }
     }
 
-    /* ld a, [wHasToadstool]; and a; jp nz, UnloadEntityAndReturn */
-    if (gb_read(gb, wHasToadstool) != 0) {
-        UnloadEntityAndReturn(gb, bc);
-
-        return;
-    }
+    /* fallthrough / jr nz: SetZPosForFloatingItem */
+    SetZPosForFloatingItem(gb, bc);
 }
 
 /* ===== SetZPosForFloatingItem (03:4A12) ===== */
@@ -354,7 +352,6 @@ void SetZPosForFloatingItem(GBState *gb, uint16_t bc) {
 
     /* ld hl, wEntitiesPosZTable; add hl, bc; ld [hl], $13; ret */
     gb_write(gb, wEntitiesPosZTable + bc, 0x13);
-
 }
 
 /* ===== EntityInitKid71 (03:4A19) ===== */
@@ -371,7 +368,6 @@ void EntityInitKid71(GBState *gb) {
 
     /* call GetEntityTransitionCountdown; ld [hl], $20 */
     gb_write(gb, wEntitiesTransitionCountdownTable + bc, 0x20);
-
 }
 
 /* ===== EntityInitKid72 (03:4A27) ===== */
@@ -380,7 +376,6 @@ void EntityInitKid72(GBState *gb) {
 
     /* ret */
     (void)gb;
-
 }
 
 /* ===== EntityInitMrWrite (03:4A28) ===== */
@@ -391,26 +386,16 @@ void EntityInitMrWrite(GBState *gb) {
 
     /* ldh a, [hMapRoom]; cp ROOM_INDOOR_B_CHRISTINE_HOUSE; ld a, $32; jr nz, .jr_4A32; ld a, $37 */
     uint8_t map_room = gb_read_hram(gb, hMapRoom);
-
     uint8_t a = 0x32;
-
     if (map_room == ROOM_INDOOR_B_CHRISTINE_HOUSE) {
         a = 0x37;
-
     }
 
-    /* jr jr_003_4A4F */
-    gb_write(gb, wMusicTrackToPlay, a);
-
-    gb_write_hram(gb, hDefaultMusicTrack, a);
-
-    gb_write_hram(gb, hDefaultMusicTrackAlt, a);
-
-    gb_write_hram(gb, hNextDefaultMusicTrack, a);
+    /* jr jr_003_4A4F: call SetMusicTrackIfHasSword */
+    SetMusicTrackIfHasSword(gb, a);
 
     /* The function continues to EntityShiftPosition.shiftBy8 for X position */
     EntityShiftPosition_shiftBy8(gb, bc, wEntitiesPosXSignTable, wEntitiesPosXTable);
-
 }
 
 /* ===== EntityInitBigFairy (03:4A34) ===== */
@@ -419,36 +404,26 @@ void EntityInitBigFairy(GBState *gb) {
 
     uint16_t bc = gb_read(gb, wActiveEntityIndex);
 
-    uint8_t a = 0x0C;
-
     /* ld hl, wEntitiesPosZTable; add hl, bc; ld [hl], $10 */
     gb_write(gb, wEntitiesPosZTable + bc, 0x10);
 
     /* ld a, [wIsIndoor]; and a; jr z, .indoorEnd */
-    if (gb_read(gb, wIsIndoor) != 0) {
-        /* ldh a, [hMapId]; cp MAP_COLOR_DUNGEON; jr z, jr_003_4A4D */
-        if (gb_read_hram(gb, hMapId) == MAP_COLOR_DUNGEON) {
-            goto jr_003_4A4D;
-
-        }
+    /* ldh a, [hMapId]; cp MAP_COLOR_DUNGEON; jr z, jr_003_4A4D */
+    bool is_color_dungeon = (gb_read(gb, wIsIndoor) != 0 && gb_read_hram(gb, hMapId) == MAP_COLOR_DUNGEON);
+    if (!is_color_dungeon) {
         /* .indoorEnd: ld a, [wFullHearts]; and a; jp nz, UnloadEntityAndReturn */
         if (gb_read(gb, wFullHearts) != 0) {
             UnloadEntityAndReturn(gb, bc);
-
             return;
         }
     }
 
-jr_003_4A4D:
-    /* ld a, $0C */
-    a = 0x0C;
-
-    /* call SetMusicTrackIfHasSword */
-    SetMusicTrackIfHasSword(gb, a);
+    /* jr_003_4A4D: ld a, $0C */
+    /* jr_003_4A4F: call SetMusicTrackIfHasSword */
+    SetMusicTrackIfHasSword(gb, 0x0C);
 
     /* ld de, wEntitiesPosXSignTable; ld hl, wEntitiesPosXTable; jp EntityShiftPosition.shiftBy8 */
     EntityShiftPosition_shiftBy8(gb, bc, wEntitiesPosXSignTable, wEntitiesPosXTable);
-
 }
 
 /* ===== EntityInitBowWow (03:4A5B) ===== */
@@ -818,7 +793,7 @@ void EntityShiftPosition_shiftBy8(GBState *gb, uint16_t bc, uint16_t sign_table,
     /* add hl, bc; ld a, [hl]; add $08; ld [hl], a */
     uint8_t pos = gb_read(gb, pos_table + bc);
 
-    uint8_t new_pos = pos + 0x08;
+    uint8_t new_pos = (uint8_t)(pos + 0x08);
 
     gb_write(gb, pos_table + bc, new_pos);
 
@@ -826,7 +801,7 @@ void EntityShiftPosition_shiftBy8(GBState *gb, uint16_t bc, uint16_t sign_table,
     uint8_t carry = (pos >= 0xF8) ? 1 : 0;  /* carry from add $08 */
     uint8_t sign = gb_read(gb, sign_table + bc);
 
-    uint8_t new_sign = sign + carry;
+    uint8_t new_sign = (uint8_t)(sign + carry);
 
     gb_write(gb, sign_table + bc, new_sign);
 
