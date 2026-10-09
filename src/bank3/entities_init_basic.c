@@ -470,9 +470,10 @@ void EntityInitOwlEvent(GBState *gb) {
     /* ldh a, [hRoomStatus]; rra; jr UnloadEntityIfRoomStatusSet */
     uint8_t room_status = gb_read_hram(gb, hRoomStatus);
 
-    if (room_status & 0x10) { /* bit 4 after rra means bit 5 before */
-        UnloadEntityIfRoomStatusSet(gb);
+    if (room_status & 0x20) { /* bit 5 of hRoomStatus rotated into bit 4 after rra */
+        uint16_t bc = gb_read(gb, wActiveEntityIndex);
 
+        UnloadEntityAndReturn(gb, bc);
     }
 }
 
@@ -481,11 +482,7 @@ void EntityInitSword(GBState *gb) {
     if (!gb) return;
 
     /* ldh a, [hRoomStatus]; fallthrough to UnloadEntityIfRoomStatusSet */
-    /* and $10; jp nz, UnloadEntityAndReturn */
-    if (gb_read_hram(gb, hRoomStatus) & 0x10) {
-        UnloadEntityIfRoomStatusSet(gb);
-
-    }
+    UnloadEntityIfRoomStatusSet(gb);
 }
 
 /* ===== UnloadEntityIfRoomStatusSet (03:4A7A) ===== */
@@ -546,7 +543,7 @@ void EntityInitMarin(GBState *gb) {
 
 checkMarinDebug:
     /* ld a, [ROM_DebugTool1]; and a; jp z, EntityInitNpcFacingDown */
-    if (gb->rom[ROM_DebugTool1] == 0) {
+    if (!gb->rom || gb->rom[ROM_DebugTool1] == 0) {
         EntityInitNpcFacingDown(gb, bc);
 
         return;
@@ -724,6 +721,10 @@ void EntityInitShopOwner(GBState *gb) {
     /* ld a, MUSIC_SHOP; call SetMusicTrackIfHasSword */
     SetMusicTrackIfHasSword(gb, MUSIC_SHOP);
 
+    /* falls through to .setDirectionLeft */
+    uint16_t bc = gb_read(gb, wActiveEntityIndex);
+
+    EntityInitShopOwner_setDirectionLeft(gb, bc);
 }
 
 /* ===== EntityInitShopOwner_setDirectionLeft (03:4B48) ===== */

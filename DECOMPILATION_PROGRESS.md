@@ -3,14 +3,14 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~96.5%
-* **Number of Verified Functions**: 1170
-* **Number of Decompiled Functions**: 1170
-* **Number Remaining**: ~42 functions
-* **Current Subsystem**: ROM Bank 3 (Entity Initializers)
-* **Current Task**: Batch 109 Verification Completed
-* **Last Completed Task**: Batch 109 Verification — ROM Bank 3 Entity Initializers (`EntityInitKikiTheMonkey`, `EntityInitFireballShooter`, `EntityInitAntiKirby`, `EntityInitMovingBlockMover`, `EntityInitDesertLanmola`, `EntityInitFloatingItem2`, `EntityInitFloatingItem`, `SetZPosForFloatingItem`, `EntityInitKid71`, `EntityInitKid72`, `EntityInitMrWrite`, `EntityInitBigFairy`).
-* **Last Update Timestamp**: 2026-10-09T01:27:00+00:00
+* **Current Overall Progress**: ~97.9%
+* **Number of Verified Functions**: 1186
+* **Number of Decompiled Functions**: 1186
+* **Number Remaining**: ~26 functions
+* **Current Subsystem**: ROM Bank 3 (Entity Handlers & Collision)
+* **Current Task**: Batch 110 Verification Completed
+* **Last Completed Task**: Batch 110 Verification — ROM Bank 3 Entity Initializers & Direction Handlers (`EntityInitBowWow`, `EntityInitOwlEvent`, `EntityInitSword`, `UnloadEntityIfRoomStatusSet`, `EntityInitMarin`, `EntityInitTarin`, `EntityInitMadamMeowMeow`, `EntityInitRaftRaftOwner`, `EntityInitNpcFacingDown`, `EntityInitStoreOwner`, `EntityInitWitch`, `EntityInitShopOwner`, `EntityInitWithRandomDirection`, `SetEntityDirection`, `EntityInitNoop`, `EntityShiftPosition`).
+* **Last Update Timestamp**: 2026-10-09T12:00:00+00:00
 
 ---
 
@@ -1569,6 +1569,49 @@
 
 ---
 
+## Batch 110 Verification — ROM Bank 3 Entity Initializers & Direction Handlers
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm` (`03:4A5B`-`03:4B56`, lines 519-731; and `03:4F83`-`03:4FA0`, lines 1498-1522). Implemented in `src/bank3/entities_init_basic.c` with declarations in `include/bank3/entities_init_basic.h`.
+- **Functions Decompiled & Verified:**
+  - `EntityInitBowWow` (`03:4A5B`, `bank3.asm:519`): If in room `UNKNOWN_ROOM_E2` ($E2), unloads entity via `UnloadEntityAndReturn` unless `wIsBowWowFollowingLink == BOW_WOW_KIDNAPPED` ($80). In other rooms, unloads entity if `wIsBowWowFollowingLink != 0`.
+  - `EntityInitOwlEvent` (`03:4A73`, `bank3.asm:538`): Loads `hRoomStatus`, executes `rra` rotating bit 5 into bit 4, and branches to `UnloadEntityIfRoomStatusSet` (unloading via `UnloadEntityAndReturn` if bit 5 of `hRoomStatus` is set).
+  - `EntityInitSword` (`03:4A78`, `bank3.asm:544`): Loads `hRoomStatus` and falls through to `UnloadEntityIfRoomStatusSet`.
+  - `UnloadEntityIfRoomStatusSet` (`03:4A7A`, `bank3.asm:549`): Tests bit 4 of `hRoomStatus` (`and $10`); unloads entity via `UnloadEntityAndReturn` if set.
+  - `EntityInitMarin` (`03:4A80`, `bank3.asm:555`): In Animal Village (`hMapRoom >= UNKNOWN_ROOM_C0`), unloads if `wIsMarinInAnimalVillage == 0` or `wIsMarinFollowingLink != 0`; otherwise marks `wIsMarinSinging = 1`, queues `MUSIC_MARIN_SING` in music registers, and calls `ResetMusicFadeTimer`. Checks debug tool (`ROM_DebugTool1`): if enabled and player name begins with "00", sets `wGameplayType = GAMEPLAY_CREDITS`; if name begins with single '0', sets entity type to `ENTITY_TEXT_DEBUGGER`; otherwise falls through to `EntityInitNpcFacingDown`.
+  - `EntityInitTarin` (`03:4ACE`, `bank3.asm:618`): Checks `hIsGBC`, `wIsIndoor`, `wIsMarinFollowingLink`, `wHasInstrument3 & 2`, `wTradeSequenceItem >= TRADING_ITEM_BANANAS`, and `wTarinFlag != 0 && != 1`. When all conditions hold, loads 8 palette bytes `Data_003_4AC6` into `wObjPal8` via bank 2; falls through to `EntityInitNpcFacingDown`.
+  - `EntityInitMadamMeowMeow` (`03:4B0E`, `bank3.asm:663`): If `wIsBowWowFollowingLink == BOW_WOW_KIDNAPPED`, sets `wMusicTrackToPlay = MUSIC_BOWWOW_KIDNAPPED`.
+  - `EntityInitRaftRaftOwner` (`03:4B1B`, `bank3.asm:674`): Indoors branches to `EntityInitNpcFacingDown`. Outdoors, returns early if `wD477 != 0`; otherwise subtracts `$10` from `wEntitiesPosYTable[bc]`.
+  - `EntityInitNpcFacingDown` (`03:4B2F`, `bank3.asm:690`): Sets `wEntitiesDirectionTable[bc] = DIRECTION_DOWN`.
+  - `EntityInitStoreOwner` (`03:4B35`, `bank3.asm:696`): If `wShieldLevel == 0`, plays music track `$1C` via `SetMusicTrack`; jumps to `EntityInitShopOwner_setDirectionLeft`.
+  - `EntityInitWitch` (`03:4B42`, `bank3.asm:706`): Pure return stub (`ret`).
+  - `EntityInitShopOwner` (`03:4B43`, `bank3.asm:709`): Plays `MUSIC_SHOP` via `SetMusicTrackIfHasSword`, then falls through to `EntityInitShopOwner_setDirectionLeft`.
+  - `EntityInitShopOwner_setDirectionLeft` (`03:4B48`, `bank3.asm:713`): Sets entity direction to `DIRECTION_LEFT` via `SetEntityDirection`.
+  - `EntityInitWithRandomDirection` (`03:4B4C`, `bank3.asm:717`): Samples `GetRandomByte`, masks with `$03`, and falls through to `SetEntityDirection`.
+  - `SetEntityDirection` (`03:4B51`, `bank3.asm:722`): Stores direction in `wEntitiesDirectionTable[bc]` and falls through to `EntityInitNoop`.
+  - `EntityInitNoop` (`03:4B56`, `bank3.asm:728`): Pure return stub (`ret`).
+  - `EntityShiftPosition` (`03:4F83`, `bank3.asm:1499`): Shifts both X and Y position coordinates by +8 with carry propagation into `wEntitiesPosXSignTable` and `wEntitiesPosYSignTable`.
+- **Tests Added & Verified:**
+  - `test_EntityInitBowWow` in `tests/bank3/test_entities.c`: validates room `UNKNOWN_ROOM_E2` kidnapped vs non-kidnapped logic, non-`UNKNOWN_ROOM_E2` following vs not-following logic, and NULL safety.
+  - `test_EntityInitOwlEvent` in `tests/bank3/test_entities.c`: validates bit 5 unload vs bit 4/clear retention, and NULL safety.
+  - `test_EntityInitSword` in `tests/bank3/test_entities.c`: validates bit 4 unload vs clear retention, and NULL safety.
+  - `test_UnloadEntityIfRoomStatusSet` in `tests/bank3/test_entities.c`: validates bit 4 unload vs bit 4 clear retention, and NULL safety.
+  - `test_EntityInitMarin` in `tests/bank3/test_entities.c`: validates Animal Village unload paths, Animal Village singing activation (`wIsMarinSinging`, `MUSIC_MARIN_SING`), Mabe default facing down, debug credits jump on "00", debug text debugger on "0A", and NULL safety.
+  - `test_EntityInitTarin` in `tests/bank3/test_entities.c`: validates GBC indoor palette update `wObjPal8` with Data_003_4AC6, guard conditions (`hIsGBC`, `wIsIndoor`, `wIsMarinFollowingLink`, `wHasInstrument3`, `wTradeSequenceItem`, `wTarinFlag` 0 and 1), and NULL safety.
+  - `test_EntityInitMadamMeowMeow` in `tests/bank3/test_entities.c`: validates `MUSIC_BOWWOW_KIDNAPPED` assignment when kidnapped vs no change when not kidnapped, and NULL safety.
+  - `test_EntityInitRaftRaftOwner` in `tests/bank3/test_entities.c`: validates indoor delegation to facing down, outdoor `wD477` guard, Y position decrement by `$10`, and NULL safety.
+  - `test_EntityInitNpcFacingDown` in `tests/bank3/test_entities.c`: validates `DIRECTION_DOWN` assignment, and NULL safety.
+  - `test_EntityInitStoreOwner` in `tests/bank3/test_entities.c`: validates shield level 0 track `$1C` and `DIRECTION_LEFT`, shield level > 0 preservation, and NULL safety.
+  - `test_EntityInitWitch` in `tests/bank3/test_entities.c`: validates no-op behavior and NULL safety.
+  - `test_EntityInitShopOwner` in `tests/bank3/test_entities.c`: validates `MUSIC_SHOP` play with sword check, `DIRECTION_LEFT` assignment via fallthrough, and NULL safety.
+  - `test_EntityInitWithRandomDirection` in `tests/bank3/test_entities.c`: validates random direction masked to 0..3, and NULL safety.
+  - `test_SetEntityDirection` in `tests/bank3/test_entities.c`: validates direction table updates across all 4 cardinal directions, and NULL safety.
+  - `test_EntityInitNoop` in `tests/bank3/test_entities.c`: validates no-op behavior and NULL safety.
+  - `test_EntityShiftPosition` in `tests/bank3/test_entities.c`: validates +8 position shift and sign carry propagation, and NULL safety.
+  - Full test suite PASS (100% tests passed across all 408 test suites); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS. All 1,186 verified functions passing.
+- **Verification Scope:** Source-level memory behavior within `GBState`. CPU flags/registers/cycles/stack behavior not emulated. Cross-bank calls callback-modeled. Entity state tables, room checks, position adjustments, direction tables, and palette copying verified exact to assembly instruction sequence.
+
+---
+
 ## Completeness & Inventory Audit (Pre-Batch 106)
 
 An independent, evidence-based audit of LADX decompilation completeness was performed at commit `e599699` across ROM Banks 0, 1, 2, and 3.
@@ -1602,41 +1645,27 @@ The repository contains 1,066 active unique C function definitions in `src/` (ex
 
 ### 3. Recalculated Completeness Metrics
 - **Total In-Scope Baseline Routines:** 1,212
-- **Verified Routines:** 1,170 (100% test pass rate across 407 test suites)
-- **Decompiled Routines:** 1,170
-- **Remaining Routines:** ~42 (all remaining within ROM Bank 3)
+- **Verified Routines:** 1,186 (100% test pass rate across 408 test suites)
+- **Decompiled Routines:** 1,186
+- **Remaining Routines:** ~26 (all remaining within ROM Bank 3)
 - **Blocked Routines:** 0
-- **Overall Completion:** 96.53% (~96.5%)
+- **Overall Completion:** 97.85% (~97.9%)
 
 ### 4. Behavioral Verification Assessment & Confidence Level
 - **Test Integrity:** All verified routines are tested against `GBState` memory state, register effects, collision masks, physics velocities, and event flags. No mock-only stubbing is used for verified logic.
 - **Verification Confidence:** **98.5%** confidence across verified routines; 100% test suite pass rate.
 
-### 5. Detailed Census of the 42 Remaining Routines in Bank 3
+### 5. Detailed Census of the 26 Remaining Routines in Bank 3
 
-Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 42 in-scope routines reside exclusively in Bank 3 and are classified as follows:
+Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 26 in-scope routines reside exclusively in Bank 3 and are classified as follows:
 
-#### Group A: Implemented in C but Pending Formal Behavioral Test Verification (19 routines)
-These routines are implemented in `src/bank3/entities_init_basic.c`, `entities_liftable_rock.c`, and `entities_magic_rod.c`, but lack dedicated behavioral unit tests in `tests/`:
-1. `EntityInitBowWow` (`03:4A5B`, `bank3.asm:519`) -> `src/bank3/entities_init_basic.c:446`
-2. `EntityInitOwlEvent` (`03:4A73`, `bank3.asm:538`) -> `src/bank3/entities_init_basic.c:483`
-3. `EntityInitSword` (`03:4A78`, `bank3.asm:544`) -> `src/bank3/entities_init_basic.c:496`
-4. `UnloadEntityIfRoomStatusSet` (`03:4A7A`, `bank3.asm:549`) -> `src/bank3/entities_init_basic.c:508`
-5. `EntityInitMarin` (`03:4A80`, `bank3.asm:555`) -> `src/bank3/entities_init_basic.c:524`
-6. `EntityInitTarin` (`03:4ACE`, `bank3.asm:618`) -> `src/bank3/entities_init_basic.c:598`
-7. `EntityInitMadamMeowMeow` (`03:4B0E`, `bank3.asm:663`) -> `src/bank3/entities_init_basic.c:663`
-8. `EntityInitRaftRaftOwner` (`03:4B1B`, `bank3.asm:674`) -> `src/bank3/entities_init_basic.c:678`
-9. `EntityInitNpcFacingDown` (`03:4B2F`, `bank3.asm:690`) -> `src/bank3/entities_init_basic.c:703`
-10. `EntityInitStoreOwner` (`03:4B35`, `bank3.asm:696`) -> `src/bank3/entities_init_basic.c:712`
-11. `EntityInitWitch` (`03:4B42`, `bank3.asm:706`) -> `src/bank3/entities_init_basic.c:728`
-12. `EntityInitShopOwner` (`03:4B43`, `bank3.asm:709`) -> `src/bank3/entities_init_basic.c:737`
-13. `EntityInitWithRandomDirection` (`03:4B4C`, `bank3.asm:717`) -> `src/bank3/entities_init_basic.c:755`
-14. `SetEntityDirection` (`03:4B51`, `bank3.asm:722`) -> `src/bank3/entities_init_basic.c:768`
-15. `EntityInitNoop` (`03:4B56`, `bank3.asm:728`) -> `src/bank3/entities_init_basic.c:777`
-16. `EntityShiftPosition` (`03:4F83`, `bank3.asm:1499`) -> `src/bank3/entities_init_basic.c:786`
-17. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:34`
-18. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
-19. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
+#### Group A: Implemented in C but Pending Formal Behavioral Test Verification (3 routines)
+These routines are implemented in `src/bank3/entities_liftable_rock.c` and `src/bank3/entities_magic_rod.c`, but lack dedicated behavioral unit tests in `tests/`:
+1. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:34`
+2. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
+3. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
+
+*(Note: All 16 basic entity initializers and direction handlers were decompiled, tested, and VERIFIED in Batch 110. `SmashRock`, `EntityDeathHandler`, `SpawnEnemyDrop`, and `EntityInitEntity13` were VERIFIED in Batch 107. `IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, and `EntityInitPushedBlock` were VERIFIED in Batch 106).*
 
 #### Group B: Missing Collision & Iteration Routines Pending Decompilation (6 routines)
 These routines in the entity collision and loop subsystem remain to be decompiled:
@@ -1646,8 +1675,6 @@ These routines in the entity collision and loop subsystem remain to be decompile
 4. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
 5. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
 6. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper (ASM alias of `ApplyVectorTowardsLink`, implemented at `src/bank3/entities_physics.c:1280`).
-
-*(Note: `SmashRock`, `EntityDeathHandler`, `SpawnEnemyDrop`, and `EntityInitEntity13` were decompiled, tested, and VERIFIED in Batch 107. `IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, and `EntityInitPushedBlock` were VERIFIED in Batch 106).*
 
 #### Group C: Shared Entry Points & Mid-Routine Labels (17 routines)
 These entry points are secondary entry labels or fall-through jump points in ASM that alias or branch into existing functions:

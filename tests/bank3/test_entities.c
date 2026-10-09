@@ -10,6 +10,7 @@
 #include "constants/memory.h"
 #include "constants/rooms.h"
 #include "constants/directions.h"
+#include "constants/hardware.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -1975,6 +1976,681 @@ void test_EntityInitBigFairy(void) {
     printf("[PASS] EntityInitBigFairy\n");
 }
 
+/* Test EntityInitBowWow (03:4A5B) */
+void test_EntityInitBowWow(void) {
+    printf("[RUN ] EntityInitBowWow\n");
+
+    GBState gb;
+
+    /* Case A: In room UNKNOWN_ROOM_E2 and kidnapped -> retained */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_E2);
+    gb_write(&gb, wIsBowWowFollowingLink, BOW_WOW_KIDNAPPED);
+
+    EntityInitBowWow(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_ACTIVE);
+
+    /* Case B: In room UNKNOWN_ROOM_E2 and not kidnapped -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_E2);
+    gb_write(&gb, wIsBowWowFollowingLink, 0x00);
+
+    EntityInitBowWow(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_DISABLED);
+
+    /* Case C: Not in room UNKNOWN_ROOM_E2 and following Link -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write(&gb, wIsBowWowFollowingLink, 0x01);
+
+    EntityInitBowWow(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_DISABLED);
+
+    /* Case D: Not in room UNKNOWN_ROOM_E2 and not following Link -> retained */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write(&gb, wIsBowWowFollowingLink, 0x00);
+
+    EntityInitBowWow(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_ACTIVE);
+
+    /* NULL state safety */
+    EntityInitBowWow(NULL);
+
+    printf("[PASS] EntityInitBowWow\n");
+}
+
+/* Test EntityInitOwlEvent (03:4A73) */
+void test_EntityInitOwlEvent(void) {
+    printf("[RUN ] EntityInitOwlEvent\n");
+
+    GBState gb;
+
+    /* Case A: Bit 5 of hRoomStatus set (event already played) -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x20);
+
+    EntityInitOwlEvent(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Bit 5 clear, but bit 4 set -> retained (Owl checks bit 5, not bit 4) */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x10);
+
+    EntityInitOwlEvent(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_ACTIVE);
+
+    /* Case C: Both bits 4 and 5 set -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x30);
+
+    EntityInitOwlEvent(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_DISABLED);
+
+    /* Case D: hRoomStatus zero -> retained */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write(&gb, wEntitiesStatusTable + 0x02, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x00);
+
+    EntityInitOwlEvent(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x02) == ENTITY_STATUS_ACTIVE);
+
+    /* NULL state safety */
+    EntityInitOwlEvent(NULL);
+
+    printf("[PASS] EntityInitOwlEvent\n");
+}
+
+/* Test EntityInitSword (03:4A78) */
+void test_EntityInitSword(void) {
+    printf("[RUN ] EntityInitSword\n");
+
+    GBState gb;
+
+    /* Case A: Bit 4 of hRoomStatus set -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write(&gb, wEntitiesStatusTable + 0x01, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x10);
+
+    EntityInitSword(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x01) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Bit 4 clear (e.g. 0x20) -> retained */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write(&gb, wEntitiesStatusTable + 0x01, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x20);
+
+    EntityInitSword(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x01) == ENTITY_STATUS_ACTIVE);
+
+    /* Case C: hRoomStatus zero -> retained */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x01);
+    gb_write(&gb, wEntitiesStatusTable + 0x01, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x00);
+
+    EntityInitSword(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x01) == ENTITY_STATUS_ACTIVE);
+
+    /* NULL state safety */
+    EntityInitSword(NULL);
+
+    printf("[PASS] EntityInitSword\n");
+}
+
+/* Test UnloadEntityIfRoomStatusSet (03:4A7A) */
+void test_UnloadEntityIfRoomStatusSet(void) {
+    printf("[RUN ] UnloadEntityIfRoomStatusSet\n");
+
+    GBState gb;
+
+    /* Case A: Bit 4 set -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + 0x04, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0x10);
+
+    UnloadEntityIfRoomStatusSet(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x04) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Bit 4 clear (0xEF) -> retained */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x04);
+    gb_write(&gb, wEntitiesStatusTable + 0x04, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hRoomStatus, 0xEF);
+
+    UnloadEntityIfRoomStatusSet(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x04) == ENTITY_STATUS_ACTIVE);
+
+    /* NULL state safety */
+    UnloadEntityIfRoomStatusSet(NULL);
+
+    printf("[PASS] UnloadEntityIfRoomStatusSet\n");
+}
+
+/* Test EntityInitMarin (03:4A80) */
+void test_EntityInitMarin(void) {
+    printf("[RUN ] EntityInitMarin\n");
+
+    GBState gb;
+
+    /* Case A: Animal Village room (>= 0xC0), Marin not in Animal Village -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_C0);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x00);
+    gb_write(&gb, wIsMarinFollowingLink, 0x00);
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_DISABLED);
+
+    /* Case B: Animal Village room, Marin in Animal Village but following Link -> unloaded */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_C0);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x01);
+    gb_write(&gb, wIsMarinFollowingLink, 0x01);
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_DISABLED);
+
+    /* Case C: Animal Village room, Marin in Animal Village and not following Link -> singing */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wEntitiesStatusTable + 0x03, ENTITY_STATUS_ACTIVE);
+    gb_write_hram(&gb, hMapRoom, UNKNOWN_ROOM_C0);
+    gb_write(&gb, wIsMarinInAnimalVillage, 0x01);
+    gb_write(&gb, wIsMarinFollowingLink, 0x00);
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wEntitiesStatusTable + 0x03) == ENTITY_STATUS_ACTIVE);
+    assert(gb_read(&gb, wIsMarinSinging) == 0x01);
+    assert(gb_read_hram(&gb, hNextMusicTrackToFadeInto) == MUSIC_MARIN_SING);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == MUSIC_MARIN_SING);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == MUSIC_MARIN_SING);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_DOWN);
+
+    /* Case D: Mabe room (< 0xC0), no debug tool -> faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_DOWN);
+
+    /* Case E: Mabe room, ROM_DebugTool1 set, name "00" (two zeros) -> credits */
+    uint8_t dummy_rom[8] = { 0 };
+    dummy_rom[ROM_DebugTool1] = 0x01;
+    gb_init(&gb);
+    gb.rom = dummy_rom;
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write(&gb, wName, 0x00);
+    gb_write(&gb, wName + 1, 0x00);
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wGameplaySubtype) == 0x00);
+    assert(gb_read(&gb, wGameplayType) == GAMEPLAY_CREDITS);
+
+    /* Case F: Mabe room, ROM_DebugTool1 set, name "0A" (single zero) -> text debugger */
+    gb_init(&gb);
+    gb.rom = dummy_rom;
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write(&gb, wName, 0x00);
+    gb_write(&gb, wName + 1, 'A');
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wEntitiesTypeTable + 0x03) == ENTITY_TEXT_DEBUGGER);
+
+    /* Case G: Mabe room, ROM_DebugTool1 set, name non-zero ("Link") -> faces down */
+    gb_init(&gb);
+    gb.rom = dummy_rom;
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write_hram(&gb, hMapRoom, 0x20);
+    gb_write(&gb, wName, 'L');
+
+    EntityInitMarin(&gb);
+
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_DOWN);
+
+    /* NULL state safety */
+    EntityInitMarin(NULL);
+
+    printf("[PASS] EntityInitMarin\n");
+}
+
+/* Test EntityInitTarin (03:4ACE) */
+void test_EntityInitTarin(void) {
+    printf("[RUN ] EntityInitTarin\n");
+
+    GBState gb;
+
+    /* Case A: All conditions met -> updates wObjPal8 and faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wIsMarinFollowingLink, 0x00);
+    gb_write(&gb, wHasInstrument3, 0x00);
+    gb_write(&gb, wTradeSequenceItem, 0x03); /* < TRADING_ITEM_BANANAS */
+    gb_write(&gb, wTarinFlag, 0x02);        /* != 0 and != 1 */
+
+    EntityInitTarin(&gb);
+
+    static const uint8_t expected_pal[8] = { 0xFF, 0x7F, 0xBE, 0x0F, 0x13, 0x02, 0x00, 0x00 };
+    (void)expected_pal;
+    for (int i = 0; i < 8; i++) {
+        assert(gb_read(&gb, wObjPal8 + i) == expected_pal[i]);
+    }
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case B: Not GBC (hIsGBC == 0) -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x00);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wTarinFlag, 0x02);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case C: Not indoor (wIsIndoor == 0) -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write(&gb, wTarinFlag, 0x02);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case D: Marin following Link (wIsMarinFollowingLink != 0) -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wIsMarinFollowingLink, 0x01);
+    gb_write(&gb, wTarinFlag, 0x02);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case E: Has instrument 3 (bit 1 set) -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wHasInstrument3, 0x02);
+    gb_write(&gb, wTarinFlag, 0x02);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case F: Trade item >= TRADING_ITEM_BANANAS -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wTradeSequenceItem, TRADING_ITEM_BANANAS);
+    gb_write(&gb, wTarinFlag, 0x02);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case G: TarinFlag == 0 -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wTradeSequenceItem, 0x02);
+    gb_write(&gb, wTarinFlag, 0x00);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* Case H: TarinFlag == 1 -> skips palette, faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+    gb_write_hram(&gb, hIsGBC, 0x01);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wTradeSequenceItem, 0x02);
+    gb_write(&gb, wTarinFlag, 0x01);
+
+    EntityInitTarin(&gb);
+
+    assert(gb_read(&gb, wObjPal8) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_DOWN);
+
+    /* NULL state safety */
+    EntityInitTarin(NULL);
+
+    printf("[PASS] EntityInitTarin\n");
+}
+
+/* Test EntityInitMadamMeowMeow (03:4B0E) */
+void test_EntityInitMadamMeowMeow(void) {
+    printf("[RUN ] EntityInitMadamMeowMeow\n");
+
+    GBState gb;
+
+    /* Case A: BowWow kidnapped -> plays MUSIC_BOWWOW_KIDNAPPED */
+    gb_init(&gb);
+    gb_write(&gb, wIsBowWowFollowingLink, BOW_WOW_KIDNAPPED);
+
+    EntityInitMadamMeowMeow(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_BOWWOW_KIDNAPPED);
+
+    /* Case B: BowWow not kidnapped -> track unchanged */
+    gb_init(&gb);
+    gb_write(&gb, wMusicTrackToPlay, 0x00);
+    gb_write(&gb, wIsBowWowFollowingLink, 0x01);
+
+    EntityInitMadamMeowMeow(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+
+    /* NULL state safety */
+    EntityInitMadamMeowMeow(NULL);
+
+    printf("[PASS] EntityInitMadamMeowMeow\n");
+}
+
+/* Test EntityInitRaftRaftOwner (03:4B1B) */
+void test_EntityInitRaftRaftOwner(void) {
+    printf("[RUN ] EntityInitRaftRaftOwner\n");
+
+    GBState gb;
+
+    /* Case A: Indoor -> faces down */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x05);
+    gb_write(&gb, wIsIndoor, 0x01);
+    gb_write(&gb, wEntitiesPosYTable + 0x05, 0x40);
+
+    EntityInitRaftRaftOwner(&gb);
+
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x05) == DIRECTION_DOWN);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x05) == 0x40); /* Y pos unchanged */
+
+    /* Case B: Outdoor, wD477 != 0 -> returns without modifying Y */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x05);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write(&gb, wD477, 0x01);
+    gb_write(&gb, wEntitiesPosYTable + 0x05, 0x40);
+
+    EntityInitRaftRaftOwner(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x05) == 0x40);
+
+    /* Case C: Outdoor, wD477 == 0 -> subtracts 0x10 from Y */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x05);
+    gb_write(&gb, wIsIndoor, 0x00);
+    gb_write(&gb, wD477, 0x00);
+    gb_write(&gb, wEntitiesPosYTable + 0x05, 0x40);
+
+    EntityInitRaftRaftOwner(&gb);
+
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x05) == 0x30);
+
+    /* NULL state safety */
+    EntityInitRaftRaftOwner(NULL);
+
+    printf("[PASS] EntityInitRaftRaftOwner\n");
+}
+
+/* Test EntityInitNpcFacingDown (03:4B2F) */
+void test_EntityInitNpcFacingDown(void) {
+    printf("[RUN ] EntityInitNpcFacingDown\n");
+
+    GBState gb;
+
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesDirectionTable + 0x04, DIRECTION_UP);
+
+    EntityInitNpcFacingDown(&gb, 0x04);
+
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x04) == DIRECTION_DOWN);
+
+    /* NULL state safety */
+    EntityInitNpcFacingDown(NULL, 0x04);
+
+    printf("[PASS] EntityInitNpcFacingDown\n");
+}
+
+/* Test EntityInitStoreOwner (03:4B35) */
+void test_EntityInitStoreOwner(void) {
+    printf("[RUN ] EntityInitStoreOwner\n");
+
+    GBState gb;
+
+    /* Case A: Shield level 0 -> plays music 0x1C, sets DIRECTION_LEFT */
+    gb_init(&gb);
+    gb_write(&gb, wShieldLevel, 0x00);
+
+    EntityInitStoreOwner(&gb, 0x01);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x1C);
+    assert(gb_read_hram(&gb, hDefaultMusicTrack) == 0x1C);
+    assert(gb_read_hram(&gb, hDefaultMusicTrackAlt) == 0x1C);
+    assert(gb_read_hram(&gb, hNextDefaultMusicTrack) == 0x1C);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x01) == DIRECTION_LEFT);
+
+    /* Case B: Shield level > 0 -> music unchanged, sets DIRECTION_LEFT */
+    gb_init(&gb);
+    gb_write(&gb, wShieldLevel, 0x01);
+    gb_write(&gb, wMusicTrackToPlay, 0x00);
+
+    EntityInitStoreOwner(&gb, 0x02);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_LEFT);
+
+    /* NULL state safety */
+    EntityInitStoreOwner(NULL, 0x01);
+
+    printf("[PASS] EntityInitStoreOwner\n");
+}
+
+/* Test EntityInitWitch (03:4B42) */
+void test_EntityInitWitch(void) {
+    printf("[RUN ] EntityInitWitch\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    EntityInitWitch(&gb);
+    EntityInitWitch(NULL);
+
+    printf("[PASS] EntityInitWitch\n");
+}
+
+/* Test EntityInitShopOwner (03:4B43) */
+void test_EntityInitShopOwner(void) {
+    printf("[RUN ] EntityInitShopOwner\n");
+
+    GBState gb;
+
+    /* Case A: Sword obtained -> plays MUSIC_SHOP, sets direction LEFT */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wSwordLevel, 0x01);
+
+    EntityInitShopOwner(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == MUSIC_SHOP);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_LEFT);
+
+    /* Case B: No sword -> music unchanged, sets direction LEFT */
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x03);
+    gb_write(&gb, wSwordLevel, 0x00);
+    gb_write(&gb, wMusicTrackToPlay, 0x00);
+
+    EntityInitShopOwner(&gb);
+
+    assert(gb_read(&gb, wMusicTrackToPlay) == 0x00);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_LEFT);
+
+    /* NULL state safety */
+    EntityInitShopOwner(NULL);
+
+    printf("[PASS] EntityInitShopOwner\n");
+}
+
+/* Test EntityInitWithRandomDirection (03:4B4C) */
+void test_EntityInitWithRandomDirection(void) {
+    printf("[RUN ] EntityInitWithRandomDirection\n");
+
+    GBState gb;
+    gb_init(&gb);
+    gb_write(&gb, wActiveEntityIndex, 0x02);
+
+    /* Call multiple times to verify direction is masked to 0..3 */
+    for (int i = 0; i < 8; i++) {
+        EntityInitWithRandomDirection(&gb);
+        uint8_t dir = gb_read(&gb, wEntitiesDirectionTable + 0x02);
+        (void)dir;
+        assert(dir <= 3);
+    }
+
+    /* NULL state safety */
+    EntityInitWithRandomDirection(NULL);
+
+    printf("[PASS] EntityInitWithRandomDirection\n");
+}
+
+/* Test SetEntityDirection (03:4B51) */
+void test_SetEntityDirection(void) {
+    printf("[RUN ] SetEntityDirection\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    SetEntityDirection(&gb, 0x01, DIRECTION_UP);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x01) == DIRECTION_UP);
+
+    SetEntityDirection(&gb, 0x02, DIRECTION_RIGHT);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x02) == DIRECTION_RIGHT);
+
+    SetEntityDirection(&gb, 0x03, DIRECTION_DOWN);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x03) == DIRECTION_DOWN);
+
+    SetEntityDirection(&gb, 0x04, DIRECTION_LEFT);
+    assert(gb_read(&gb, wEntitiesDirectionTable + 0x04) == DIRECTION_LEFT);
+
+    /* NULL state safety */
+    SetEntityDirection(NULL, 0x01, DIRECTION_UP);
+
+    printf("[PASS] SetEntityDirection\n");
+}
+
+/* Test EntityInitNoop (03:4B56) */
+void test_EntityInitNoop(void) {
+    printf("[RUN ] EntityInitNoop\n");
+
+    GBState gb;
+    gb_init(&gb);
+
+    EntityInitNoop(&gb);
+    EntityInitNoop(NULL);
+
+    printf("[PASS] EntityInitNoop\n");
+}
+
+/* Test EntityShiftPosition (03:4F83) */
+void test_EntityShiftPosition(void) {
+    printf("[RUN ] EntityShiftPosition\n");
+
+    GBState gb;
+
+    /* Case A: Normal shift by 8 without carry */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesPosXTable + 0x03, 0x10);
+    gb_write(&gb, wEntitiesPosXSignTable + 0x03, 0x00);
+    gb_write(&gb, wEntitiesPosYTable + 0x03, 0x20);
+    gb_write(&gb, wEntitiesPosYSignTable + 0x03, 0x00);
+
+    EntityShiftPosition(&gb, 0x03);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x18);
+    assert(gb_read(&gb, wEntitiesPosXSignTable + 0x03) == 0x00);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0x28);
+    assert(gb_read(&gb, wEntitiesPosYSignTable + 0x03) == 0x00);
+
+    /* Case B: Overflow with carry propagation */
+    gb_init(&gb);
+    gb_write(&gb, wEntitiesPosXTable + 0x03, 0xFA); /* 0xFA + 8 = 0x102 -> 0x02, carry = 1 */
+    gb_write(&gb, wEntitiesPosXSignTable + 0x03, 0x00);
+    gb_write(&gb, wEntitiesPosYTable + 0x03, 0xFF); /* 0xFF + 8 = 0x107 -> 0x07, carry = 1 */
+    gb_write(&gb, wEntitiesPosYSignTable + 0x03, 0x02);
+
+    EntityShiftPosition(&gb, 0x03);
+
+    assert(gb_read(&gb, wEntitiesPosXTable + 0x03) == 0x02);
+    assert(gb_read(&gb, wEntitiesPosXSignTable + 0x03) == 0x01);
+    assert(gb_read(&gb, wEntitiesPosYTable + 0x03) == 0x07);
+    assert(gb_read(&gb, wEntitiesPosYSignTable + 0x03) == 0x03);
+
+    /* NULL state safety */
+    EntityShiftPosition(NULL, 0x03);
+
+    printf("[PASS] EntityShiftPosition\n");
+}
+
 void test_bank3_entities(void) {
     /* test_ConfigureNewEntity(); */
     /* test_ConfigureEntityHealth(); */
@@ -2052,4 +2728,22 @@ void test_bank3_entities(void) {
     test_EntityInitKid72();
     test_EntityInitMrWrite();
     test_EntityInitBigFairy();
+
+    /* Test entity init and direction functions (Batch 110) */
+    test_EntityInitBowWow();
+    test_EntityInitOwlEvent();
+    test_EntityInitSword();
+    test_UnloadEntityIfRoomStatusSet();
+    test_EntityInitMarin();
+    test_EntityInitTarin();
+    test_EntityInitMadamMeowMeow();
+    test_EntityInitRaftRaftOwner();
+    test_EntityInitNpcFacingDown();
+    test_EntityInitStoreOwner();
+    test_EntityInitWitch();
+    test_EntityInitShopOwner();
+    test_EntityInitWithRandomDirection();
+    test_SetEntityDirection();
+    test_EntityInitNoop();
+    test_EntityShiftPosition();
 }
