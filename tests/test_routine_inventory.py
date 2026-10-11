@@ -332,6 +332,81 @@ class TestRealAssemblyIntegration(unittest.TestCase):
             self.assertEqual(s1["file"], s2["file"])
             self.assertEqual(s1["line"], s2["line"])
 
+    def test_data_001_48e4_classified_as_data_table(self):
+        """Data_001_48E4 in file_menus.asm is a 4-byte cursor position table and must be DATA_TABLE, not ROUTINE."""
+        sym = next((s for s in self.reconciled if s["name"] == "Data_001_48E4"), None)
+        self.assertIsNotNone(sym, "Data_001_48E4 missing from inventory")
+        self.assertEqual(sym["type"], "DATA_TABLE")
+        self.assertEqual(sym["status"], "DATA")
+
+    def test_per_bank_and_project_wide_mathematical_consistency(self):
+        """Verify that every bank and the project-wide totals reconcile mathematically without discrepancy."""
+        bank_stats = {}
+        for b in range(64):
+            bank_stats[b] = {"routines": 0, "verified": 0, "decompiled": 0, "missing": 0, "blocked": 0}
+
+        for s in self.reconciled:
+            b = s["bank"]
+            t = s["type"]
+            st = s.get("status")
+            if t == "ROUTINE":
+                bank_stats[b]["routines"] += 1
+                if st == "VERIFIED":
+                    bank_stats[b]["verified"] += 1
+                elif st == "DECOMPILED":
+                    bank_stats[b]["decompiled"] += 1
+                elif st == "MISSING":
+                    bank_stats[b]["missing"] += 1
+                elif st == "BLOCKED":
+                    bank_stats[b]["blocked"] += 1
+
+        total_r = 0
+        total_v = 0
+        total_d = 0
+        total_m = 0
+        total_b = 0
+        for b in range(64):
+            st = bank_stats[b]
+            self.assertEqual(
+                st["routines"],
+                st["verified"] + st["decompiled"] + st["missing"] + st["blocked"],
+                f"Bank ${b:02X} does not reconcile: routines={st['routines']} != v({st['verified']})+d({st['decompiled']})+m({st['missing']})+b({st['blocked']})"
+            )
+            total_r += st["routines"]
+            total_v += st["verified"]
+            total_d += st["decompiled"]
+            total_m += st["missing"]
+            total_b += st["blocked"]
+
+        self.assertEqual(total_r, total_v + total_d + total_m + total_b)
+        self.assertEqual(total_r, 4298)
+        self.assertEqual(total_v, 906)
+        self.assertEqual(total_d, 98)
+        self.assertEqual(total_m, 3294)
+        self.assertEqual(total_b, 0)
+
+    def test_subsystem_scope_counts(self):
+        """Verify Banks 00-03 Subsystem scope counts and Bank 3 completeness."""
+        b3_routines = [s for s in self.reconciled if s["bank"] == 3 and s["type"] == "ROUTINE"]
+        b3_missing = [s for s in b3_routines if s.get("status") == "MISSING"]
+        b3_verified = [s for s in b3_routines if s.get("status") == "VERIFIED"]
+        b3_decompiled = [s for s in b3_routines if s.get("status") == "DECOMPILED"]
+
+        self.assertEqual(len(b3_routines), 255)
+        self.assertEqual(len(b3_verified), 225)
+        self.assertEqual(len(b3_decompiled), 30)
+        self.assertEqual(len(b3_missing), 0, "Bank 3 must have 0 missing routines")
+
+        sub_routines = [s for s in self.reconciled if s["bank"] in (0, 1, 2, 3) and s["type"] == "ROUTINE"]
+        sub_missing = [s for s in sub_routines if s.get("status") == "MISSING"]
+        sub_verified = [s for s in sub_routines if s.get("status") == "VERIFIED"]
+        sub_decompiled = [s for s in sub_routines if s.get("status") == "DECOMPILED"]
+
+        self.assertEqual(len(sub_routines), 1126)
+        self.assertEqual(len(sub_verified), 904)
+        self.assertEqual(len(sub_decompiled), 97)
+        self.assertEqual(len(sub_missing), 125)
+
 
 if __name__ == "__main__":
     unittest.main()

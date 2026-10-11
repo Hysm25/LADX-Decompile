@@ -3,15 +3,15 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress (Subsystem Scope: Banks 0–3)**: 80.21% (904 / 1,127 standalone callable routines verified; 97 decompiled/untested, 126 missing; 100.0% of historical 1,212 baseline accounted for)
-* **Current Overall Progress (Whole-Game Scope: All 64 Banks)**: 21.07% (906 / 4,299 standalone callable routines verified; 98 decompiled/untested, 3,295 missing; see `ROUTINE_INVENTORY.md` & `routine_inventory.json`)
+* **Current Overall Progress (Subsystem Scope: Banks 0–3)**: 80.28% (904 / 1,126 standalone callable routines verified; 97 decompiled/untested, 125 missing; 100.0% of historical 1,212 baseline accounted for)
+* **Current Overall Progress (Whole-Game Scope: All 64 Banks)**: 21.08% (906 / 4,298 standalone callable routines verified; 98 decompiled/untested, 3,294 missing; see `ROUTINE_INVENTORY.md` & `routine_inventory.json`)
 * **Number of Verified Functions**: 904 standalone (Subsystem Banks 00–03) / 906 standalone (Whole-Game)
 * **Number of Decompiled Functions**: 1,001 (Subsystem Banks 00–03) / 1,004 (Whole-Game)
-* **Number Remaining (Subsystem Banks 00–03)**: 126 missing standalone routines (Bank 3 has 0 missing; 225 verified, 30 decompiled/untested)
+* **Number Remaining (Subsystem Banks 00–03)**: 125 missing standalone routines (Bank 3 has 0 missing; 225 verified, 30 decompiled/untested)
 * **Current Subsystem**: ROM Banks 00–03 Authoritative Inventory Reconciliation & Bank 3 Completion
 * **Current Task**: Authoritative Routine Inventory & Scope Audit Complete
-* **Last Completed Task**: Authoritative Routine Inventory Audit — Reconciled progress counts across Subsystem and Whole-Game scopes under a unified counting policy (standalone callable routines); resolved the 1,212 vs 1,195 historical contradiction; enhanced `tools/generate_routine_inventory.py` with full RGBDS macro/directive classification, lookahead, and deterministic JSON/MD output; added 10 unit test cases in `tests/test_routine_inventory.py` registered with CTest.
-* **Last Update Timestamp**: 2026-10-11T13:48:00+00:00
+* **Last Completed Task**: Authoritative Routine Inventory Audit — Reconciled progress counts across Subsystem and Whole-Game scopes under a unified counting policy (standalone callable routines); resolved the 1,212 vs 1,195 historical contradiction; classified Data_001_48E4 as DATA_TABLE; generated complete 64-bank reconciliation table in ROUTINE_INVENTORY.md; added 13 unit test cases in tests/test_routine_inventory.py registered with CTest.
+* **Last Update Timestamp**: 2026-10-11T14:20:00+00:00
 
 ---
 
@@ -1781,35 +1781,54 @@ To guarantee mathematical consistency and prevent ambiguity across scopes:
 ### 3. Reconciled Authoritative Counts
 
 #### Subsystem Scope (Banks 00–03):
-- **Standalone Callable Routines (`ROUTINE`):** **1,127** total
-  - **Verified (`VERIFIED`):** **904** (80.21%)
+- **Standalone Callable Routines (`ROUTINE`):** **1,126** total
+  - **Verified (`VERIFIED`):** **904** (80.28%)
   - **Decompiled Untested (`DECOMPILED`):** **97**
-  - **Missing (`MISSING`):** **126**
-- **Other Symbols:** 21 aliases, 16 alternate entries, 499 data tables, 261 internal labels.
+  - **Missing (`MISSING`):** **125**
+- **Non-Routine Symbols:** 14 aliases, 16 alternate entries, 499 data tables, 3,828 internal/local labels.
 - **Historical Baseline Accounted For:** 1,212 functions (1,195 standalone verified + 17 Group C aliases/entries).
 - **Bank 3 Census Status:** **255** standalone routines (**225** verified, **30** decompiled/untested helper states, **0 missing**).
 
 #### Whole-Game Scope (All 64 Banks):
-- **Standalone Callable Routines (`ROUTINE`):** **4,299** total
-  - **Verified (`VERIFIED`):** **906** (21.07%)
+- **Standalone Callable Routines (`ROUTINE`):** **4,298** total
+  - **Verified (`VERIFIED`):** **906** (21.08%)
   - **Decompiled Untested (`DECOMPILED`):** **98**
-  - **Missing (`MISSING`):** **3,295**
-- **Data Tables (`DATA_TABLE`):** 2,342
-- **Aliases (`ALIAS`):** 70
-- **Alternate Entries (`ALTERNATE_ENTRY`):** 16
-- **Internal Labels (`INTERNAL_LABEL`):** 1,699
+  - **Missing (`MISSING`):** **3,294**
+- **Non-Routine Symbols:** 155 aliases, 16 alternate entries, 7,384 data tables, 29,553 internal/local labels.
 
-### 4. Technical Improvements to Inventory Tooling
+### 4. Resolution of the Bank 3 vs Subsystem Missing Routines Discrepancy
+
+A central finding of this audit resolves how **Bank 3 contains zero missing routines** while the Banks 00–03 scope reports **125 missing routines**:
+1. **Historical False Premise:** Pre-Batch 106 progress documentation assumed Banks 00, 01, and 02 were completely finished and declared that only 26 routines remained in Bank 3. The 1,212 baseline target was simply computed as `1,186 verified + 26 Bank 3 unfinished = 1,212`.
+2. **Batch 111 Reality:** Batch 111 decompiled and verified the remaining Bank 3 routines, bringing Bank 3 standalone routine coverage to **100% (225 verified, 30 decompiled helper states, 0 missing)**.
+3. **Omitted Unfinished Work in Banks 00–02:** Parsing the original assembly across all banks revealed that Banks 00, 01, and 02 were never completely finished in earlier batches:
+   - **Bank 00 (53 missing):** Boot/hardware initialization (`Start`, `Init`, `RenderLoop`), VBlank/LCD interrupt handlers (`InterruptLCDStatus`, `InterruptVBlank`, `InterruptSerial`, `LoadTiles`, `LoadEntityTiles`), item collection sequences (`ApplyGotItem`, `InitGotItemSequence`), and interactive overworld handling (`WorldInteractiveHandler`).
+   - **Bank 01 (18 missing):** File selection screen interactive state machine (`FileSelectionEntryPoint`, `FileSelectionPrepare0`..`6`), max hearts clamping (`RecalculateMaxHearts`, `ClampMaxHearts`), and OAM DMA transfer (`DMARoutine`).
+   - **Bank 02 (54 missing):** Background collision physics subsystem (`BackgroundCollisionHandler`, `ApplyCollisionWithSolid`, `ApplyCollisionWithLedge`, `ApplyCollisionWithDoor`), side-scrolling physics (`LinkSideScrollingPhysicsHandler`, `LinkSideScrollingDivingPhysicsHandler`), interactive block mechanics (`interactiveBlock`), and door unlock collision (`OpenDoor`).
+4. **Conclusion:** Bank 3 is genuinely complete, while Banks 00–02 contain 125 standalone routines that were previously assumed finished without an automated code census.
+
+### 5. Resolution of the 1,195 Verified vs 906 Authoritative Routines Delta
+
+The delta between the historical count of **1,195 verified routines** and the authoritative census of **906 verified standalone routines** (delta: 289) is accounted for by:
+1. **Cumulative Manual Running Tally:** Historical batch counts incremented a running sum (`+N`) in documentation without mapping 1:1 to unique assembly entry points.
+2. **Multi-Entry & Shared Handlers (+26):** Multiple distinct ASM entry points implemented in consolidated C functions were each counted as separate verified functions.
+3. **Formal Test Audits Without New Code (+30):** Batch 76 added tests for existing code and added +30 to the historical count.
+4. **Secondary Entry Points & Trampolines (+14):** Mid-routine entry points and trampolines were counted as verified routines.
+5. **C Infrastructure & Helper Functions (~61):** The C repository contains 1,065 unique C functions, of which ~61 are emulator infrastructure (`gb_init`, `gb_attach_rom`, `gb_read`, `gb_write`), callback trampolines, and helper wrappers.
+
+### 6. Technical Improvements to Inventory Tooling
 
 - **Comprehensive Macro & Directive Support:** Added recognition of RGBDS dialogue directives (`dialog_text`, `dialog_string_wrapping`, `dialog_ask_line`, `dialog_pointer`, `far_pointer`), entity lists (`entity`, `entities_end`), palette tables (`rgb`), audio bytecode (`note`, `notelen`, `rest`, `begin_loop`, `set_waveform`, `set_envelope_duty`, `set_speed`, `set_transpose`, etc.), and Super Game Boy commands (`sgb_cmd`, `sgb_data_send_cmd`).
 - **Address Tag & Local Label Lookahead:** Parser skips inline address comments (`;; 03:69AA`) and intermediate local labels (`.variant0`), preventing false `ROUTINE` classifications for data tables like `MagicRodFireballSpriteVariants`, `FireSpriteVariants`, `KeyCollectDialogs`.
+- **Data Table Classification (`Data_001_48E4`):** Fixed classification of the 4-byte cursor position table in `file_menus.asm:250` as `DATA_TABLE`, correcting a disassembler artifact where data bytes were rendered as opcodes.
+- **Full 64-Bank Reconciliation Table:** Extended `ROUTINE_INVENTORY.md` to output a complete, mathematically reconciled table covering all 64 ROM banks ($00–$3F).
 - **Recursive Section Mapping:** Parses `main.asm` section declarations so that all 229 data labels in `main.asm` are assigned to their respective banks.
 - **Fast Token Indexing:** Optimized symbol search via token set indexing, reducing scan time from >10s to ~1s.
 - **Deterministic Repeatability:** Output verified bit-for-bit identical across multiple runs (SHA-256 matched).
 
-### 5. Automated Verification & Regression Suite
+### 7. Automated Verification & Regression Suite
 
-- Added `tests/test_routine_inventory.py` containing 10 automated unit test cases:
+- Added `tests/test_routine_inventory.py` containing 13 automated unit test cases:
   1. `test_opcodes_vs_data_directives`: Tests classification of CPU instructions vs RGBDS data directives.
   2. `test_data_macros_classification`: Tests dialogue, entity, palette, audio, and SGB macros.
   3. `test_execution_macros_classification`: Tests macros expanding to CPU opcodes (`JP_TABLE`, `CALL_TABLE`).
@@ -1820,9 +1839,12 @@ To guarantee mathematical consistency and prevent ambiguity across scopes:
   8. `test_bank16_has_zero_code_routines`: Regression test verifying Bank 16 contains 0 executable routines.
   9. `test_bank3_group_a_and_b_verified`: Regression test verifying all Batch 111 Bank 3 routines are `VERIFIED`.
   10. `test_deterministic_output`: Verifies generator produces bit-for-bit identical output across runs.
+  11. `test_data_001_48e4_classified_as_data_table`: Regression test verifying `Data_001_48E4` is classified as `DATA_TABLE`.
+  12. `test_per_bank_and_project_wide_mathematical_consistency`: Verifies that for all 64 banks, `routines == verified + decompiled + missing + blocked` and project totals match.
+  13. `test_subsystem_scope_counts`: Verifies Banks 00–03 subsystem counts (1,126 routines, 904 verified, 97 decompiled, 125 missing) and Bank 3 completeness (0 missing).
 - Registered in CTest as `test_routine_inventory` (all 6 CTest targets passing 100%).
 
-### 6. Strict C11 Warnings & Build Hardening
+### 8. Strict C11 Warnings & Build Hardening
 
 - Resolved `error: ‘replace’ may be used uninitialized [-Werror=maybe-uninitialized]` in `src/home/animated_tiles.c`.
 - Resolved `error: ‘new_room’ may be used uninitialized [-Werror=maybe-uninitialized]` in `src/bank2/room_transition.c`.

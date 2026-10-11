@@ -1,13 +1,31 @@
 {
   "metadata": {
-    "timestamp": "2026-10-11T13:50:30.235231+00:00",
-    "git_head": "c92fccc4628fb0817373f4991459c2f3d35b4610",
+    "timestamp": "2026-10-11T14:28:11.632174+00:00",
+    "git_head": "872b441acb54febe41ce155742c528c9a9d53d64",
     "git_branch": "main",
     "working_tree_clean": false,
     "total_symbols": 41406,
     "total_c_functions": 1065,
     "total_test_functions": 230,
-    "counting_policy": "Standalone Callable Routines (ROUTINE) as primary denominator; separate tracking for ALIAS, ALTERNATE_ENTRY, INTERNAL_LABEL, DATA_TABLE, and UNRESOLVED."
+    "counting_policy": "Standalone Callable Routines (ROUTINE) as primary denominator; separate tracking for ALIAS, ALTERNATE_ENTRY, INTERNAL_LABEL, DATA_TABLE, and UNRESOLVED.",
+    "subsystem_scope": {
+      "banks": "00-03",
+      "total_routines": 1126,
+      "verified": 904,
+      "decompiled": 97,
+      "missing": 125,
+      "blocked": 0,
+      "completion_pct": 80.28
+    },
+    "whole_game_scope": {
+      "banks": "00-3F",
+      "total_routines": 4298,
+      "verified": 906,
+      "decompiled": 98,
+      "missing": 3294,
+      "blocked": 0,
+      "completion_pct": 21.08
+    }
   },
   "symbols": [
     {
@@ -19129,12 +19147,10 @@
       "address": "01:48E4",
       "file": "code/file_menus.asm",
       "line": 250,
-      "type": "ROUTINE",
+      "type": "DATA_TABLE",
       "dependencies": [],
-      "status": "MISSING",
-      "c_source": null,
-      "test_source": null,
-      "evidence": "Not yet decompiled in C codebase"
+      "status": "DATA",
+      "evidence": "Read-only ROM data table or bytecode sequence"
     },
     {
       "name": "Data_001_48EB",
