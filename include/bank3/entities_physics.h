@@ -128,4 +128,10 @@ void func_003_6E2B(GBState *gb, uint16_t bc);
 void func_003_4E16(GBState *gb, uint16_t bc);
 void OpenDialogInTable0_trampoline(GBState *gb, uint8_t dialog_id);
 
+/* setCarryAndReturn (03:6E0A) */
+bool setCarryAndReturn(GBState *gb);
+
+/* ApplyVectorTowardsLinkAndReturn (03:7EC7) */
+void ApplyVectorTowardsLinkAndReturn(GBState *gb, uint16_t bc);
+
 #endif /* LADX_BANK3_ENTITIES_PHYSICS_H */

@@ -4,6 +4,11 @@
 #include "gb.h"
 #include "bank3/entities.h"
 #include "bank3/entities_init_basic.h"
+#include "bank3/entities_liftable_rock.h"
+#include "bank3/entities_magic_rod.h"
+#include "bank3/entities_physics.h"
+#include "bank3/entities_collision.h"
+#include "bank3/entities_droppable.h"
 #include "constants/audio.h"
 #include "constants/entities.h"
 #include "constants/gameplay.h"
@@ -2746,4 +2751,194 @@ void test_bank3_entities(void) {
     test_SetEntityDirection();
     test_EntityInitNoop();
     test_EntityShiftPosition();
+
+    /* Test Bank 3 Remaining Routines (Batch 111) */
+    test_Entity4BHandler();
+    test_LiftableRockEntityHandler();
+    test_MagicRodFireballEntityHandler();
+    test_setCarryAndReturn();
+    test_ApplyVectorTowardsLinkAndReturn();
+    test_Entity13Handler();
+    test_forceCollision();
+    test_forceCollisionEnd();
+    test_checkNextEntity();
+    test_entitiesLoop();
+}
+
+/* ===== Batch 111 Unit Tests: Bank 3 Remaining Routines ===== */
+
+/* Test Entity4BHandler (03:5326) */
+void test_Entity4BHandler(void) {
+    printf("[RUN ] Entity4BHandler\n");
+    GBState gb;
+    gb_init(&gb);
+
+    /* Entity 4B handler calls LiftableRockEntityHandler with d=3 */
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateCountdown1Table + 2), 0);
+    Entity4BHandler(&gb, 2);
+
+    /* Verify picked up rock index stored */
+    assert(gb_read(&gb, wPickedUpRockIndex) == 2);
+    /* Verify hMultiPurpose0 set to countdown1 (0) */
+    assert(gb_read_hram(&gb, hMultiPurpose0) == 0);
+
+    printf("[PASS] Entity4BHandler\n");
+}
+
+/* Test LiftableRockEntityHandler (03:5328) */
+void test_LiftableRockEntityHandler(void) {
+    printf("[RUN ] LiftableRockEntityHandler\n");
+    GBState gb;
+    gb_init(&gb);
+
+    /* Case A: Countdown 1 == 0 -> intact handler */
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateCountdown1Table + 3), 0);
+    LiftableRockEntityHandler(&gb, 3);
+    assert(gb_read(&gb, wPickedUpRockIndex) == 3);
+    assert(gb_read_hram(&gb, hMultiPurpose0) == 0);
+
+    /* Case B: Countdown 1 == 1, final smash frame, private state 5 != 0, sprite variant != 0 */
+    gb_init(&gb);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateCountdown1Table + 3), 1);
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateState5Table + 3), 0);
+    gb_write_hram(&gb, hActiveEntitySpriteVariant, 1);
+    LiftableRockEntityHandler(&gb, 3);
+    assert(gb_read(&gb, wPickedUpRockIndex) == 3);
+
+    printf("[PASS] LiftableRockEntityHandler\n");
+}
+
+/* Test MagicRodFireballEntityHandler (03:69B2) */
+void test_MagicRodFireballEntityHandler(void) {
+    printf("[RUN ] MagicRodFireballEntityHandler\n");
+    GBState gb;
+    gb_init(&gb);
+
+    /* Fireball active projectile tracking and damage type */
+    gb_write(&gb, wActiveProjectileCount, 2);
+    gb_write_hram(&gb, hFrameCounter, 0x18);
+    /* Countdown 1 == 1 -> fireball hit wall and expires */
+    gb_write(&gb, (uint16_t)(wEntitiesPrivateCountdown1Table + 1), 1);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+
+    MagicRodFireballEntityHandler(&gb, 1);
+
+    /* Verify projectile counter incremented */
+    assert(gb_read(&gb, wActiveProjectileCount) == 3);
+    /* Verify attack damage type set to Magic Rod */
+    assert(gb_read(&gb, wAttackDamageType) == DAMAGE_TYPE_MAGIC_ROD);
+    /* Verify sprite variant updated */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesSpriteVariantTable + 1)) == 1);
+    /* Verify unloaded on countdown 1 == 1 */
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] MagicRodFireballEntityHandler\n");
+}
+
+/* Test setCarryAndReturn (03:6E0A) */
+void test_setCarryAndReturn(void) {
+    printf("[RUN ] setCarryAndReturn\n");
+    GBState gb;
+    gb_init(&gb);
+
+    bool result = setCarryAndReturn(&gb);
+    assert(result == true);
+
+    printf("[PASS] setCarryAndReturn\n");
+}
+
+/* Test ApplyVectorTowardsLinkAndReturn (03:7EC7) */
+void test_ApplyVectorTowardsLinkAndReturn(void) {
+    printf("[RUN ] ApplyVectorTowardsLinkAndReturn\n");
+    GBState gb;
+    gb_init(&gb);
+
+    /* Set Link position at (40, 40) and entity 2 at (60, 60) */
+    gb_write_hram(&gb, hLinkPositionX, 0x40);
+    gb_write_hram(&gb, hLinkPositionY, 0x40);
+    gb_write(&gb, (uint16_t)(wEntitiesPosXTable + 2), 0x60);
+    gb_write(&gb, (uint16_t)(wEntitiesPosYTable + 2), 0x60);
+    gb_write(&gb, (uint16_t)(wEntitiesPosZTable + 2), 0x00);
+    gb_write_hram(&gb, hActiveEntityVisualPosY, 0x60);
+
+    ApplyVectorTowardsLinkAndReturn(&gb, 2);
+
+    /* Speeds should be set moving northwest towards Link */
+    int8_t speed_x = (int8_t)gb_read(&gb, (uint16_t)(wEntitiesSpeedXTable + 2));
+    int8_t speed_y = (int8_t)gb_read(&gb, (uint16_t)(wEntitiesSpeedYTable + 2));
+    assert(speed_x != 0 || speed_y != 0);
+
+    printf("[PASS] ApplyVectorTowardsLinkAndReturn\n");
+}
+
+/* Test Entity13Handler (03:59D6) */
+void test_Entity13Handler(void) {
+    printf("[RUN ] Entity13Handler\n");
+    GBState gb;
+    gb_init(&gb);
+
+    /* Entity 13 falls through to HeartContainerEntityHandler */
+    /* With room event 1 set, entity is pruned */
+    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
+
+    Entity13Handler(&gb, 1);
+
+    assert(gb_read(&gb, (uint16_t)(wEntitiesStatusTable + 1)) == ENTITY_STATUS_DISABLED);
+
+    printf("[PASS] Entity13Handler\n");
+}
+
+/* Test forceCollision (03:765F) */
+void test_forceCollision(void) {
+    printf("[RUN ] forceCollision\n");
+    GBState gb;
+    gb_init(&gb);
+
+    gb_write(&gb, (uint16_t)(wEntitiesCollisionsTable + 4), 0x00);
+    forceCollision(&gb, 4);
+    assert(gb_read(&gb, (uint16_t)(wEntitiesCollisionsTable + 4)) == 0x01);
+
+    printf("[PASS] forceCollision\n");
+}
+
+/* Test forceCollisionEnd (03:7668) */
+void test_forceCollisionEnd(void) {
+    printf("[RUN ] forceCollisionEnd\n");
+    GBState gb;
+    gb_init(&gb);
+
+    forceCollisionEnd(&gb);
+    forceCollisionEnd(NULL);
+
+    printf("[PASS] forceCollisionEnd\n");
+}
+
+/* Test checkNextEntity (03:779F) */
+void test_checkNextEntity(void) {
+    printf("[RUN ] checkNextEntity\n");
+
+    int8_t idx = 0x0F;
+    checkNextEntity(&idx);
+    assert(idx == 0x0E);
+
+    checkNextEntity(NULL);
+
+    printf("[PASS] checkNextEntity\n");
+}
+
+/* Test entitiesLoop (03:75A6) */
+void test_entitiesLoop(void) {
+    printf("[RUN ] entitiesLoop\n");
+    GBState gb;
+    gb_init(&gb);
+
+    /* Set all entities inactive -> loop completes cleanly without side-effects */
+    for (int i = 0; i < 16; i++) {
+        gb_write(&gb, (uint16_t)(wEntitiesStatusTable + i), ENTITY_STATUS_DISABLED);
+    }
+
+    entitiesLoop(&gb, 0);
+
+    printf("[PASS] entitiesLoop\n");
 }

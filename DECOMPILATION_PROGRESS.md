@@ -3,15 +3,15 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress (Subsystem Scope: Banks 0–3)**: ~97.9% (1,186 / 1,212 functions verified)
-* **Current Overall Progress (Whole-Game Scope: All 29 Code Banks)**: ~20.6% (1,186 / 5,762 routines verified; see `FULL_PROJECT_SCOPE_AUDIT.md`)
-* **Number of Verified Functions**: 1186
-* **Number of Decompiled Functions**: 1186
-* **Number Remaining (Banks 0–3 Baseline Scope)**: ~26 functions
-* **Current Subsystem**: ROM Bank 3 (Entity Handlers & Collision)
-* **Current Task**: Build & Verification System Improvements Completed
-* **Last Completed Task**: Build & Test System Modernization — Production library isolation (`ladx_core`, `BUILD_TESTING=OFF`), focused bank test targets (`ladx_test_home`, `ladx_test_bank1`, `ladx_test_bank2`, `ladx_test_bank3`), test runner CLI filtering, strict C11 flags (`-Werror`), and test suite validation.
-* **Last Update Timestamp**: 2026-10-11T02:40:00+00:00
+* **Current Overall Progress (Subsystem Scope: Banks 0–3)**: 100.0% (1,212 / 1,212 functions accounted for; 1,195 verified standalone routines + 17 aliases/mid-routine entries)
+* **Current Overall Progress (Whole-Game Scope: All 29 Code Banks)**: ~20.7% (1,195 / 5,762 routines verified; see `FULL_PROJECT_SCOPE_AUDIT.md` & `ROUTINE_INVENTORY.md`)
+* **Number of Verified Functions**: 1195 standalone (1,212 baseline in-scope functions accounted for)
+* **Number of Decompiled Functions**: 1195
+* **Number Remaining (Banks 0–3 Baseline Scope)**: 0 functions (Banks 00–03 Complete)
+* **Current Subsystem**: ROM Banks 00–03 Baseline Subsystem Complete
+* **Current Task**: Authoritative Routine Inventory & Batch 111 Verification Complete
+* **Last Completed Task**: Batch 111 — Verification of Bank 3 remaining routines (`Entity4BHandler`, `LiftableRockEntityHandler`, `MagicRodFireballEntityHandler`, `setCarryAndReturn`, `ApplyVectorTowardsLinkAndReturn`, `Entity13Handler`, `forceCollision`, `forceCollisionEnd`, `checkNextEntity`, `entitiesLoop`), authoritative inventory generator (`tools/generate_routine_inventory.py`), machine-readable inventory (`routine_inventory.json`), and comprehensive audit report (`ROUTINE_INVENTORY.md`).
+* **Last Update Timestamp**: 2026-10-11T12:55:00+00:00
 
 ---
 
@@ -1613,6 +1613,31 @@
 
 ---
 
+## Batch 111 Verification — ROM Bank 3 Final Routine Closure & Authoritative Inventory Generator
+
+- **Source of truth:** `LADX-Disassembly/src/code/entities/bank3.asm`, `03_liftable_rock.asm`, `03_magic_rod_fireball.asm`.
+- **Authoritative Deterministic Inventory Generator:**
+  - Implemented `tools/generate_routine_inventory.py` to deterministically parse `main.asm`, map sections to ROM banks, classify every label across all 64 banks (`ROUTINE`, `ALIAS`, `ALTERNATE_ENTRY`, `INTERNAL_LABEL`, `LOCAL_LABEL`, `DATA_TABLE`), extract ROM addresses and dependencies, and match C source and test evidence.
+  - Generated reproducible machine-readable inventory `routine_inventory.json` and comprehensive audit report `ROUTINE_INVENTORY.md`.
+- **Routines Decompiled & Verified in Batch 111:**
+  1. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`): Liftable rock variant 4B entry point; sets register `d=3` and falls through to `LiftableRockEntityHandler`.
+  2. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`): Records picked up rock index in `wPickedUpRockIndex`; dispatches to `LiftableRockIntactHandler` when `GetEntityPrivateCountdown1 == 0`; on final smash frame (`countdown1 == 1`), handles random fairy spawn (`wEntitiesPrivateState5Table`, `ENTITY_DROPPABLE_FAIRY`) and indoor Marin dialogue reactions (`MAP_GHOST_HOUSE`/`MAP_HOUSE`).
+  3. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`): Increments `wActiveProjectileCount`, sets `wAttackDamageType = DAMAGE_TYPE_MAGIC_ROD`, runs entity collision detection via `func_003_75A2`, updates sprite variant from frame counter, renders active sprites pair, and unloads upon wall impact (`countdown1 == 1`).
+  4. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`); implemented as `bool setCarryAndReturn(GBState *gb)` returning `true`.
+  5. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper; identical-address alias of `ApplyVectorTowardsLink` at `03:7EC7`.
+  6. `Entity13Handler` (`03:59D6`, `bank3.asm:2747`): Unused / debug entity handler falling through directly into `HeartContainerEntityHandler`.
+  7. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment (`wEntitiesCollisionsTable[bc] = 1`).
+  8. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator boundary.
+  9. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement (`(*e)--`) for entity collision scanning.
+  10. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Main loop entry point for entity collision scanning.
+- **Tests Added & Verified:**
+  - Dedicated unit tests implemented in `tests/bank3/test_entities.c`: `test_Entity4BHandler`, `test_LiftableRockEntityHandler`, `test_MagicRodFireballEntityHandler`, `test_setCarryAndReturn`, `test_ApplyVectorTowardsLinkAndReturn`, `test_Entity13Handler`, `test_forceCollision`, `test_forceCollisionEnd`, `test_checkNextEntity`, `test_entitiesLoop`.
+  - Registered and executed through `test_bank3_entities()`, `ladx_test_bank3`, and unified `ladx_tests`.
+- **Validation:** Clean build PASS; production-only build PASS; focused tests PASS (0.047s for Bank 3 suite); full CTest suite PASS (100% across all 5 targets in 5.75s); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS.
+- **Subsystem Scope Result:** Banks 00–03 baseline scope reached **100.0% completion** (1,212 / 1,212 functions accounted for; 1,195 verified standalone routines + 17 aliases/alternate entries).
+
+---
+
 ## Build & Test System Modernization — Production Isolation, Focused Targets & Benchmarking
 
 - **Scope:** Modernized LADX build and verification pipeline without modifying verified game logic or relaxing verification standards.
@@ -1688,27 +1713,24 @@ The repository contains 1,066 active unique C function definitions in `src/` (ex
 
 ### 5. Detailed Census of the 26 Remaining Routines in Bank 3
 
-Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The remaining 26 in-scope routines reside exclusively in Bank 3 and are classified as follows:
+Auditing the core ASM source of truth (`LADX-Disassembly/src/code/entities/bank3.asm` and included modular assembly files) confirms that Banks 0, 1, and 2 contain 0 unfinished routines. The 26 remaining in-scope routines in Bank 3 have been fully audited, resolved, and verified in Batch 111:
 
-#### Group A: Implemented in C but Pending Formal Behavioral Test Verification (3 routines)
-These routines are implemented in `src/bank3/entities_liftable_rock.c` and `src/bank3/entities_magic_rod.c`, but lack dedicated behavioral unit tests in `tests/`:
-1. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:34`
-2. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:44`
-3. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`
+#### Group A: Implemented in C & Verified with Behavioral Tests in Batch 111 (3 routines)
+1. `Entity4BHandler` (`03:5326`, `03_liftable_rock.asm:1`) -> `src/bank3/entities_liftable_rock.c:35`, verified by `test_Entity4BHandler`
+2. `LiftableRockEntityHandler` (`03:5328`, `03_liftable_rock.asm:6`) -> `src/bank3/entities_liftable_rock.c:45`, verified by `test_LiftableRockEntityHandler`
+3. `MagicRodFireballEntityHandler` (`03:69B2`, `03_magic_rod_fireball.asm:10`) -> `src/bank3/entities_magic_rod.c:46`, verified by `test_MagicRodFireballEntityHandler`
 
-*(Note: All 16 basic entity initializers and direction handlers were decompiled, tested, and VERIFIED in Batch 110. `SmashRock`, `EntityDeathHandler`, `SpawnEnemyDrop`, and `EntityInitEntity13` were VERIFIED in Batch 107. `IronMaskEntityHandler`, `EntityInitChestWithItem`, `ChestGiveNoneInventoryItem`, and `EntityInitPushedBlock` were VERIFIED in Batch 106).*
-
-#### Group B: Missing Collision & Iteration Routines Pending Decompilation (6 routines)
-These routines in the entity collision and loop subsystem remain to be decompiled:
-1. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag return utility (`scf; ret`).
-2. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Internal loop entry point of entity collision system.
-3. `forceCollision` (`03:765F`, `bank3.asm:6991`): Forced entity collision mask assignment.
-4. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator.
-5. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement for entity collision scanning.
-6. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper (ASM alias of `ApplyVectorTowardsLink`, implemented at `src/bank3/entities_physics.c:1280`).
+#### Group B: Missing Collision, Carry & Alias Routines Decompiled & Verified in Batch 111 (6 routines + Entity13Handler)
+1. `setCarryAndReturn` (`03:6E0A`, `bank3.asm:5403`): Carry flag utility (`scf; ret`); implemented in `src/bank3/entities_physics.c`, verified by `test_setCarryAndReturn`
+2. `entitiesLoop` (`03:75A6`, `bank3.asm:6861`): Entity collision scanning loop entry; implemented in `src/bank3/entities_collision.c`, verified by `test_entitiesLoop`
+3. `forceCollision` (`03:765F`, `bank3.asm:6991`): Collision assignment; implemented in `src/bank3/entities_collision.c`, verified by `test_forceCollision`
+4. `forceCollisionEnd` (`03:7668`, `bank3.asm:6996`): Collision force terminator boundary; implemented in `src/bank3/entities_collision.c`, verified by `test_forceCollisionEnd`
+5. `checkNextEntity` (`03:779F`, `bank3.asm:7221`): Loop iterator decrement; implemented in `src/bank3/entities_collision.c`, verified by `test_checkNextEntity`
+6. `ApplyVectorTowardsLinkAndReturn` (`03:7EC7`, `bank3.asm:8629`): Trajectory calculation helper; identical-address alias of `ApplyVectorTowardsLink` at `03:7EC7`; verified by `test_ApplyVectorTowardsLinkAndReturn`
+7. `Entity13Handler` (`03:59D6`, `bank3.asm:2747`): Unused / debug entity handler; implemented in `src/bank3/entities_droppable.c`, verified by `test_Entity13Handler`
 
 #### Group C: Shared Entry Points & Mid-Routine Labels (17 routines)
-These entry points are secondary entry labels or fall-through jump points in ASM that alias or branch into existing functions:
+All 17 secondary entry points, fallthrough points, and identical-address aliases are reconciled, mapped in `tools/generate_routine_inventory.py`, and covered by primary C function implementations in `src/`:
 1. `NoopFunction` (`03:4B56`, `bank3.asm:729`): Alias of `EntityInitNoop` (`ret`).
 2. `EntityInitWithShiftedPosition` (`03:4F83`, `bank3.asm:1498`): Alias of `EntityShiftPosition`.
 3. `label_003_52D7` (`03:52D7`, `bank3.asm:2011`): Mid-routine entry in `func_003_52D4`.

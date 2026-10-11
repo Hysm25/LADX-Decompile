@@ -1509,3 +1509,16 @@ bool CheckForEntityFallingDownQuicksandHole(GBState *gb, uint16_t bc) {
     gb_write_hram(gb, hJingle, JINGLE_ITEM_FALLING);
     return true;
 }
+
+/* ===== setCarryAndReturn (03:6E0A) ===== */
+bool setCarryAndReturn(GBState *gb) {
+    (void)gb;
+    /* scf; ret */
+    return true;
+}
+
+/* ===== ApplyVectorTowardsLinkAndReturn (03:7EC7) ===== */
+void ApplyVectorTowardsLinkAndReturn(GBState *gb, uint16_t bc) {
+    /* Identical-address alias of ApplyVectorTowardsLink at 03:7EC7 */
+    ApplyVectorTowardsLink(gb, bc);
+}

@@ -70,4 +70,10 @@ void ResetPegasusBoots(GBState *gb);
 void func_003_7565(GBState *gb);
 void func_003_7565_with_length(GBState *gb, uint8_t length);
 
+/* Collision Iteration & Force Handlers (03:75A6-03:77A6) */
+void entitiesLoop(GBState *gb, uint16_t bc);
+void forceCollision(GBState *gb, uint16_t bc);
+void forceCollisionEnd(GBState *gb);
+void checkNextEntity(int8_t *e);
+
 #endif /* LADX_BANK3_ENTITIES_COLLISION_H */

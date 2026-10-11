@@ -107,4 +107,7 @@ extern const uint8_t ChestRupeeCountLow[5];
 void EntityInitChestWithItem(GBState *gb, uint16_t bc);
 void ChestGiveNoneInventoryItem(GBState *gb, uint8_t variant);
 
+/* Entity13Handler (03:59D6) */
+void Entity13Handler(GBState *gb, uint16_t bc);
+
 #endif /* LADX_BANK3_ENTITIES_DROPPABLE_H */

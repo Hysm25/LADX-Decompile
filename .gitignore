@@ -38,3 +38,8 @@ Thumbs.db
 # Agent and AI scratch directories
 .agents/
 .gemini/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo

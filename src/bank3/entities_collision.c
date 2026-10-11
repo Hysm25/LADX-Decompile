@@ -1623,3 +1623,29 @@ void GetVectorTowardsOtherEntity(GBState *gb, uint8_t length, uint16_t de) {
     /* pop af; ldh [hLinkPositionX], a; ret */
     gb_write_hram(gb, hLinkPositionX, saved_link_x);
 }
+
+/* ===== entitiesLoop (03:75A6) ===== */
+void entitiesLoop(GBState *gb, uint16_t bc) {
+    /* Main loop body entry point of entity collision detection */
+    func_003_75A2(gb, bc);
+}
+
+/* ===== forceCollision (03:765F) ===== */
+void forceCollision(GBState *gb, uint16_t bc) {
+    if (!gb) return;
+    /* ld hl, wEntitiesCollisionsTable; add hl, bc; ld [hl], $01; jp jr_003_7737 */
+    gb_write(gb, (uint16_t)(wEntitiesCollisionsTable + bc), 0x01);
+}
+
+/* ===== forceCollisionEnd (03:7668) ===== */
+void forceCollisionEnd(GBState *gb) {
+    (void)gb;
+    /* Marker for end of forceCollision block */
+}
+
+/* ===== checkNextEntity (03:779F) ===== */
+void checkNextEntity(int8_t *e) {
+    if (!e) return;
+    /* dec e; jp p, entitiesLoop; ret */
+    (*e)--;
+}

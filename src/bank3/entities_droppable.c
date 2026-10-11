@@ -2357,3 +2357,9 @@ void EntityInitChestWithItem(GBState *gb, uint16_t bc) {
     }
     MarkRoomCompleted(gb);
 }
+
+/* ===== Entity13Handler (03:59D6) ===== */
+void Entity13Handler(GBState *gb, uint16_t bc) {
+    /* Touching entity 13 falls through to HeartContainerEntityHandler */
+    HeartContainerEntityHandler(gb, bc);
+}
