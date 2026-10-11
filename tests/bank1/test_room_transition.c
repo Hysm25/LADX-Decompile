@@ -471,6 +471,7 @@ void test_write_dma_code_to_hram(void) {
     static const uint8_t expected[10] = {
         0x3E, 0xC0, 0xE0, 0x46, 0x3E, 0x28, 0x3D, 0x20, 0xFD, 0xC9
     };
+    (void)expected;
     for (int i = 0; i < 10; i++) {
         assert(gb_read(&gb, hDMARoutine + i) == expected[i]);
     }

@@ -103,6 +103,7 @@ void test_spawn_entity_trampolines(void) {
     /* 1. SpawnNewEntity_trampoline */
     spawn_called = 0;
     uint16_t de = SpawnNewEntity_trampoline(&gb, ENTITY_TRADING_ITEM, mock_spawn_entity);
+    (void)de;
     assert(spawn_called == 1);
     assert(de == 0x05);
     assert(gb.rom_bank == 0x02); /* ReloadSavedBank restored wCurrentBank */
@@ -1182,7 +1183,7 @@ static void test_load_entity_from_definition_and_room(void) {
     mock_config_entity_called = false;
     mock_prep_pos_called = false;
     uint8_t slot = LoadEntityFromDefinition(&gb, &def_ptr, mock_configure_new_entity, mock_prepare_entity_pos);
-
+    (void)slot;
     assert(slot == 0);
     assert(def_ptr == 0xD002);
     assert(gb_read(&gb, wEntitiesStatusTable + 0) == ENTITY_STATUS_INIT);

@@ -544,10 +544,10 @@ void RoomTransitionPrepareHandler(GBState *gb,
 
     /* .mysteriousWoodsEnd: a = OverworldRoomIncrement[direction]; hl = hMapRoom */
     uint8_t inc = OverworldRoomIncrement[dir & 3];
-    uint8_t new_room = (uint8_t)(gb_read_hram(gb, hMapRoom) + inc);
-    gb_write_hram(gb, hMapRoom, new_room);
+    gb_write_hram(gb, hMapRoom, (uint8_t)(gb_read_hram(gb, hMapRoom) + inc));
 
-afterRoomSet:
+afterRoomSet:;
+    uint8_t new_room = gb_read_hram(gb, hMapRoom);
     /* If room == $41 (Tail Cave Key on Mysterious Forest)... */
     if (new_room == UNKNOWN_ROOM_41) {
         /* ... and direction == top... */

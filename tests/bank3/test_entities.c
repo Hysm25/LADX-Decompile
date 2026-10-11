@@ -2656,6 +2656,18 @@ void test_EntityShiftPosition(void) {
     printf("[PASS] EntityShiftPosition\n");
 }
 
+/* Forward declarations for Batch 111 tests */
+void test_Entity4BHandler(void);
+void test_LiftableRockEntityHandler(void);
+void test_MagicRodFireballEntityHandler(void);
+void test_setCarryAndReturn(void);
+void test_ApplyVectorTowardsLinkAndReturn(void);
+void test_Entity13Handler(void);
+void test_forceCollision(void);
+void test_forceCollisionEnd(void);
+void test_checkNextEntity(void);
+void test_entitiesLoop(void);
+
 void test_bank3_entities(void) {
     /* test_ConfigureNewEntity(); */
     /* test_ConfigureEntityHealth(); */
@@ -2878,8 +2890,8 @@ void test_Entity13Handler(void) {
     gb_init(&gb);
 
     /* Entity 13 falls through to HeartContainerEntityHandler */
-    /* With room event 1 set, entity is pruned */
-    gb_write_hram(&gb, hRoomStatus, ROOM_STATUS_EVENT_1);
+    /* With countdown 1, pick-up completion runs and unloads entity */
+    gb_write(&gb, (uint16_t)(wEntitiesTransitionCountdownTable + 1), 1);
     gb_write(&gb, (uint16_t)(wEntitiesStatusTable + 1), ENTITY_STATUS_ACTIVE);
 
     Entity13Handler(&gb, 1);

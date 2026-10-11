@@ -609,9 +609,9 @@ void AnimateTiles(GBState *gb,
         return;
     }
 
+replace_tiles_label:;
     uint8_t replace = gb_read(gb, hReplaceTiles);
     if (replace != 0) {
-replace_tiles_label:
         switch (replace) {
             case REPLACE_TILES_BUTTON_PRESSED:
                 ReplaceTilesButtonPressed(gb);

@@ -15,10 +15,13 @@ void test_siren_instruments_subsystem(void) {
     uint16_t base = 0x9D00;
     uint16_t next1 = GetInstrumentNextBGAddress(base, 0);
     assert(next1 == 0x9D01);
+    (void)next1;
     uint16_t next2 = GetInstrumentNextBGAddress(next1, 1);
     assert(next2 == 0x9D20);
+    (void)next2;
     uint16_t next3 = GetInstrumentNextBGAddress(next2, 2);
     assert(next3 == 0x9D21);
+    (void)next3;
 
     /* Test 2: LoadInstrumentsBG right side (instruments 0..3) */
     gb_init(&gb);

@@ -6,7 +6,13 @@ project(ladxdc C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -pedantic -Wno-unused-parameter")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -pedantic -Wno-unused-parameter -UNDEBUG")
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+string(REPLACE "-DNDEBUG" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+string(REPLACE "-DNDEBUG" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
 
 # Options
 option(BUILD_TESTING "Build the test suite and verification runners" ON)
@@ -218,4 +224,10 @@ if(BUILD_TESTING)
     add_test(NAME test_bank1 COMMAND ladx_test_bank1)
     add_test(NAME test_bank2 COMMAND ladx_test_bank2)
     add_test(NAME test_bank3 COMMAND ladx_test_bank3)
+
+    find_program(PYTHON_BIN NAMES python3 python PATHS /usr/sbin /usr/bin /usr/local/bin)
+    if(PYTHON_BIN)
+        add_test(NAME test_routine_inventory COMMAND ${PYTHON_BIN} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_routine_inventory.py)
+        set_tests_properties(test_routine_inventory PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+    endif()
 endif()
