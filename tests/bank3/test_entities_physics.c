@@ -923,7 +923,9 @@ static void test_EntityInitPushedBlock(void) {
     gb_write_hram(&gb, hActiveEntityVisualPosY, 0x3F);
 
     /* 2. Collision branch: if collisions != 0, unloads entity */
-    gb_write(&gb, wEntitiesCollisionsTable + bc, 0x01);
+    for (int i = 0; i < 256; i++) {
+        gb_write(&gb, wRoomObjects + i, 0x21);
+    }
     EntityInitPushedBlock(&gb, bc);
     assert(gb_read(&gb, wEntitiesStatusTable + bc) == ENTITY_STATUS_DISABLED);
 

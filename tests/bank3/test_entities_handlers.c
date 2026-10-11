@@ -761,8 +761,9 @@ static void test_SmashRock(void) {
     uint16_t bc = 0x01;
     gb_write(&gb, wActiveEntityIndex, bc);
     gb_write(&gb, wEntitiesStatusTable + bc, ENTITY_STATUS_ACTIVE);
-    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
-    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x44);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x55);
+    gb_write(&gb, wEntitiesPosZTable + bc, 0x05);
 
     /* Multipurpose registers used by SmashRock */
     gb_write_hram(&gb, hMultiPurpose0, 0x44);
@@ -905,6 +906,8 @@ static void test_SpawnEnemyDrop(void) {
     gb_write(&gb, wActiveEntityIndex, bc);
     gb_write(&gb, wEntitiesPrivateState1Table + bc, 0x07);
     gb_write(&gb, wEntitiesPosZTable + bc, 0x08);
+    gb_write(&gb, wEntitiesPosXTable + bc, 0x30);
+    gb_write(&gb, wEntitiesPosYTable + bc, 0x40);
     gb_write_hram(&gb, hMultiPurpose0, 0x30);
     gb_write_hram(&gb, hMultiPurpose1, 0x40);
 

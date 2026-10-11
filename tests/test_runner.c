@@ -1,52 +1,57 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include "test_home.h"
 #include "bank1/test_bank1.h"
 #include "bank2/test_bank2.h"
 #include "bank3/test_bank3.h"
 
-extern int run_clear_memory_tests(void);
-extern int run_copy_data_tests(void);
-extern int run_bank_tests(void);
-extern void run_lcd_tests(void);
-extern void run_entities_tests(void);
-extern void run_audio_tests(void);
-extern void run_dialog_tests(void);
-extern void run_room_tests(void);
-extern void run_gameplay_tests(void);
-extern void run_link_tests(void);
-extern void run_vfx_tests(void);
-extern void run_ui_tests(void);
-extern int run_gfx_tests(void);
-extern void run_check_items_to_use_tests(void);
-extern void run_animated_tiles_tests(void);
+static void print_usage(const char *prog_name) {
+    printf("Usage: %s [target]\n", prog_name);
+    printf("Available targets:\n");
+    printf("  all    (default) Run full test suite (Home, Bank 1, Bank 2, Bank 3)\n");
+    printf("  home   Run Bank 0 / Home tests only\n");
+    printf("  bank1  Run Bank 1 tests only\n");
+    printf("  bank2  Run Bank 2 tests only\n");
+    printf("  bank3  Run Bank 3 tests only\n");
+    printf("  -h, --help  Show this help message\n");
+}
 
-
-int main(void) {
-    int total_failures = 0;
+int main(int argc, char **argv) {
+    const char *target = "all";
+    if (argc > 1) {
+        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+            print_usage(argv[0]);
+            return 0;
+        }
+        target = argv[1];
+    }
 
     printf("========================================\n");
     printf("   LADX Decompilation Verification Tests\n");
     printf("========================================\n\n");
 
-    total_failures += run_clear_memory_tests();
-    total_failures += run_copy_data_tests();
-    total_failures += run_bank_tests();
-    run_lcd_tests();
-    run_entities_tests();
-    run_audio_tests();
-    run_dialog_tests();
-    run_room_tests();
-    run_gameplay_tests();
-    run_link_tests();
-    run_vfx_tests();
-    run_ui_tests();
-    total_failures += run_gfx_tests();
-    run_check_items_to_use_tests();
-    run_animated_tiles_tests();
-    run_bank1_tests();
-    run_bank2_tests();
-    run_bank3_tests();
+    int total_failures = 0;
+
+    if (strcmp(target, "all") == 0) {
+        total_failures += run_home_tests();
+        run_bank1_tests();
+        run_bank2_tests();
+        run_bank3_tests();
+    } else if (strcmp(target, "home") == 0 || strcmp(target, "bank0") == 0) {
+        total_failures += run_home_tests();
+    } else if (strcmp(target, "bank1") == 0) {
+        run_bank1_tests();
+    } else if (strcmp(target, "bank2") == 0) {
+        run_bank2_tests();
+    } else if (strcmp(target, "bank3") == 0) {
+        run_bank3_tests();
+    } else {
+        fprintf(stderr, "Unknown test target: '%s'\n\n", target);
+        print_usage(argv[0]);
+        return 1;
+    }
 
     printf("========================================\n");
     if (total_failures == 0) {

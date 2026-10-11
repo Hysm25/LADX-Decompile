@@ -33,15 +33,33 @@ C/C++ decompilation of **The Legend of Zelda: Link's Awakening DX** (Game Boy Co
 git clone --recursive git@github.com:Hysm111/LADX-Decompile.git
 cd LADX-Decompile
 
-# Configure and build with assertions enabled
+# Configure and build with assertions enabled (Debug)
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 
 # Run the full unit verification suite
 ctest --test-dir build --output-on-failure
+# Or run all test suites in parallel
+ctest --test-dir build -j4 --output-on-failure
 
-# Show individual verification results
+# Run the unified test runner directly
 ./build/ladx_tests
+
+# Run focused tests via unified runner CLI filtering
+./build/ladx_tests home    # Bank 0 / Core Engine tests
+./build/ladx_tests bank1   # Bank 1 tests
+./build/ladx_tests bank2   # Bank 2 tests
+./build/ladx_tests bank3   # Bank 3 tests
+
+# Build and run standalone focused test targets directly
+cmake --build build --target ladx_test_home  && ./build/ladx_test_home
+cmake --build build --target ladx_test_bank1 && ./build/ladx_test_bank1
+cmake --build build --target ladx_test_bank2 && ./build/ladx_test_bank2
+cmake --build build --target ladx_test_bank3 && ./build/ladx_test_bank3
+
+# Production-only build (excludes all test compilation and test dependencies)
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=OFF
+cmake --build build --target ladx_core
 ```
 
 Use Debug builds for verification: many tests use standard C `assert()`, which is disabled by `NDEBUG` in normal Release builds. Some legacy suites report failures only in their output, so inspect the individual results as well as the process exit status.

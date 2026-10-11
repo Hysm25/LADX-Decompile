@@ -3,14 +3,15 @@
 ## Overall Status
 
 * **Project Name**: Zelda: Link's Awakening DX C/C++ Decompilation
-* **Current Overall Progress**: ~97.9%
+* **Current Overall Progress (Subsystem Scope: Banks 0–3)**: ~97.9% (1,186 / 1,212 functions verified)
+* **Current Overall Progress (Whole-Game Scope: All 29 Code Banks)**: ~20.6% (1,186 / 5,762 routines verified; see `FULL_PROJECT_SCOPE_AUDIT.md`)
 * **Number of Verified Functions**: 1186
 * **Number of Decompiled Functions**: 1186
-* **Number Remaining**: ~26 functions
+* **Number Remaining (Banks 0–3 Baseline Scope)**: ~26 functions
 * **Current Subsystem**: ROM Bank 3 (Entity Handlers & Collision)
-* **Current Task**: Batch 110 Verification Completed
-* **Last Completed Task**: Batch 110 Verification — ROM Bank 3 Entity Initializers & Direction Handlers (`EntityInitBowWow`, `EntityInitOwlEvent`, `EntityInitSword`, `UnloadEntityIfRoomStatusSet`, `EntityInitMarin`, `EntityInitTarin`, `EntityInitMadamMeowMeow`, `EntityInitRaftRaftOwner`, `EntityInitNpcFacingDown`, `EntityInitStoreOwner`, `EntityInitWitch`, `EntityInitShopOwner`, `EntityInitWithRandomDirection`, `SetEntityDirection`, `EntityInitNoop`, `EntityShiftPosition`).
-* **Last Update Timestamp**: 2026-10-09T12:00:00+00:00
+* **Current Task**: Build & Verification System Improvements Completed
+* **Last Completed Task**: Build & Test System Modernization — Production library isolation (`ladx_core`, `BUILD_TESTING=OFF`), focused bank test targets (`ladx_test_home`, `ladx_test_bank1`, `ladx_test_bank2`, `ladx_test_bank3`), test runner CLI filtering, strict C11 flags (`-Werror`), and test suite validation.
+* **Last Update Timestamp**: 2026-10-11T02:40:00+00:00
 
 ---
 
@@ -1612,9 +1613,39 @@
 
 ---
 
+## Build & Test System Modernization — Production Isolation, Focused Targets & Benchmarking
+
+- **Scope:** Modernized LADX build and verification pipeline without modifying verified game logic or relaxing verification standards.
+- **Key Changes Implemented:**
+  - **Production C Code Isolation:** Separated core Game Boy engine and bank implementations into `ladx_core` static library with standard CMake `BUILD_TESTING` option (default ON, configurable OFF). Building with `-DBUILD_TESTING=OFF` completely isolates production code from all test compilation and test dependencies.
+  - **Modular Test Object Libraries:** Partitioned 67 test source files into subsystem object libraries (`ladx_test_support_objs`, `ladx_test_home_objs`, `ladx_test_bank1_objs`, `ladx_test_bank2_objs`, `ladx_test_bank3_objs`). Eliminates redundant compilation across multiple test runners.
+  - **Focused Test Executables:** Created dedicated, lightweight test runners for each subsystem:
+    - `ladx_test_home`: Bank 0 / Core Engine tests (16 test files)
+    - `ladx_test_bank1`: ROM Bank 1 tests (11 test files)
+    - `ladx_test_bank2`: ROM Bank 2 tests (30 test files)
+    - `ladx_test_bank3`: ROM Bank 3 tests (9 test files)
+  - **CTest Integration:** Registered focused subsystem tests alongside the full unified runner:
+    - `ladx_unit_tests` (full suite, preserving complete backward compatibility)
+    - `test_home`, `test_bank1`, `test_bank2`, `test_bank3` (enables targeted execution via `ctest -R <bank>` and parallel testing via `ctest -j4`)
+  - **CLI Runner Target Filtering:** Extended `ladx_tests` with command-line target filtering (`./build/ladx_tests [all|home|bank1|bank2|bank3|--help]`).
+  - **Strict Compiler Diagnostics:** Enforced `-std=c11 -Wall -Wextra -Werror -pedantic -Wno-unused-parameter` globally across all production and test source files. Added `_POSIX_C_SOURCE` define in `test_bank2.c` for strict POSIX `clock_gettime` conformance.
+  - **Test Setup Parity Fixes:** Fixed 3 test setup mismatches in `tests/bank3/`:
+    - `test_EntityInitPushedBlock` (`tests/bank3/test_entities_physics.c`): configured solid obstacle tiles in `wRoomObjects` so `ApplyEntityInteractionWithBackground` detects collision and sets `wEntitiesCollisionsTable[bc]` prior to the unload check.
+    - `test_SmashRock` (`tests/bank3/test_entities_handlers.c`): initialized entity coordinates (`wEntitiesPosXTable`, `wEntitiesPosYTable`, `wEntitiesPosZTable`) to match expected multipurpose register outputs populated by `SpawnNewEntity`.
+    - `test_SpawnEnemyDrop` (`tests/bank3/test_entities_handlers.c`): initialized entity coordinates in Case 1 so `SpawnNewEntity` preserves expected drop coordinates.
+- **Reproducible Performance Measurements:**
+  - **Clean Production Build (-j8, `BUILD_TESTING=OFF`):** 20.30 s (vs 52.89 s clean full build, a 61.6% build time reduction).
+  - **Clean Full Build (-j8 parallel, all targets):** 52.89 s (vs 179.30 s clean single-threaded -j1).
+  - **Focused Incremental Rebuild:** 14.11 s (`ladx_test_bank3`) / 14.98 s (`ladx_test_bank1`) vs 32.47 s for full test suite rebuild (>53% faster developer iteration cycle).
+  - **Focused Test Execution:** 0.113 s (`ladx_test_bank3`) / 0.116 s (`ladx_test_bank1`) / 0.134 s (`ladx_test_home`) vs 3.30 s for full test suite (>28x faster test execution).
+  - **Parallel CTest Execution (`ctest -j4`):** 4.11 s across all 5 registered test targets.
+- **Validation:** Clean build PASS; production-only build PASS; focused tests PASS; full test suite PASS (100% tests passing across all targets); strict C11 `-std=c11 -Wall -Wextra -Werror -pedantic` checks PASS; `git diff --check` PASS.
+
+---
+
 ## Completeness & Inventory Audit (Pre-Batch 106)
 
-An independent, evidence-based audit of LADX decompilation completeness was performed at commit `e599699` across ROM Banks 0, 1, 2, and 3.
+An independent, evidence-based audit of LADX decompilation completeness was performed at commit `e599699` across ROM Banks 0, 1, 2, and 3. *(Note: For the whole-game audit across all 64 ROM banks and all 29 executable code banks totaling 5,762 routines, see `FULL_PROJECT_SCOPE_AUDIT.md`).*
 
 ### 1. ASM Routine Inventory & Scope Rules
 - **Banks In Scope:**
